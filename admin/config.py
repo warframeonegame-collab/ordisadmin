@@ -11,13 +11,9 @@ DISCORD_CLIENT_SECRET = os.getenv('DISCORD_CLIENT_SECRET', '')
 DISCORD_REDIRECT_URI = os.getenv('DISCORD_REDIRECT_URI', 'https://ordis.bothost.tech/callback')
 DISCORD_BOT_TOKEN = os.getenv('DISCORD_TOKEN', '')
 
-import sys
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-import config as bot_config
-
 # ==================== FLASK ====================
 SECRET_KEY = os.getenv('FLASK_SECRET_KEY', 'arasaka-plaza-admin-secret-key-change-me')
-DATABASE_PATH = bot_config.DB_FILE
+DATABASE_PATH = os.getenv('DB_FILE', '/app/data/database.json')
 
 # ==================== DISCORD SERVER ====================
 GUILD_ID = os.getenv('GUILD_ID', '1255216389296492564')  # ID сервера Arasaka Plaza
