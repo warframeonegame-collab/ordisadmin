@@ -13,7 +13,9 @@ DISCORD_BOT_TOKEN = os.getenv('DISCORD_TOKEN', '')
 
 # ==================== FLASK ====================
 SECRET_KEY = os.getenv('FLASK_SECRET_KEY', 'arasaka-plaza-admin-secret-key-change-me')
-DATABASE_PATH = os.getenv('DB_FILE', '/app/data/database.json')
+# Путь к БД: DATA_DIR (или /app/data) + database.json
+DATA_DIR = os.getenv('DATA_DIR', '/app/data')
+DATABASE_PATH = os.path.join(DATA_DIR, 'database.json')
 
 # ==================== DISCORD SERVER ====================
 GUILD_ID = os.getenv('GUILD_ID', '1255216389296492564')  # ID сервера Arasaka Plaza

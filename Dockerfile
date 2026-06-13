@@ -22,9 +22,6 @@ RUN chmod +x /app/start.sh
 # Создаём папку для данных и пустой database.json
 RUN mkdir -p /app/data && echo '{}' > /app/data/database.json
 
-# Volume для сохранения данных между перезапусками
-VOLUME ["/app/data"]
-
 # Открываем порт для админ-панели
 EXPOSE 3000
 
