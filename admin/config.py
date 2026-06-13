@@ -1,7 +1,9 @@
 import os
 from dotenv import load_dotenv
 
-load_dotenv()
+# .env лежит в корне проекта (/app/.env), а не в admin/
+dotenv_path = os.path.join(os.path.dirname(__file__), '..', '.env')
+load_dotenv(dotenv_path)
 
 # ==================== DISCORD OAUTH2 ====================
 DISCORD_CLIENT_ID = os.getenv('DISCORD_CLIENT_ID', '')
