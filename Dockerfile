@@ -23,7 +23,7 @@ RUN chmod +x /app/start.sh
 RUN echo '{}' > /app/database.json
 
 # Открываем порт для админ-панели
-EXPOSE 5000
+EXPOSE 3000
 
 # Запускаем и бота, и админ-панель
 CMD ["/bin/bash", "/app/start.sh"]

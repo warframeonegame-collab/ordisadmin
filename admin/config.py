@@ -6,7 +6,7 @@ load_dotenv()
 # ==================== DISCORD OAUTH2 ====================
 DISCORD_CLIENT_ID = os.getenv('DISCORD_CLIENT_ID', '')
 DISCORD_CLIENT_SECRET = os.getenv('DISCORD_CLIENT_SECRET', '')
-DISCORD_REDIRECT_URI = os.getenv('DISCORD_REDIRECT_URI', 'http://localhost:5000/callback')
+DISCORD_REDIRECT_URI = os.getenv('DISCORD_REDIRECT_URI', 'http://localhost:3000/callback')
 DISCORD_BOT_TOKEN = os.getenv('DISCORD_TOKEN', '')
 
 # ==================== FLASK ====================

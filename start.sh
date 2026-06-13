@@ -18,7 +18,7 @@ sleep 2
 echo "[2/2] Запуск админ-панели..."
 cd /app/admin
 exec gunicorn app:app \
-    --bind 0.0.0.0:5000 \
+    --bind 0.0.0.0:3000 \
     --workers 2 \
     --timeout 120 \
     --access-logfile - \
