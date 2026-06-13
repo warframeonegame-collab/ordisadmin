@@ -1,0 +1,250 @@
+{% extends 'base.html' %}
+
+{% block title %}Логи{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1><i class="fas fa-list-alt"></i> Логи</h1>
+    <p class="text-muted">Просмотр логов действий из Discord</p>
+</div>
+
+<!-- Фильтры -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="GET" class="row g-3" id="filter-form">
+            <div class="col-md-3">
+                <label class="form-label">Тип события</label>
+                <select class="form-select" name="type" id="log-type">
+                    <option value="all">Все</option>
+                    <option value="command">Команды</option>
+                    <option value="delete">Удаление сообщений</option>
+                    <option value="edit">Редактирование</option>
+                    <option value="join">Вход</option>
+                    <option value="leave">Выход</option>
+                    <option value="ban">Баны</option>
+                    <option value="role">Изменение ролей</option>
+                    <option value="voice">Голосовые каналы</option>
+                    <option value="recruitment">Рекрутинг</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Пользователь</label>
+                <select class="form-select" id="log-user">
+                    <option value="">Все пользователи</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Дата от</label>
+                <input type="date" class="form-control" id="log-date-from">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Дата до</label>
+                <input type="date" class="form-control" id="log-date-to">
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+                <button type="button" class="btn btn-primary me-2" onclick="loadLogs()">
+                    <i class="fas fa-filter"></i>
+                </button>
+                <button type="button" class="btn btn-outline-secondary" onclick="loadLogs()">
+                    <i class="fas fa-sync"></i>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Логи -->
+<div class="card">
+    <div class="card-body">
+        <div id="logs-container">
+            <div class="text-center py-4">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Загрузка...</span>
+                </div>
+                <p class="mt-2">Загрузка логов из Discord...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<style>
+.log-entry { border-left: 4px solid #9b59b6; background: #1a1a1a; border-radius: 8px; padding: 12px 16px; margin-bottom: 12px; transition: transform 0.2s; }
+.log-entry:hover { transform: translateX(3px); }
+</style>
+<script>
+// Загрузка списка пользователей для фильтра
+async function loadUsers() {
+    try {
+        const resp = await fetch('/api/leaderboard');
+        const users = await resp.json();
+        const select = document.getElementById('log-user');
+        if (users && users.length > 0) {
+            for (const user of users) {
+                const opt = document.createElement('option');
+                opt.value = user.id;
+                opt.textContent = `${user.nickname} (${user.id})`;
+                select.appendChild(opt);
+            }
+        }
+    } catch (e) {
+        console.error('Failed to load users:', e);
+    }
+}
+
+async function loadLogs() {
+    const container = document.getElementById('logs-container');
+    const logType = document.getElementById('log-type').value;
+    const userSelect = document.getElementById('log-user');
+    const userFilter = userSelect.value;
+    
+    container.innerHTML = `
+        <div class="text-center py-4">
+            <div class="spinner-border text-primary" role="status"></div>
+            <p class="mt-2">Загрузка...</p>
+        </div>
+    `;
+    
+    try {
+        const dateFrom = document.getElementById('log-date-from').value;
+        const dateTo = document.getElementById('log-date-to').value;
+        let url = `/api/logs?type=${logType}&per_page=50`;
+        if (userFilter) url += `&user_id=${encodeURIComponent(userFilter)}`;
+        if (dateFrom) url += `&date_from=${dateFrom}`;
+        if (dateTo) url += `&date_to=${dateTo}`;
+        
+        const resp = await fetch(url);
+        const data = await resp.json();
+        
+        if (data.error) {
+            container.innerHTML = `
+                <div class="text-center text-muted py-4">
+                    <i class="fas fa-exclamation-circle fa-3x mb-3"></i>
+                    <h5>Ошибка загрузки логов</h5>
+                    <p>${data.error}</p>
+                </div>
+            `;
+            return;
+        }
+        
+        const logs = data.logs || [];
+        const channelName = data.channel_name || 'логи';
+        
+        if (logs.length === 0) {
+            container.innerHTML = `
+                <div class="text-center text-muted py-4">
+                    <i class="fas fa-inbox fa-3x mb-3"></i>
+                    <h5>Логи не найдены</h5>
+                    <p>В канале <strong>#${channelName}</strong> пока нет сообщений</p>
+                </div>
+            `;
+            return;
+        }
+        
+        let html = `
+            <div class="mb-3 text-muted small">
+                <i class="fas fa-hashtag"></i> Канал: <strong>#${channelName}</strong> &middot; 
+                <span id="log-count">${logs.length}</span> записей
+            </div>
+        `;
+        
+        for (const log of logs) {
+            const date = new Date(log.timestamp);
+            const dateStr = date.toLocaleString('ru-RU');
+            
+            // Фильтр по дате на клиенте (для точности)
+            if (dateFrom) {
+                const from = new Date(dateFrom + 'T00:00:00');
+                if (date < from) continue;
+            }
+            if (dateTo) {
+                const to = new Date(dateTo + 'T23:59:59');
+                if (date > to) continue;
+            }
+            
+            let borderColor = '#9b59b6';
+            let typeLabel = '📝 Действие';
+            
+            if (log.embeds && log.embeds.length > 0) {
+                const title = (log.embeds[0].title || '').toLowerCase();
+                if (title.includes('ошибка') || title.includes('бан') || title.includes('удалён') || title.includes('удалено')) {
+                    borderColor = '#dc3545'; typeLabel = '❌ Удаление';
+                } else if (title.includes('выполнена') || title.includes('новый') || title.includes('создан') || title.includes('подключение')) {
+                    borderColor = '#28a745'; typeLabel = '✅ Выполнение';
+                } else if (title.includes('изменение') || title.includes('отредактировано')) {
+                    borderColor = '#f1c40f'; typeLabel = '✏️ Изменение';
+                } else if (title.includes('покинул') || title.includes('отключение') || title.includes('удален')) {
+                    borderColor = '#e67e22'; typeLabel = '🚪 Выход';
+                } else if (title.includes('разбан')) {
+                    borderColor = '#28a745'; typeLabel = '🔓 Разбан';
+                } else if (title.includes('рол')) {
+                    borderColor = '#1abc9c'; typeLabel = '🛡️ Роли';
+                } else if (title.includes('голосов')) {
+                    borderColor = '#3498db'; typeLabel = '🎤 Голос';
+                } else if (title.includes('анкет') || title.includes('рекрут')) {
+                    borderColor = '#9b59b6'; typeLabel = '📋 Рекрутинг';
+                } else if (title.includes('канал') || title.includes('категори')) {
+                    borderColor = '#2ecc71'; typeLabel = '📁 Каналы';
+                }
+            }
+            
+            // Показываем никнейм на сервере, если есть, иначе username
+            const displayName = log.author_nickname || log.author || 'Система';
+            
+            html += `
+                <div class="log-entry" style="border-left-color: ${borderColor};">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div>
+                            <span class="badge bg-secondary me-2" style="font-size: 0.75rem;">${typeLabel}</span>
+                            <strong style="color: #e91e63; font-size: 1.05rem;">${displayName}</strong>
+                            <span class="text-muted ms-2" style="font-size: 0.8rem;">
+                                <code>${log.author_id || ''}</code>
+                            </span>
+                        </div>
+                        <small class="text-muted"><i class="far fa-clock"></i> ${dateStr}</small>
+                    </div>
+            `;
+            
+            if (log.embeds && log.embeds.length > 0) {
+                for (const embed of log.embeds) {
+                    if (embed.title) {
+                        html += `<div class="fw-bold mb-1" style="color: #fff; font-size: 1rem;">${embed.title}</div>`;
+                    }
+                    if (embed.description) {
+                        html += `<div class="mb-1" style="color: #b0b0b0; white-space: pre-wrap; font-size: 0.9rem; line-height: 1.5;">${embed.description}</div>`;
+                    }
+                    if (embed.fields && embed.fields.length > 0) {
+                        for (const field of embed.fields) {
+                            html += `<div class="mb-1" style="font-size: 0.85rem;"><span style="color: #888;">${field.name}:</span> <span style="color: #ccc;">${field.value}</span></div>`;
+                        }
+                    }
+                }
+            }
+            
+            if (log.content) {
+                html += `<div class="small mt-1" style="color: #666; font-style: italic;">${log.content}</div>`;
+            }
+            
+            html += `</div>`;
+        }
+        
+        container.innerHTML = html;
+        
+    } catch (e) {
+        console.error('Failed to load logs:', e);
+        container.innerHTML = `
+            <div class="text-center text-muted py-4">
+                <i class="fas fa-exclamation-circle fa-3x mb-3"></i>
+                <h5>Ошибка загрузки</h5>
+                <p>${e.message}</p>
+            </div>
+        `;
+    }
+}
+
+loadUsers();
+loadLogs();
+</script>
+{% endblock %}

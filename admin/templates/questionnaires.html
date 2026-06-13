@@ -1,0 +1,143 @@
+{% extends 'base.html' %}
+
+{% block title %}Анкеты{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1><i class="fas fa-clipboard-list"></i> Анкеты рекрутинга</h1>
+    <p class="text-muted">Заполненные анкеты новичков клана</p>
+</div>
+
+<!-- Фильтр по дате -->
+<div class="card mb-4">
+    <div class="card-body">
+        <div class="row g-3 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label">Поиск по имени</label>
+                <input type="text" class="form-control" id="q-search" placeholder="Имя...">
+            </div>
+            <div class="col-md-3 d-flex gap-2">
+                <button class="btn btn-primary" onclick="loadQuestionnaires()">
+                    <i class="fas fa-filter"></i> Загрузить
+                </button>
+                <button class="btn btn-outline-secondary" onclick="loadQuestionnaires()">
+                    <i class="fas fa-sync"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Список анкет -->
+<div class="card">
+    <div class="card-body">
+        <div id="q-container">
+            <div class="text-center py-4">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Загрузка...</span>
+                </div>
+                <p class="mt-2">Загрузка анкет...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<style>
+.q-card { background: #1a1a1a; border: 1px solid #3a3a3a; border-radius: 12px; padding: 20px; margin-bottom: 16px; transition: transform 0.2s; }
+.q-card:hover { transform: translateY(-2px); box-shadow: 0 5px 20px rgba(233, 30, 99, 0.15); }
+.q-field { margin-bottom: 12px; }
+.q-field-label { color: #888; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px; }
+.q-field-value { color: #e0e0e0; font-size: 0.95rem; margin-top: 2px; }
+.q-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #3a3a3a; }
+.q-name { color: #e91e63; font-weight: 700; font-size: 1.1rem; }
+.q-date { color: #888; font-size: 0.8rem; }
+</style>
+<script>
+async function loadQuestionnaires() {
+    const container = document.getElementById('q-container');
+    const search = document.getElementById('q-search').value.toLowerCase();
+    
+    container.innerHTML = `
+        <div class="text-center py-4">
+            <div class="spinner-border text-primary" role="status"></div>
+            <p class="mt-2">Загрузка...</p>
+        </div>
+    `;
+    
+    try {
+        const resp = await fetch('/api/questionnaires');
+        const data = await resp.json();
+        
+        let qList = Array.isArray(data) ? data : [];
+        
+        // Фильтр по имени
+        if (search) {
+            qList = qList.filter(q => 
+                (q.name || '').toLowerCase().includes(search) ||
+                (q.nickname || '').toLowerCase().includes(search)
+            );
+        }
+        
+        if (qList.length === 0) {
+            container.innerHTML = `
+                <div class="text-center text-muted py-4">
+                    <i class="fas fa-clipboard fa-3x mb-3"></i>
+                    <h5>Анкет пока нет</h5>
+                    <p>Анкеты появятся здесь после заполнения новичками</p>
+                </div>
+            `;
+            return;
+        }
+        
+        let html = `<div class="mb-3 text-muted small">Всего анкет: <strong>${qList.length}</strong></div>`;
+        
+        for (const q of qList) {
+            html += `
+                <div class="q-card">
+                    <div class="q-header">
+                        <div>
+                            <span class="q-name">${q.name || 'Не указано'}</span>
+                            <span class="text-muted ms-2" style="font-size: 0.85rem;">(${q.nickname || q.username || ''})</span>
+                        </div>
+                        <span class="q-date"><i class="far fa-clock"></i> ${q.filled_at || 'N/A'}</span>
+                    </div>
+                    <div class="q-field">
+                        <div class="q-field-label">🎂 Возраст</div>
+                        <div class="q-field-value">${q.age || 'Не указано'}</div>
+                    </div>
+                    <div class="q-field">
+                        <div class="q-field-label">🏗️ Интерес к подразделениям</div>
+                        <div class="q-field-value">${q.subdivision_interest || 'Не указано'}</div>
+                    </div>
+                    <div class="q-field">
+                        <div class="q-field-label">🤔 Ожидания от клана</div>
+                        <div class="q-field-value">${q.expectations || 'Не указано'}</div>
+                    </div>
+                    <div class="q-field">
+                        <div class="q-field-label">💪 Что может дать клану</div>
+                        <div class="q-field-value">${q.contribution || 'Не указано'}</div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        container.innerHTML = html;
+        
+    } catch (e) {
+        console.error('Failed to load questionnaires:', e);
+        container.innerHTML = `
+            <div class="text-center text-muted py-4">
+                <i class="fas fa-exclamation-circle fa-3x mb-3"></i>
+                <h5>Ошибка загрузки</h5>
+                <p>${e.message}</p>
+            </div>
+        `;
+    }
+}
+
+loadQuestionnaires();
+</script>
+{% endblock %}

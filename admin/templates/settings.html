@@ -1,0 +1,136 @@
+{% extends 'base.html' %}
+
+{% block title %}Настройки{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1><i class="fas fa-cog"></i> Настройки</h1>
+    <p class="text-muted">Управление настройками сайта и бота</p>
+</div>
+
+<div class="row">
+    <!-- Discord настройки -->
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5><i class="fab fa-discord"></i> Discord</h5>
+            </div>
+            <div class="card-body">
+                <form id="discordSettingsForm">
+                    <div class="mb-3">
+                        <label class="form-label">Client ID</label>
+                        <input type="text" class="form-control" id="clientId" placeholder="Discord Client ID">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Client Secret</label>
+                        <input type="password" class="form-control" id="clientSecret" placeholder="Discord Client Secret">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Redirect URI</label>
+                        <input type="text" class="form-control" id="redirectUri" placeholder="http://localhost:5000/callback">
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Сохранить
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Бот настройки -->
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5><i class="fas fa-robot"></i> Бот</h5>
+            </div>
+            <div class="card-body">
+                <form id="botSettingsForm">
+                    <div class="mb-3">
+                        <label class="form-label">Bot Token</label>
+                        <input type="password" class="form-control" id="botToken" placeholder="Discord Bot Token">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Guild ID</label>
+                        <input type="text" class="form-control" id="guildId" placeholder="ID сервера Discord">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Канал логов</label>
+                        <input type="text" class="form-control" id="logChannel" placeholder="ID канала логов">
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Сохранить
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Уведомления -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5><i class="fas fa-bell"></i> Уведомления</h5>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-4">
+                <div class="form-check form-switch mb-3">
+                    <input class="form-check-input" type="checkbox" id="baroNotify" checked>
+                    <label class="form-check-label" for="baroNotify">Уведомления о Баро</label>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="mb-3">
+                    <label class="form-label">За сколько минут</label>
+                    <input type="number" class="form-control" id="baroMinutes" value="30" min="5" max="1440">
+                </div>
+            </div>
+            <div class="col-md-4">
+                <button class="btn btn-primary" onclick="saveNotifSettings()">
+                    <i class="fas fa-save"></i> Сохранить
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Системная информация -->
+<div class="card">
+    <div class="card-header">
+        <h5><i class="fas fa-info-circle"></i> Системная информация</h5>
+    </div>
+    <div class="card-body">
+        <table class="table table-dark">
+            <tr>
+                <th>Версия</th>
+                <td>1.0.0</td>
+            </tr>
+            <tr>
+                <th>PYTHON</th>
+                <td>3.11+</td>
+            </tr>
+            <tr>
+                <th>Flask</th>
+                <td>3.0+</td>
+            </tr>
+        </table>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function saveNotifSettings() {
+    const enabled = document.getElementById('baroNotify').checked;
+    const minutes = document.getElementById('baroMinutes').value;
+    localStorage.setItem('baroNotifyEnabled', enabled);
+    localStorage.setItem('baroNotifyMinutes', minutes);
+    alert('Настройки сохранены!');
+}
+
+// Загрузка сохранённых настроек
+document.getElementById('baroNotify').checked = localStorage.getItem('baroNotifyEnabled') !== 'false';
+document.getElementById('baroMinutes').value = localStorage.getItem('baroNotifyMinutes') || 30;
+</script>
+{% endblock %}

@@ -1,0 +1,372 @@
+{% extends 'base.html' %}
+
+{% block title %}Таймеры Warframe{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1><i class="fas fa-clock"></i> Таймеры Warframe</h1>
+    <p class="text-muted">Отслеживание циклов, событий и Баро Ки'Тиер</p>
+</div>
+
+<!-- Баро Ки'Тиер -->
+<div class="row mb-4">
+    <div class="col-md-8">
+        <div class="card baro-card">
+            <div class="card-header">
+                <h5><i class="fas fa-store"></i> Баро Ки'Тиер</h5>
+            </div>
+            <div class="card-body" id="baro-info">
+                <div class="text-center">
+                    <div class="spinner-border text-warning" role="status"></div>
+                    <p class="mt-2">Загрузка данных...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-bell"></i> Уведомления</h5>
+            </div>
+            <div class="card-body">
+                <div class="form-check form-switch mb-3">
+                    <input class="form-check-input" type="checkbox" id="notifyBaro" checked>
+                    <label class="form-check-label" for="notifyBaro">Уведомление о прибытии Баро</label>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">За сколько минут до события</label>
+                    <input type="number" class="form-control" id="notifyMinutes" value="30" min="5" max="1440">
+                </div>
+                <button class="btn btn-primary" onclick="saveNotificationSettings()">
+                    <i class="fas fa-save"></i> Сохранить
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Циклы мира + Дувири -->
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5><i class="fas fa-globe"></i> Циклы мира</h5>
+            </div>
+            <div class="card-body" id="cycles-info">
+                <div class="text-center">
+                    <div class="spinner-border text-primary" role="status"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Ротация цепи Дувири -->
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5><i class="fas fa-sync"></i> Ротация цепи Дувири</h5>
+            </div>
+            <div class="card-body" id="duviri-rotation-info">
+                <div class="text-center">
+                    <div class="spinner-border text-info" role="status"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Переводы из cogs/warframe.py
+const CYCLE_TRANSLATIONS = {
+    "day": "День", "night": "Ночь",
+    "warm": "Тепло", "cold": "Холод",
+    "fass": "Фэз", "vome": "Воум",
+};
+const DUVIRI_STATE_TRANSLATIONS = {
+    "anger": "Гнев", "joy": "Радость",
+    "envy": "Зависть", "sorrow": "Печаль",
+    "fear": "Страх",
+};
+const CYCLE_EMOJIS = {
+    "cetus": { "day": "☀️", "night": "🌙" },
+    "vallis": { "warm": "🔥", "cold": "❄️" },
+    "cambion": { "fass": "🔴", "vome": "🐛" },
+    "duviri": { "anger": "😠", "joy": "😊", "envy": "😒", "sorrow": "😢", "fear": "😨" },
+};
+const CYCLE_NAMES = {
+    "cetus": "Равнины Эйдолона",
+    "vallis": "Долина Сфер",
+    "cambion": "Камбионский Дрейф",
+    "duviri": "⚔️ Цепь Дувири",
+};
+
+// Переводы предметов из ротации Дувири
+const DUVIRI_ITEM_TRANSLATIONS = {
+    "Braton Prime Set": "Набор Братон Прайм",
+    "Saryn Prime Set": "Набор Сарин Прайм",
+    "Lex Prime Set": "Набор Лекс Прайм",
+    "Mag Prime Set": "Набор Маг Прайм",
+    "Frost Prime Set": "Набор Фрост Прайм",
+    "Ember Prime Set": "Набор Эмбер Прайм",
+    "Nova Prime Set": "Набор Нова Прайм",
+    "Boltor Prime Set": "Набор Болтор Прайм",
+    "Fragor Prime Set": "Набор Фрагор Прайм",
+    "Dakka Prime Set": "Набор Дакка Прайм",
+    "Nikana Prime Set": "Набор Никана Прайм",
+    "Venka Prime Set": "Набор Венка Прайм",
+    "Cernos Prime Set": "Набор Цернос Прайм",
+    "Galatine Prime Set": "Набор Галатин Прайм",
+    "Tigris Prime Set": "Набор Тигрис Прайм",
+    "Orthos Prime Set": "Набор Ортос Прайм",
+    "Kamas Prime Set": "Набор Камас Прайм",
+    "Akstiletto Prime Set": "Набор Акстилетто Прайм",
+    "Spira Prime Set": "Набор Спира Прайм",
+    "Prova Vandal": "Прова Вандал",
+    "Dera Vandal": "Дера Вандал",
+    "Strun Vandal": "Струн Вандал",
+    "Karak Wraith": "Карак Рэт",
+    "Prisma Skana": "Призма Скана",
+    "Prisma Gorgon": "Призма Горгон",
+    "Tenet Diplos": "Тенет Диплос",
+    "Tenet Envoy": "Тенет Энвой",
+    "Tenet Ferrox": "Тенет Феррокс",
+    "Tenet Flux": "Тенет Флукс",
+    "Tenet Livia": "Тенет Ливия",
+    "Tenet Spirex": "Тенет Спайрекс",
+    "Tenet Tetra": "Тенет Тетра",
+    "Kuva Chakkhurr": "Кува Чакхурр",
+    "Kuva Bramma": "Кува Брамма",
+    "Kuva Ogris": "Кува Огрис",
+    "Kuva Karak": "Кува Карак",
+    "Kuva Hind": "Кува Хинд",
+    "Kuva Kohm": "Кува Коум",
+    "Kuva Tonkor": "Кува Тонкор",
+    "Kuva Brakk": "Кува Бракк",
+    "Kuva Sobek": "Кува Собек",
+};
+
+// Регистронезависимый словарь переводов
+const DUVIRI_ITEM_LOWER = {};
+for (const [key, val] of Object.entries(DUVIRI_ITEM_TRANSLATIONS)) {
+    DUVIRI_ITEM_LOWER[key.toLowerCase()] = val;
+}
+
+function translateItem(name) {
+    // Сначала точное совпадение
+    if (DUVIRI_ITEM_TRANSLATIONS[name]) return DUVIRI_ITEM_TRANSLATIONS[name];
+    // Потом регистронезависимое
+    const lower = name.toLowerCase();
+    if (DUVIRI_ITEM_LOWER[lower]) return DUVIRI_ITEM_LOWER[lower];
+    // Если не нашли — возвращаем оригинал
+    return name;
+}
+
+function formatCountdown(endTime) {
+    const now = new Date();
+    const end = new Date(endTime);
+    const diff = end - now;
+    if (diff <= 0) return '✨ Сейчас';
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    const secs = Math.floor((diff % (1000 * 60)) / 1000);
+    let parts = [];
+    if (days > 0) parts.push(`${days}д`);
+    if (hours > 0) parts.push(`${hours}ч`);
+    parts.push(`${mins}м`);
+    if (days === 0) parts.push(`${secs}с`);
+    return parts.join(' ');
+}
+
+let baroTimerInterval = null;
+
+async function loadTimers() {
+    try {
+        const resp = await fetch('/api/warframe/timers');
+        const data = await resp.json();
+        
+        // === БАРО КИ'ТИЕР ===
+        const baro = data.voidTrader;
+        const baroInfo = document.getElementById('baro-info');
+        
+        if (baro && baro.activation) {
+            const now = new Date();
+            const startDate = new Date(baro.activation);
+            const endDate = new Date(baro.expiry);
+            const isActive = baro.active || (now >= startDate && now < endDate);
+            const isArriving = !isActive && now < startDate;
+            const location = baro.location || 'Неизвестно';
+            
+            let html = '';
+            if (isActive) {
+                html = `
+                    <div class="text-center mb-4">
+                        <h3 class="text-warning">🛒 Баро Ки'Тиер</h3>
+                        <div class="display-4 text-warning my-3" id="baro-countdown">
+                            ${formatCountdown(baro.expiry)}
+                        </div>
+                        <p class="text-muted">до отбытия</p>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6"><p><strong>📍 Локация:</strong> ${location}</p></div>
+                        <div class="col-md-6"><p><strong>🕐 Улетает:</strong> ${endDate.toLocaleString('ru-RU')}</p></div>
+                    </div>
+                `;
+                if (baro.inventory && baro.inventory.length > 0) {
+                    html += `<hr><h6>📦 Товары (${baro.inventory.length}):</h6><div class="row">`;
+                    for (const item of baro.inventory.slice(0, 12)) {
+                        html += `<div class="col-md-4 mb-2"><small>• ${item.item || item.name || 'Предмет'}</small></div>`;
+                    }
+                    if (baro.inventory.length > 12) html += `<div class="col-12"><small class="text-muted">...и ещё ${baro.inventory.length - 12}</small></div>`;
+                    html += '</div>';
+                }
+            } else if (isArriving) {
+                html = `
+                    <div class="text-center mb-4">
+                        <h3 class="text-warning">🛒 Баро Ки'Тиер</h3>
+                        <div class="display-4 text-success my-3" id="baro-countdown">
+                            ${formatCountdown(baro.activation)}
+                        </div>
+                        <p class="text-muted">до прибытия</p>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6"><p><strong>📍 Локация:</strong> ${location}</p></div>
+                        <div class="col-md-6"><p><strong>🕐 Прибудет:</strong> ${startDate.toLocaleString('ru-RU')}</p></div>
+                    </div>
+                `;
+            } else {
+                html = `<div class="text-center"><h4 class="text-warning">🛒 Баро Ки'Тиер</h4><p class="text-muted">Ожидается...</p></div>`;
+            }
+            baroInfo.innerHTML = html;
+            
+            if (baroTimerInterval) clearInterval(baroTimerInterval);
+            baroTimerInterval = setInterval(() => {
+                const el = document.getElementById('baro-countdown');
+                if (el) {
+                    const n = new Date();
+                    if (n >= startDate && n < endDate) el.textContent = formatCountdown(baro.expiry);
+                    else if (n < startDate) el.textContent = formatCountdown(baro.activation);
+                }
+            }, 1000);
+        } else if (baro) {
+            baroInfo.innerHTML = `<div class="text-center"><h4 class="text-warning">🛒 Баро Ки'Тиер</h4><p>Статус: ${baro.active ? '✅ На месте' : '⏳ Ожидается'}</p><p><strong>📍 Локация:</strong> ${baro.location || 'Неизвестно'}</p></div>`;
+        } else {
+            baroInfo.innerHTML = `<div class="text-center text-muted"><i class="fas fa-store fa-3x mb-3"></i><p>Данные о Баро недоступны</p></div>`;
+        }
+        
+        // === ЦИКЛЫ МИРА + ДУВИРИ ===
+        const cyclesInfo = document.getElementById('cycles-info');
+        let cyclesHtml = '';
+        
+        const cycleKeys = [
+            { key: 'cetusCycle', id: 'cetus' },
+            { key: 'vallisCycle', id: 'vallis' },
+            { key: 'cambionCycle', id: 'cambion' },
+            { key: 'duviriCycle', id: 'duviri' },
+        ];
+        
+        for (const {key, id} of cycleKeys) {
+            const cycle = data[key];
+            if (!cycle) continue;
+            
+            if (id === 'duviri') {
+                // Дувири — особый формат с эмоциями
+                const stateRaw = cycle.state || '';
+                const stateDisplay = DUVIRI_STATE_TRANSLATIONS[stateRaw] || stateRaw;
+                const emojiMap = CYCLE_EMOJIS.duviri || {};
+                const emoji = emojiMap[stateRaw] || '⚔️';
+                const timeLeft = cycle.expiry ? formatCountdown(cycle.expiry) : '';
+                
+                cyclesHtml += `
+                    <div class="d-flex justify-content-between align-items-center py-3 border-bottom" style="border-left: 3px solid #9b59b6; padding-left: 10px; margin-bottom: 2px;">
+                        <div>
+                            <strong>${emoji} Цепь Дувири</strong>
+                            <div class="text-muted small" style="font-size: 0.85rem;">${timeLeft ? 'до смены: ' + timeLeft : ''}</div>
+                        </div>
+                        <span class="badge bg-purple fs-6" style="font-size: 0.9rem; padding: 6px 12px; background: #9b59b6; color: #fff;">${stateDisplay}</span>
+                    </div>
+                `;
+                continue;
+            }
+            
+            const state = cycle.state || 'unknown';
+            const stateName = CYCLE_TRANSLATIONS[state] || state;
+            const cycleName = CYCLE_NAMES[id] || id;
+            const emojiMap = CYCLE_EMOJIS[id] || {};
+            const emoji = emojiMap[state] || '🔄';
+            const timeLeft = cycle.expiry ? formatCountdown(cycle.expiry) : '';
+            
+            let badgeClass = 'secondary';
+            if (state === 'day' || cycle.isDay) badgeClass = 'warning';
+            else if (state === 'warm' || cycle.isWarm) badgeClass = 'warning';
+            else if (state === 'fass') badgeClass = 'danger';
+            else if (state === 'vome' || state === 'night' || state === 'cold') badgeClass = 'dark';
+            else if (state === 'unknown') badgeClass = 'secondary';
+            
+            cyclesHtml += `
+                <div class="d-flex justify-content-between align-items-center py-3 border-bottom">
+                    <div>
+                        <strong>${emoji} ${cycleName}</strong>
+                        <div class="text-muted small" style="font-size: 0.85rem;">${timeLeft ? 'до смены: ' + timeLeft : ''}</div>
+                    </div>
+                    <span class="badge bg-${badgeClass} fs-6" style="font-size: 0.9rem; padding: 6px 12px;">${stateName}</span>
+                </div>
+            `;
+        }
+        cyclesInfo.innerHTML = cyclesHtml || '<p class="text-muted">Нет данных</p>';
+        
+        // === РОТАЦИЯ ЦЕПИ ДУВИРИ ===
+        const rotationInfo = document.getElementById('duviri-rotation-info');
+        const duviri = data.duviriCycle;
+        if (duviri && duviri.choices && duviri.choices.length > 0) {
+            let normalItems = [];
+            let hardItems = [];
+            for (const choice of duviri.choices) {
+                if (choice.categoryKey === 'EXC_NORMAL') normalItems = choice.choices || [];
+                else if (choice.categoryKey === 'EXC_HARD') hardItems = choice.choices || [];
+            }
+            let rotHtml = '';
+            if (normalItems.length > 0) {
+                rotHtml += `<div class="mb-3"><strong style="color: #9b59b6;">🌀 Варфреймы (обычная цепь):</strong><div class="mt-1">`;
+                for (const name of normalItems) {
+                    const translated = translateItem(name);
+                    rotHtml += `<span class="badge bg-secondary me-1 mb-1" style="font-size: 0.85rem;" title="${name}">${translated}</span> `;
+                }
+                rotHtml += `</div></div>`;
+            }
+            if (hardItems.length > 0) {
+                rotHtml += `<div><strong style="color: #e91e63;">💀 Оружие (стальной путь):</strong><div class="mt-1">`;
+                for (const name of hardItems) {
+                    const translated = translateItem(name);
+                    rotHtml += `<span class="badge bg-secondary me-1 mb-1" style="font-size: 0.85rem;" title="${name}">${translated}</span> `;
+                }
+                rotHtml += `</div></div>`;
+            }
+            rotationInfo.innerHTML = rotHtml || '<p class="text-muted">Нет данных о ротации</p>';
+        } else {
+            rotationInfo.innerHTML = '<p class="text-muted">Нет данных о ротации</p>';
+        }
+        
+    } catch (e) {
+        console.error('Failed to load timers:', e);
+        document.getElementById('baro-info').innerHTML = `<div class="text-center text-muted"><i class="fas fa-exclamation-circle fa-3x mb-3"></i><p>Не удалось загрузить данные</p></div>`;
+    }
+}
+
+function saveNotificationSettings() {
+    const minutes = document.getElementById('notifyMinutes').value;
+    const enabled = document.getElementById('notifyBaro').checked;
+    localStorage.setItem('baroNotifyMinutes', minutes);
+    localStorage.setItem('baroNotifyEnabled', enabled);
+    alert('Настройки уведомлений сохранены!');
+}
+
+document.getElementById('notifyMinutes').value = localStorage.getItem('baroNotifyMinutes') || 30;
+document.getElementById('notifyBaro').checked = localStorage.getItem('baroNotifyEnabled') !== 'false';
+
+loadTimers();
+</script>
+{% endblock %}

@@ -1,0 +1,34 @@
+# Environment
+.env
+*.env
+
+# Database
+*.db
+database.json
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Logs
+*.log
+
+# Discord bot token files
+token.txt

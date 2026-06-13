@@ -1,0 +1,160 @@
+{% extends 'base.html' %}
+
+{% block title %}Главная{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1><i class="fas fa-home"></i> Dashboard</h1>
+    <p class="text-muted">Arasaka Plaza | Warframe Clan</p>
+</div>
+
+<!-- Бот статус -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card status-card">
+            <div class="card-body d-flex align-items-center">
+                <div class="status-indicator {{ 'online' if stats.bot_online else 'offline' }}"></div>
+                <div class="ms-3">
+                    <h5 class="mb-0">Бот Ордис</h5>
+                    <span class="text-muted">{{ 'Онлайн' if stats.bot_online else 'Оффлайн' }}</span>
+                </div>
+                <div class="ms-auto">
+                    <span class="badge bg-{{ 'success' if stats.bot_online else 'danger' }}">
+                        {{ '● Active' if stats.bot_online else '● Inactive' }}
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Статистика -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <div class="card-body text-center">
+                <div class="stat-icon"><i class="fas fa-users"></i></div>
+                <h3 class="stat-number">{{ stats.total_members }}</h3>
+                <p class="stat-label">Участников</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <div class="card-body text-center">
+                <div class="stat-icon"><i class="fas fa-star"></i></div>
+                <h3 class="stat-number">{{ "{:,}".format(stats.total_xp) }}</h3>
+                <p class="stat-label">Общий XP</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <div class="card-body text-center">
+                <div class="stat-icon warning"><i class="fas fa-exclamation-triangle"></i></div>
+                <h3 class="stat-number">{{ stats.total_warns }}</h3>
+                <p class="stat-label">Предупреждений</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <div class="card-body text-center">
+                <div class="stat-icon danger"><i class="fas fa-ban"></i></div>
+                <h3 class="stat-number">{{ stats.banned_count }}</h3>
+                <p class="stat-label">Забанено</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Быстрые действия -->
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-bolt"></i> Быстрые действия</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    {% if role in ['admin', 'cofounder', 'founder'] %}
+                    <a href="{{ url_for('members') }}" class="btn btn-outline-primary">
+                        <i class="fas fa-users"></i> Управление участниками
+                    </a>
+                    <a href="{{ url_for('commands_page') }}" class="btn btn-outline-success">
+                        <i class="fas fa-terminal"></i> Выполнить команду
+                    </a>
+                    <a href="{{ url_for('logs') }}" class="btn btn-outline-info">
+                        <i class="fas fa-list-alt"></i> Просмотр логов
+                    </a>
+                    {% endif %}
+                    <a href="{{ url_for('timers') }}" class="btn btn-outline-warning">
+                        <i class="fas fa-clock"></i> Таймеры Warframe
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-gamepad"></i> Warframe</h5>
+            </div>
+            <div class="card-body" id="warframe-quick">
+                <div class="text-center">
+                    <div class="spinner-border text-warning" role="status">
+                        <span class="visually-hidden">Загрузка...</span>
+                    </div>
+                    <p class="mt-2">Загрузка данных...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function loadWarframeData() {
+    try {
+        const resp = await fetch('/api/warframe/baro');
+        const data = await resp.json();
+        
+        if (data.name) {
+            const endDate = new Date(data.endTime);
+            const now = new Date();
+            const diff = endDate - now;
+            
+            if (diff > 0) {
+                const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+                const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                document.getElementById('warframe-quick').innerHTML = `
+                    <div class="text-center">
+                        <h6 class="text-warning"><i class="fas fa-store"></i> Баро Ки'Тиер</h6>
+                        <p class="mb-1">Покинет через:</p>
+                        <h4>${days}д ${hours}ч</h4>
+                    </div>
+                `;
+            } else {
+                document.getElementById('warframe-quick').innerHTML = `
+                    <div class="text-center">
+                        <h6 class="text-warning"><i class="fas fa-store"></i> Баро Ки'Тиер</h6>
+                        <p>Ожидается прибытие...</p>
+                    </div>
+                `;
+            }
+        }
+    } catch (e) {
+        document.getElementById('warframe-quick').innerHTML = `
+            <div class="text-center text-muted">
+                <i class="fas fa-exclamation-circle"></i>
+                <p>Не удалось загрузить данные</p>
+            </div>
+        `;
+    }
+}
+
+loadWarframeData();
+</script>
+{% endblock %}

@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Arasaka Plaza{% endblock %} | Admin Panel</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+</head>
+<body>
+    {% if session.get('user_id') %}
+    <nav class="navbar navbar-dark sidebar">
+        <div class="d-flex flex-column align-items-center w-100">
+            <a href="{{ url_for('dashboard') }}" class="navbar-brand mb-4">
+                <img src="{{ url_for('static', filename='img/logo.png') }}" alt="AP" class="logo-small">
+            </a>
+            
+            <ul class="nav flex-column w-100">
+                <li class="nav-item">
+                    <a class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}" href="{{ url_for('dashboard') }}">
+                        <i class="fas fa-home"></i><span>Главная</span>
+                    </a>
+                </li>
+                {% if role in ['admin', 'cofounder', 'founder'] %}
+                <li class="nav-item">
+                    <a class="nav-link {% if request.endpoint == 'members' %}active{% endif %}" href="{{ url_for('members') }}">
+                        <i class="fas fa-users"></i><span>Участники</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if request.endpoint == 'logs' %}active{% endif %}" href="{{ url_for('logs') }}">
+                        <i class="fas fa-list-alt"></i><span>Логи</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if request.endpoint == 'commands_page' %}active{% endif %}" href="{{ url_for('commands_page') }}">
+                        <i class="fas fa-terminal"></i><span>Команды</span>
+                    </a>
+                </li>
+                {% endif %}
+                {% if role in ['recruiter', 'admin', 'cofounder', 'founder'] %}
+                <li class="nav-item">
+                    <a class="nav-link {% if request.endpoint == 'questionnaires' %}active{% endif %}" href="{{ url_for('questionnaires') }}">
+                        <i class="fas fa-clipboard-list"></i><span>Анкеты</span>
+                    </a>
+                </li>
+                {% endif %}
+                <li class="nav-item">
+                    <a class="nav-link {% if request.endpoint == 'timers' %}active{% endif %}" href="{{ url_for('timers') }}">
+                        <i class="fas fa-clock"></i><span>Таймеры</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if request.endpoint == 'leaderboard' %}active{% endif %}" href="{{ url_for('leaderboard') }}">
+                        <i class="fas fa-trophy"></i><span>Таблица лидеров</span>
+                    </a>
+                </li>
+                {% if role in ['cofounder', 'founder'] %}
+                <li class="nav-item">
+                    <a class="nav-link {% if request.endpoint == 'roles_page' %}active{% endif %}" href="{{ url_for('roles_page') }}">
+                        <i class="fas fa-user-shield"></i><span>Роли</span>
+                    </a>
+                </li>
+                {% endif %}
+                {% if role == 'founder' %}
+                <li class="nav-item">
+                    <a class="nav-link {% if request.endpoint == 'settings_page' %}active{% endif %}" href="{{ url_for('settings_page') }}">
+                        <i class="fas fa-cog"></i><span>Настройки</span>
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+            
+            <div class="mt-auto w-100">
+                <div class="user-info px-3 py-2">
+                    <div class="d-flex align-items-center">
+                        {% if session.get('avatar') %}
+                        <img src="https://cdn.discordapp.com/avatars/{{ session['user_id'] }}/{{ session['avatar'] }}.png" 
+                             alt="Avatar" class="rounded-circle me-2" width="32" height="32">
+                        {% else %}
+                        <div class="avatar-placeholder rounded-circle me-2">
+                            <i class="fas fa-user"></i>
+                        </div>
+                        {% endif %}
+                        <div class="flex-grow-1">
+                            <div class="username">{{ session.get('username', 'User') }}</div>
+                            <div class="role-badge role-{{ role }}">
+                                {% if role == 'founder' %}Основатель
+                                {% elif role == 'cofounder' %}Со-основатель
+                                {% elif role == 'admin' %}Администрация
+                                {% elif role == 'recruiter' %}Рекрутер
+                                {% else %}Пользователь{% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <a href="{{ url_for('logout') }}" class="nav-link logout-btn">
+                    <i class="fas fa-sign-out-alt"></i><span>Выйти</span>
+                </a>
+            </div>
+        </div>
+    </nav>
+    
+    <main class="content">
+        <div class="container-fluid">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+            {% for category, message in messages %}
+            <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            {% endfor %}
+            {% endif %}
+            {% endwith %}
+            
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+    {% else %}
+    <main class="content login-page">
+        <div class="container">
+            {% block login_content %}{% endblock %}
+        </div>
+    </main>
+    {% endif %}
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

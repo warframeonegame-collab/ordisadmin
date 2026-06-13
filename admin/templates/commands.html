@@ -1,0 +1,313 @@
+{% extends 'base.html' %}
+
+{% block title %}Команды{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1><i class="fas fa-terminal"></i> Команды</h1>
+    <p class="text-muted">Интерактивный интерфейс команд бота</p>
+</div>
+
+<div class="row">
+    <!-- Список команд -->
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-list"></i> Доступные команды</h5>
+            </div>
+            <div class="card-body">
+                <div class="list-group">
+                    {% for cmd in commands %}
+                    <button class="list-group-item list-group-item-action cmd-btn" 
+                            data-cmd='{{ cmd | tojson }}'>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span><code>.{{ cmd.name }}</code></span>
+                            <span class="badge bg-{{ 'danger' if cmd.category == 'moderation' else 'primary' if cmd.category == 'admin' else 'info' }}">
+                                {{ cmd.category }}
+                            </span>
+                        </div>
+                        <small class="text-muted">{{ cmd.description }}</small>
+                    </button>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Форма команды -->
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-play"></i> Выполнить команду</h5>
+            </div>
+            <div class="card-body">
+                <div id="command-form" class="text-center text-muted py-4">
+                    <i class="fas fa-hand-pointer fa-3x mb-3"></i>
+                    <p>Выберите команду из списка слева</p>
+                </div>
+                
+                <div id="command-active" style="display:none;">
+                    <!-- Название команды -->
+                    <div class="mb-3">
+                        <label class="form-label">Команда</label>
+                        <div class="input-group">
+                            <span class="input-group-text">.</span>
+                            <input type="text" class="form-control" id="cmd-name" readonly>
+                        </div>
+                    </div>
+                    
+                    <!-- Выбор канала (для clear) -->
+                    <div id="channel-section" class="mb-3" style="display:none;">
+                        <label class="form-label">Канал</label>
+                        <select class="form-select" id="cmd-channel">
+                            <option value="">Выберите канал...</option>
+                            {% for ch in channels %}
+                            <option value="{{ ch.id }}">{{ ch.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <!-- Выбор пользователя -->
+                    <div id="user-section" class="mb-3" style="display:none;">
+                        <label class="form-label">Пользователь</label>
+                        <select class="form-select" id="cmd-member">
+                            <option value="">Выберите участника...</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Динамические переменные -->
+                    <div id="variables-section"></div>
+                    
+                    <!-- Полная команда -->
+                    <div class="mb-3">
+                        <label class="form-label">Полная команда</label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="cmd-full" readonly>
+                            <button class="btn btn-outline-secondary" onclick="copyCommand()">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Информация о подписи -->
+                    <div class="alert alert-info mb-3">
+                        <i class="fas fa-info-circle"></i> Команда будет отправлена в Discord с подписью кто её выполнил
+                    </div>
+                    
+                    <button class="btn btn-primary" onclick="executeCommand()" id="execute-btn">
+                        <i class="fas fa-paper-plane"></i> Выполнить
+                    </button>
+                    
+                    <!-- Статус -->
+                    <div id="cmd-status" class="mt-3" style="display:none;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentCmd = null;
+
+// Загрузка участников
+async function loadMembers() {
+    try {
+        const resp = await fetch('/api/members');
+        const data = await resp.json();
+        const select = document.getElementById('cmd-member');
+        // Очищаем кроме первого option
+        while (select.options.length > 1) {
+            select.remove(1);
+        }
+        for (const [id, user] of Object.entries(data)) {
+            const opt = document.createElement('option');
+            opt.value = id;
+            opt.textContent = `${user.nickname || id} (${id})`;
+            select.appendChild(opt);
+        }
+    } catch (e) {
+        console.error('Failed to load members:', e);
+    }
+}
+
+// Выбор команды
+document.querySelectorAll('.cmd-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        const cmdData = JSON.parse(btn.dataset.cmd);
+        currentCmd = cmdData;
+        
+        document.getElementById('command-form').style.display = 'none';
+        document.getElementById('command-active').style.display = 'block';
+        document.getElementById('cmd-status').style.display = 'none';
+        
+        document.getElementById('cmd-name').value = cmdData.name;
+        
+        // Показываем/скрываем секции
+        document.getElementById('user-section').style.display = cmdData.requires_user ? 'block' : 'none';
+        document.getElementById('channel-section').style.display = cmdData.requires_channel ? 'block' : 'none';
+        
+        // Генерируем переменные
+        const varsSection = document.getElementById('variables-section');
+        varsSection.innerHTML = '';
+        
+        if (cmdData.variables && cmdData.variables.length > 0) {
+            for (const v of cmdData.variables) {
+                if (v.type === 'user') {
+                    // Пользователь уже есть в секции user
+                    continue;
+                }
+                
+                const div = document.createElement('div');
+                div.className = 'mb-3';
+                
+                if (v.type === 'select') {
+                    div.innerHTML = `
+                        <label class="form-label">${v.label} ${v.required ? '*' : ''}</label>
+                        <select class="form-select var-input" data-var="${v.name}">
+                            ${v.options.map(o => `<option value="${o}">${o}</option>`).join('')}
+                        </select>
+                    `;
+                    } else if (v.type === 'number') {
+                        div.innerHTML = `
+                            <label class="form-label">${v.label} ${v.required ? '*' : ''}</label>
+                            <input type="number" class="form-control var-input" data-var="${v.name}" placeholder="${v.label}">
+                        `;
+                    } else if (v.type === 'textarea') {
+                        div.innerHTML = `
+                            <label class="form-label">${v.label} ${v.required ? '*' : ''}</label>
+                            <textarea class="form-control var-input" data-var="${v.name}" placeholder="${v.label}" rows="3"></textarea>
+                        `;
+                    } else {
+                        div.innerHTML = `
+                            <label class="form-label">${v.label} ${v.required ? '*' : ''}</label>
+                            <input type="text" class="form-control var-input" data-var="${v.name}" placeholder="${v.label}">
+                        `;
+                    }
+                
+                varsSection.appendChild(div);
+            }
+        }
+        
+        updateFullCommand();
+    });
+});
+
+// Обновление полной команды
+function updateFullCommand() {
+    if (!currentCmd) return;
+    
+    let cmd = currentCmd.is_botmsg ? 'botmsg' : `.${currentCmd.name}`;
+    
+    // Пользователь
+    if (currentCmd.requires_user) {
+        const member = document.getElementById('cmd-member').value;
+        if (member) cmd += ` <@${member}>`;
+    }
+    
+    // Переменные
+    if (currentCmd.variables) {
+        for (const v of currentCmd.variables) {
+            if (v.type === 'user') {
+                // Берём из секции пользователя если команда не requires_user
+                if (!currentCmd.requires_user) {
+                    const userSelect = document.querySelector(`[data-var="${v.name}"]`);
+                    if (userSelect && userSelect.value) cmd += ` <@${userSelect.value}>`;
+                }
+            } else {
+                const input = document.querySelector(`[data-var="${v.name}"]`);
+                if (input && input.value) {
+                    if (v.type === 'select') {
+                        cmd += ` ${input.value}`;
+                    } else if (v.type === 'textarea') {
+                        cmd += ` ${input.value}`;
+                    } else {
+                        cmd += ` ${input.value}`;
+                    }
+                }
+            }
+        }
+    }
+    
+    document.getElementById('cmd-full').value = cmd;
+}
+
+// Слушатели событий
+document.getElementById('cmd-member')?.addEventListener('change', updateFullCommand);
+document.getElementById('cmd-channel')?.addEventListener('change', updateFullCommand);
+
+// Слушатели для динамических переменных
+document.addEventListener('input', (e) => {
+    if (e.target.classList.contains('var-input')) {
+        updateFullCommand();
+    }
+});
+document.addEventListener('change', (e) => {
+    if (e.target.classList.contains('var-input')) {
+        updateFullCommand();
+    }
+});
+
+// Копирование команды
+function copyCommand() {
+    const input = document.getElementById('cmd-full');
+    input.select();
+    document.execCommand('copy');
+    alert('Команда скопирована!');
+}
+
+// Выполнение команды
+async function executeCommand() {
+    const cmd = document.getElementById('cmd-full').value;
+    const channelSelect = document.getElementById('cmd-channel');
+    const channelId = channelSelect ? channelSelect.value : '';
+    
+    // Проверяем обязательные поля только для команд с requires_user
+    if (currentCmd && currentCmd.requires_user && (!cmd || cmd === `.${currentCmd.name}`)) {
+        alert('Заполните обязательные поля!');
+        return;
+    }
+    
+    if (!cmd || cmd.trim() === '') {
+        alert('Команда не может быть пустой!');
+        return;
+    }
+    
+    const btn = document.getElementById('execute-btn');
+    const status = document.getElementById('cmd-status');
+    
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Отправка...';
+    status.style.display = 'block';
+    status.innerHTML = '<div class="alert alert-info">Отправка команды...</div>';
+    
+    try {
+        const resp = await fetch('/api/execute', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                command: cmd,
+                channel_id: channelId || null
+            })
+        });
+        
+        const data = await resp.json();
+        
+        if (resp.ok) {
+            status.innerHTML = '<div class="alert alert-success"><i class="fas fa-check"></i> Команда успешно отправлена!</div>';
+        } else {
+            status.innerHTML = `<div class="alert alert-danger"><i class="fas fa-times"></i> Ошибка: ${data.error}</div>`;
+        }
+    } catch (e) {
+        status.innerHTML = `<div class="alert alert-danger"><i class="fas fa-times"></i> Ошибка: ${e.message}</div>`;
+    }
+    
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-paper-plane"></i> Выполнить';
+}
+
+loadMembers();
+</script>
+{% endblock %}

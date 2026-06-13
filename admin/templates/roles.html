@@ -1,0 +1,330 @@
+{% extends 'base.html' %}
+
+{% block title %}Роли{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1><i class="fas fa-user-shield"></i> Управление ролями</h1>
+    <p class="text-muted">Назначение ролей на сайте</p>
+</div>
+
+<!-- Текущие роли -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5><i class="fas fa-list"></i> Текущие роли</h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-dark">
+                <thead>
+                    <tr>
+                        <th>Discord ID</th>
+                        <th>Роль на сайте</th>
+                        <th>Действия</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user_id, role in site_roles.items() %}
+                    <tr>
+                        <td><code>{{ user_id }}</code></td>
+                        <td>
+                            <span class="badge bg-{{ 'primary' if role == 'founder' else 'success' if role == 'cofounder' else 'info' if role == 'admin' else 'success' if role == 'recruiter' else 'secondary' }}">
+                                {{ role_names.get(role, role) }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if role != 'founder' %}
+                            <button class="btn btn-sm btn-outline-warning" onclick="editRole('{{ user_id }}', '{{ role }}')">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="removeRole('{{ user_id }}')">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Добавить роль -->
+{% if role == 'founder' %}
+<div class="card mb-4">
+    <div class="card-header">
+        <h5><i class="fas fa-plus"></i> Добавить роль</h5>
+    </div>
+    <div class="card-body">
+        <form id="addRoleForm" class="row g-3">
+            <div class="col-md-5">
+                <label class="form-label">Discord ID пользователя</label>
+                <input type="text" class="form-control" name="user_id" required placeholder="Введите Discord ID...">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Роль</label>
+                <select class="form-select" name="role" required>
+                    <option value="user">Пользователь</option>
+                    <option value="recruiter">Рекрутер</option>
+                    <option value="admin">Администрация</option>
+                    <option value="cofounder">Со-основатель</option>
+                </select>
+            </div>
+            <div class="col-md-3 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="fas fa-plus"></i> Добавить
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endif %}
+
+<!-- Права ролей -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5><i class="fas fa-key"></i> Права ролей</h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-dark" id="permissionsTable">
+                <thead>
+                    <tr>
+                        <th>Право</th>
+                        {% for r in ['user', 'recruiter', 'admin', 'cofounder', 'founder'] %}
+                        <th>{{ role_names.get(r, r) }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for perm, desc in [
+                        ('dashboard', 'Главная страница'),
+                        ('members_view_own', 'Просмотр своего профиля'),
+                        ('members_view_all', 'Просмотр всех участников'),
+                        ('members_edit', 'Редактирование участников'),
+                        ('logs_view', 'Просмотр логов'),
+                        ('commands_use', 'Использование команд'),
+                        ('timers_view', 'Просмотр таймеров'),
+                        ('roles_manage', 'Управление ролями'),
+                        ('settings_manage', 'Настройки сайта'),
+                        ('questionnaires_view', 'Просмотр анкет'),
+                    ] %}
+                    <tr>
+                        <td>{{ desc }}</td>
+                        {% for r in ['user', 'recruiter', 'admin', 'cofounder', 'founder'] %}
+                        <td>
+                            <span class="perm-toggle clickable" data-role="{{ r }}" data-perm="{{ perm }}" 
+                                  data-enabled="{{ 'true' if role_permissions[r].get(perm) else 'false' }}"
+                                  data-editable="{{ 'true' if role == 'founder' else 'false' }}">
+                                {% if role_permissions[r].get(perm) %}
+                                <i class="fas fa-check text-success"></i>
+                                {% else %}
+                                <i class="fas fa-times text-danger"></i>
+                                {% endif %}
+                            </span>
+                        </td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% if role == 'founder' %}
+        <div class="mt-3">
+            <button class="btn btn-primary" onclick="savePermissions()">
+                <i class="fas fa-save"></i> Сохранить права
+            </button>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Создать новую роль (только для founder) -->
+{% if role == 'founder' %}
+<div class="card mb-4">
+    <div class="card-header">
+        <h5><i class="fas fa-plus-circle"></i> Создать новую роль</h5>
+    </div>
+    <div class="card-body">
+        <form id="createRoleForm" class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label">Идентификатор роли (лат.)</label>
+                <input type="text" class="form-control" name="role_name" required placeholder="например: moderator">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Отображаемое имя</label>
+                <input type="text" class="form-control" name="role_display" required placeholder="например: Модератор">
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Права</label>
+                <div class="row">
+                    {% for perm, desc in [
+                        ('dashboard', 'Главная'),
+                        ('members_view_own', 'Свой профиль'),
+                        ('members_view_all', 'Все участники'),
+                        ('members_edit', 'Редактирование'),
+                        ('logs_view', 'Логи'),
+                        ('commands_use', 'Команды'),
+                        ('timers_view', 'Таймеры'),
+                        ('roles_manage', 'Роли'),
+                        ('settings_manage', 'Настройки'),
+                        ('questionnaires_view', 'Анкеты'),
+                    ] %}
+                    <div class="col-md-4">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="perm_{{ perm }}" 
+                                   {{ 'checked' if perm in ['dashboard', 'members_view_own', 'timers_view'] else '' }}>
+                            <label class="form-check-label">{{ desc }}</label>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="col-md-12">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-plus"></i> Создать роль
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function editRole(userId, currentRole) {
+    const newRole = prompt(`Изменить роль для ${userId}\nТекущая: ${currentRole}\nДоступные: user, recruiter, admin, cofounder`, currentRole);
+    if (newRole && ['user', 'recruiter', 'admin', 'cofounder'].includes(newRole)) {
+        try {
+            const resp = await fetch('/api/roles/update', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ user_id: userId, role: newRole })
+            });
+            if (resp.ok) {
+                location.reload();
+            } else {
+                alert('Ошибка при обновлении роли');
+            }
+        } catch (e) {
+            alert('Ошибка: ' + e.message);
+        }
+    }
+}
+
+function removeRole(userId) {
+    if (confirm(`Удалить роль для ${userId}?`)) {
+        fetch('/api/roles/update', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ user_id: userId, role: 'user' })
+        }).then(() => location.reload());
+    }
+}
+
+document.getElementById('addRoleForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const data = Object.fromEntries(formData);
+    
+    try {
+        const resp = await fetch('/api/roles/update', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(data)
+        });
+        if (resp.ok) {
+            location.reload();
+        } else {
+            alert('Ошибка при добавлении роли');
+        }
+    } catch (e) {
+        alert('Ошибка: ' + e.message);
+    }
+});
+
+// Клик по иконке прав для переключения (только для founder)
+document.querySelectorAll('.perm-toggle.clickable').forEach(el => {
+    el.addEventListener('click', function() {
+        if (this.dataset.editable !== 'true') return;
+        const current = this.dataset.enabled;
+        const newEnabled = current === 'true' ? 'false' : 'true';
+        this.dataset.enabled = newEnabled;
+        if (newEnabled === 'true') {
+            this.innerHTML = '<i class="fas fa-check text-success"></i>';
+        } else {
+            this.innerHTML = '<i class="fas fa-times text-danger"></i>';
+        }
+    });
+});
+
+// Сохранение прав ролей
+async function savePermissions() {
+    const toggles = document.querySelectorAll('.perm-toggle');
+    const permissionsByRole = {};
+    
+    toggles.forEach(toggle => {
+        const role = toggle.dataset.role;
+        const perm = toggle.dataset.perm;
+        if (!permissionsByRole[role]) permissionsByRole[role] = {};
+        permissionsByRole[role][perm] = toggle.dataset.enabled === 'true';
+    });
+    
+    let success = true;
+    for (const [role, permissions] of Object.entries(permissionsByRole)) {
+        try {
+            const resp = await fetch('/api/roles/permissions', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ role: role, permissions: permissions })
+            });
+            if (!resp.ok) {
+                success = false;
+                alert(`Ошибка при сохранении прав для роли ${role}`);
+            }
+        } catch (e) {
+            success = false;
+            alert('Ошибка: ' + e.message);
+        }
+    }
+    
+    if (success) {
+        alert('Права сохранены!');
+        location.reload();
+    }
+}
+
+// Создание новой роли
+document.getElementById('createRoleForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const roleName = formData.get('role_name');
+    const roleDisplay = formData.get('role_display');
+    
+    const permissions = {};
+    const permKeys = ['dashboard', 'members_view_own', 'members_view_all', 'members_edit', 'logs_view', 'commands_use', 'timers_view', 'roles_manage', 'settings_manage', 'questionnaires_view'];
+    permKeys.forEach(perm => {
+        permissions[perm] = formData.has('perm_' + perm);
+    });
+    
+    try {
+        const resp = await fetch('/api/roles/create', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ role_name: roleName, role_display: roleDisplay, permissions: permissions })
+        });
+        if (resp.ok) {
+            location.reload();
+        } else {
+            const data = await resp.json();
+            alert('Ошибка: ' + (data.error || 'Неизвестная ошибка'));
+        }
+    } catch (e) {
+        alert('Ошибка: ' + e.message);
+    }
+});
+</script>
+{% endblock %}
