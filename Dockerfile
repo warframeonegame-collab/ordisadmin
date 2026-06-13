@@ -19,8 +19,8 @@ COPY . /app
 # Делаем entrypoint исполняемым
 RUN chmod +x /app/start.sh
 
-# Создаём папку для данных и пустой database.json
-RUN mkdir -p /app/data && echo '{}' > /app/data/database.json
+# Создаём папку для данных и пустой bot.db
+RUN mkdir -p /app/data && echo '{}' > /app/data/bot.db
 
 # Volume для сохранения данных между перезапусками
 VOLUME ["/app/data"]
