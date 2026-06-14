@@ -522,8 +522,11 @@ def timers():
 @login_required
 @permission_required('roles_manage')
 def roles_page():
+    # Читаем site_roles из БД (site_roles.json) а не из хардкода
+    db = Database()
+    site_roles_data = db.get_site_roles()
     return render_template('roles.html', role=session.get('role', 'user'), 
-                         site_roles=config.SITE_ROLES, role_names=config.ROLE_NAMES,
+                         site_roles=site_roles_data, role_names=config.ROLE_NAMES,
                          role_permissions=config.ROLE_PERMISSIONS)
 
 @app.route('/settings')
@@ -536,6 +539,15 @@ def settings_page():
 @login_required
 def rules_page():
     return render_template('rules.html', role=session.get('role', 'user'))
+
+@app.route('/recruiter-rules')
+@login_required
+def recruiter_rules_page():
+    # Проверяем permission recruiter_rules_view
+    user_id = session.get('user_id')
+    if not has_permission(user_id, 'recruiter_rules_view'):
+        abort(403)
+    return render_template('recruiter_rules.html', role=session.get('role', 'user'))
 
 # ==================== API ROUTES ====================
 
@@ -724,6 +736,18 @@ def api_roles_permissions():
     
     return jsonify({'success': True})
 
+@app.route('/api/permissions/check', methods=['POST'])
+@login_required
+def api_permissions_check():
+    """Проверяет, есть ли у текущего пользователя указанное право"""
+    data = request.json
+    permission = data.get('permission', '')
+    user_id = session.get('user_id')
+    if not permission:
+        return jsonify({'has_permission': False}), 400
+    result = has_permission(user_id, permission)
+    return jsonify({'has_permission': result})
+
 @app.route('/api/roles/create', methods=['POST'])
 @login_required
 def api_roles_create():
@@ -754,6 +778,7 @@ def api_roles_create():
         'roles_manage': permissions.get('roles_manage', False),
         'settings_manage': permissions.get('settings_manage', False),
         'questionnaires_view': permissions.get('questionnaires_view', False),
+        'recruiter_rules_view': permissions.get('recruiter_rules_view', False),
     }
     
     config.ROLE_NAMES[role_name] = role_display

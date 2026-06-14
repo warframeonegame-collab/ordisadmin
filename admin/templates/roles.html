@@ -98,35 +98,36 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {% for perm, desc in [
-                        ('dashboard', 'Главная страница'),
-                        ('members_view_own', 'Просмотр своего профиля'),
-                        ('members_view_all', 'Просмотр всех участников'),
-                        ('members_edit', 'Редактирование участников'),
-                        ('logs_view', 'Просмотр логов'),
-                        ('commands_use', 'Использование команд'),
-                        ('timers_view', 'Просмотр таймеров'),
-                        ('roles_manage', 'Управление ролями'),
-                        ('settings_manage', 'Настройки сайта'),
-                        ('questionnaires_view', 'Просмотр анкет'),
-                    ] %}
-                    <tr>
-                        <td>{{ desc }}</td>
-                        {% for r in ['user', 'recruiter', 'admin', 'cofounder', 'founder'] %}
-                        <td>
-                            <span class="perm-toggle clickable" data-role="{{ r }}" data-perm="{{ perm }}" 
-                                  data-enabled="{{ 'true' if role_permissions[r].get(perm) else 'false' }}"
-                                  data-editable="{{ 'true' if role == 'founder' else 'false' }}">
-                                {% if role_permissions[r].get(perm) %}
-                                <i class="fas fa-check text-success"></i>
-                                {% else %}
-                                <i class="fas fa-times text-danger"></i>
-                                {% endif %}
-                            </span>
-                        </td>
-                        {% endfor %}
-                    </tr>
+                {% for perm, desc in [
+                    ('dashboard', 'Главная страница'),
+                    ('members_view_own', 'Просмотр своего профиля'),
+                    ('members_view_all', 'Просмотр всех участников'),
+                    ('members_edit', 'Редактирование участников'),
+                    ('logs_view', 'Просмотр логов'),
+                    ('commands_use', 'Использование команд'),
+                    ('timers_view', 'Просмотр таймеров'),
+                    ('roles_manage', 'Управление ролями'),
+                    ('settings_manage', 'Настройки сайта'),
+                    ('questionnaires_view', 'Просмотр анкет'),
+                    ('recruiter_rules_view', 'Правила рекрутеров'),
+                ] %}
+                <tr>
+                    <td>{{ desc }}</td>
+                    {% for r in ['user', 'recruiter', 'admin', 'cofounder', 'founder'] %}
+                    <td>
+                        <span class="perm-toggle clickable" data-role="{{ r }}" data-perm="{{ perm }}" 
+                              data-enabled="{{ 'true' if role_permissions[r].get(perm) else 'false' }}"
+                              data-editable="{{ 'true' if role == 'founder' else 'false' }}">
+                            {% if role_permissions[r].get(perm) %}
+                            <i class="fas fa-check text-success"></i>
+                            {% else %}
+                            <i class="fas fa-times text-danger"></i>
+                            {% endif %}
+                        </span>
+                    </td>
                     {% endfor %}
+                </tr>
+                {% endfor %}
                 </tbody>
             </table>
         </div>
@@ -170,6 +171,7 @@
                         ('roles_manage', 'Роли'),
                         ('settings_manage', 'Настройки'),
                         ('questionnaires_view', 'Анкеты'),
+                        ('recruiter_rules_view', 'Правила рекрутеров'),
                     ] %}
                     <div class="col-md-4">
                         <div class="form-check">
@@ -305,7 +307,7 @@ document.getElementById('createRoleForm')?.addEventListener('submit', async (e) 
     const roleDisplay = formData.get('role_display');
     
     const permissions = {};
-    const permKeys = ['dashboard', 'members_view_own', 'members_view_all', 'members_edit', 'logs_view', 'commands_use', 'timers_view', 'roles_manage', 'settings_manage', 'questionnaires_view'];
+    const permKeys = ['dashboard', 'members_view_own', 'members_view_all', 'members_edit', 'logs_view', 'commands_use', 'timers_view', 'roles_manage', 'settings_manage', 'questionnaires_view', 'recruiter_rules_view'];
     permKeys.forEach(perm => {
         permissions[perm] = formData.has('perm_' + perm);
     });

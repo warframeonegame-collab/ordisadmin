@@ -1,12 +1,15 @@
 {% extends 'base.html' %}
 
-{% block title %}Правила{% endblock %}
+{% block title %}Правила для рекрутеров{% endblock %}
 
 {% block content %}
+<div class="page-header">
+    <h1><i class="fas fa-user-plus"></i> Правила для рекрутеров</h1>
+</div>
 
 <div class="card">
     <div class="card-body">
-        <div id="rules-container" data-role="{{ role }}" data-user-id="{{ session.get('user_id', '') }}">
+        <div id="recruiter-rules-container">
             <div class="text-center py-4">
                 <div class="spinner-border text-primary" role="status">
                     <span class="visually-hidden">Загрузка...</span>
@@ -16,7 +19,6 @@
         </div>
     </div>
 </div>
-
 {% endblock %}
 
 {% block scripts %}
@@ -102,51 +104,37 @@
     border-radius: 8px;
     background: #fff;
 }
-.rules-fallback {
-    text-align: center;
-    padding: 2rem;
-}
-.rules-fallback a {
-    color: #e91e63;
-    font-size: 1.2rem;
-}
 
-/* Кнопка для перехода к правилам рекрутеров */
-.recruiter-rules-btn-wrapper {
+/* Кнопка возврата к основным правилам */
+.back-btn-wrapper {
     text-align: center;
     margin-top: 2rem;
     padding: 1.5rem;
     border-top: 1px solid #3a3a3a;
 }
-.recruiter-rules-btn {
+.back-btn {
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
     padding: 0.75rem 2rem;
-    background: linear-gradient(135deg, var(--accent-pink), var(--accent-purple));
-    color: #fff;
+    background: transparent;
+    color: var(--accent-pink);
     text-decoration: none;
     border-radius: 8px;
     font-weight: 600;
     transition: all 0.3s ease;
-    border: none;
+    border: 1px solid var(--accent-pink);
     cursor: pointer;
     font-size: 1rem;
 }
-.recruiter-rules-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 5px 20px rgba(233, 30, 99, 0.4);
-    color: #fff;
-}
-.recruiter-rules-btn i {
-    font-size: 1.1rem;
+.back-btn:hover {
+    background: rgba(233, 30, 99, 0.15);
+    color: var(--accent-pink);
 }
 </style>
 <script>
-let recruiterRulesBtnShown = false;
-
-async function loadRules() {
-    const container = document.getElementById('rules-container');
+async function loadRecruiterRules() {
+    const container = document.getElementById('recruiter-rules-container');
     const docId = '1-tbBVPKZZRZQduyspKD8gbH0al3Mr20Wul27NNOkgio';
     const exportUrl = 'https://docs.google.com/document/d/' + docId + '/export?format=html';
     
@@ -155,7 +143,6 @@ async function loadRules() {
         if (!resp.ok) throw new Error('Failed to fetch');
         const html = await resp.text();
         
-        // Извлекаем только body содержимое
         const parser = new DOMParser();
         const doc = parser.parseFromString(html, 'text/html');
         const body = doc.body;
@@ -163,17 +150,48 @@ async function loadRules() {
         if (body && body.innerHTML.trim()) {
             container.innerHTML = '<div class="rules-content">' + body.innerHTML + '</div>';
             
-            // Скрываем все секции с заголовками, содержащими "рекрутер" или "рекрутинг"
+            // Скрываем всё, КРОМЕ секций с рекрутерами
             const headings = container.querySelectorAll('h1, h2, h3, h4, h5');
-            let recruiterSectionFound = false;
+            let insideRecruiterSection = false;
+            let recruiterSectionContent = [];
+            
             headings.forEach(h => {
                 const text = h.textContent.toLowerCase();
+                const tagLevel = parseInt(h.tagName.substring(1));
+                
                 if (text.includes('рекрутер') || text.includes('рекрутинг')) {
-                    recruiterSectionFound = true;
-                    // Скрываем заголовок и все следующие элементы до следующего заголовка того же уровня или выше
+                    insideRecruiterSection = true;
+                    // Показываем этот заголовок
+                    h.style.display = '';
+                    recruiterSectionContent.push(h);
+                    
+                    // Собираем все элементы до следующего заголовка того же уровня
                     let el = h.nextElementSibling;
-                    const tagLevel = parseInt(h.tagName.substring(1));
+                    while (el) {
+                        if (el.tagName && el.tagName.match(/^H[1-5]$/)) {
+                            const nextLevel = parseInt(el.tagName.substring(1));
+                            if (nextLevel <= tagLevel) break;
+                        }
+                        el.style.display = '';
+                        recruiterSectionContent.push(el);
+                        el = el.nextElementSibling;
+                    }
+                } else if (!insideRecruiterSection) {
+                    // Скрываем всё до найденной секции рекрутеров
                     h.style.display = 'none';
+                    let el = h.nextElementSibling;
+                    while (el) {
+                        if (el.tagName && el.tagName.match(/^H[1-5]$/)) {
+                            const nextLevel = parseInt(el.tagName.substring(1));
+                            if (nextLevel <= tagLevel) break;
+                        }
+                        el.style.display = 'none';
+                        el = el.nextElementSibling;
+                    }
+                } else {
+                    // После секции рекрутеров — скрываем всё остальное
+                    h.style.display = 'none';
+                    let el = h.nextElementSibling;
                     while (el) {
                         if (el.tagName && el.tagName.match(/^H[1-5]$/)) {
                             const nextLevel = parseInt(el.tagName.substring(1));
@@ -185,54 +203,24 @@ async function loadRules() {
                 }
             });
             
-            // Добавляем кнопку перехода к правилам рекрутеров
-            if (recruiterSectionFound) {
-                addRecruiterRulesButton();
-            }
+            // Добавляем кнопку возврата
+            const btnWrapper = document.createElement('div');
+            btnWrapper.className = 'back-btn-wrapper';
+            btnWrapper.innerHTML = `
+                <a href="/rules" class="back-btn">
+                    <i class="fas fa-arrow-left"></i> Вернуться к основным правилам
+                </a>
+            `;
+            container.querySelector('.rules-content').appendChild(btnWrapper);
         } else {
             throw new Error('Empty content');
         }
     } catch (e) {
-        console.error('Failed to load rules:', e);
+        console.error('Failed to load recruiter rules:', e);
         container.innerHTML = '<iframe class="rules-iframe" src="https://docs.google.com/document/d/' + docId + '/preview"></iframe>';
     }
 }
 
-async function addRecruiterRulesButton() {
-    const container = document.getElementById('rules-container');
-    const rulesContent = container.querySelector('.rules-content');
-    if (!rulesContent) return;
-    
-    // Проверяем permission через API
-    const userId = container.getAttribute('data-user-id');
-    let hasPerm = false;
-    try {
-        const resp = await fetch('/api/permissions/check', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ permission: 'recruiter_rules_view' })
-        });
-        if (resp.ok) {
-            const data = await resp.json();
-            hasPerm = data.has_permission;
-        }
-    } catch (e) {
-        console.error('Failed to check permission:', e);
-    }
-    
-    if (hasPerm) {
-        const btnWrapper = document.createElement('div');
-        btnWrapper.className = 'recruiter-rules-btn-wrapper';
-        btnWrapper.innerHTML = `
-            <a href="/recruiter-rules" class="recruiter-rules-btn">
-                <i class="fas fa-user-plus"></i> Правила для рекрутеров
-            </a>
-        `;
-        rulesContent.appendChild(btnWrapper);
-        recruiterRulesBtnShown = true;
-    }
-}
-
-loadRules();
+loadRecruiterRules();
 </script>
 {% endblock %}
