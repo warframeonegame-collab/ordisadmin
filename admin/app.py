@@ -50,21 +50,13 @@ def get_db():
     return _db_instance
 
 def load_database():
-    """Загружает database.json через единый Database (исключая системные ключи)"""
-    all_data = get_db().get_all_users()
-    return {uid: data for uid, data in all_data.items() if not uid.startswith('_')}
+    """Загружает database.json через единый Database"""
+    return get_db().get_all_users()
 
 def save_database(data):
-    """Сохраняет database.json через единый Database (замена только пользователей)"""
+    """Сохраняет database.json через единый Database"""
     db = get_db()
-    # Сохраняем системные ключи (_site_roles и т.д.)
-    system_keys = {k: v for k, v in db.data.items() if k.startswith('_')}
-    # Обновляем данные пользователей
-    for uid, user_data in data.items():
-        if not uid.startswith('_'):
-            db.data[uid] = user_data
-    # Восстанавливаем системные данные
-    db.data.update(system_keys)
+    db.data = data
     db.save_data()
 
 def get_user_role(user_id):
