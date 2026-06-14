@@ -284,6 +284,31 @@ class Verification(commands.Cog):
 
         self.db.update_user(user_id, questionnaire=questionnaire_data)
 
+        # Если пользователь указал имя — добавляем его в скобках к нику на сервере
+        real_name = answers.get('name', '').strip()
+        if real_name and real_name.lower() not in ['не указано', '-', 'пропустить', 'skip', '']:
+            try:
+                current_nick = member.display_name
+                # Проверяем, нет ли уже скобок с именем
+                if '(' not in current_nick and ')' not in current_nick:
+                    new_nick = f"{current_nick} ({real_name})"
+                    # Ограничение на 32 символа
+                    if len(new_nick) <= 32:
+                        await member.edit(nick=new_nick)
+                        print(f"[Questionnaire] Ник изменён на '{new_nick}' для {user_id}")
+                    else:
+                        # Обрезаем игровой ник если слишком длинный
+                        max_game_nick_len = 32 - len(real_name) - 4  # 4 = " ()"
+                        if max_game_nick_len > 5:
+                            trimmed_nick = current_nick[:max_game_nick_len]
+                            new_nick = f"{trimmed_nick} ({real_name})"
+                            await member.edit(nick=new_nick)
+                            print(f"[Questionnaire] Ник изменён на '{new_nick}' (обрезан) для {user_id}")
+            except discord.Forbidden:
+                print(f"[Questionnaire] Нет прав для изменения ника {user_id}")
+            except Exception as e:
+                print(f"[Questionnaire] Ошибка изменения ника {user_id}: {e}")
+
         # Отправляем подтверждение в ЛС
         try:
             dm_channel = await member.create_dm()
@@ -355,6 +380,76 @@ class Verification(commands.Cog):
             print(f"[Questionnaire] Анкета {member.id} отправлена в канал рекрутинга")
         except Exception as e:
             print(f"[Questionnaire] Ошибка отправки анкеты: {e}")
+
+    # ==================== КОМАНДА МАССОВОЙ РАССЫЛКИ АНКЕТЫ ====================
+
+    @commands.command(name="sendquestionnaire")
+    @commands.has_permissions(administrator=True)
+    async def send_questionnaire_to_all(self, ctx):
+        """Отправляет анкету рекрутинга всем участникам сервера в ЛС (только для администрации)"""
+        await ctx.message.delete()
+        
+        msg = await ctx.send("⏳ Начинаю отправку анкет всем участникам...")
+        
+        sent_count = 0
+        fail_count = 0
+        already_filled = 0
+        
+        for member in ctx.guild.members:
+            if member.bot:
+                continue
+            
+            user_id = member.id
+            
+            # Проверяем, не заполнена ли уже анкета
+            user_data = self.db.get_user(user_id)
+            if user_data.get('questionnaire'):
+                already_filled += 1
+                continue
+            
+            # Проверяем, не в процессе ли уже
+            if user_id in self._questionnaire_state:
+                continue
+            
+            try:
+                dm_channel = await member.create_dm()
+                
+                welcome_embed = discord.Embed(
+                    title="📋 Анкета рекрута",
+                    description=(
+                        f"Привет, **{member.display_name}**! 🎉\n\n"
+                        f"Добро пожаловать в **Arasaka Plaza**!\n"
+                        f"Пожалуйста, заполни короткую анкету — это поможет нам лучше тебя узнать.\n\n"
+                        f"Всего **{len(RECRUITMENT_QUESTIONS)}** вопросов. "
+                        f"Отвечай на каждый по очереди.\n"
+                        f"_Чтобы пропустить вопрос — напиши «-» или «пропустить»._"
+                    ),
+                    color=discord.Color.blurple()
+                )
+                await dm_channel.send(embed=welcome_embed)
+                
+                # Начинаем анкету
+                self._questionnaire_state[user_id] = 0
+                await self._send_current_question(member, dm_channel)
+                sent_count += 1
+                
+                # Небольшая задержка, чтобы не спамить Discord API
+                await asyncio.sleep(0.5)
+                
+            except discord.Forbidden:
+                fail_count += 1
+            except Exception as e:
+                print(f"[MassQuestionnaire] Ошибка для {user_id}: {e}")
+                fail_count += 1
+        
+        # Отправляем отчёт
+        report = (
+            f"📊 **Отчёт о массовой отправке анкет:**\n"
+            f"✅ Отправлено: **{sent_count}**\n"
+            f"❌ Ошибок (ЛС закрыты): **{fail_count}**\n"
+            f"⏭️ Уже заполнено: **{already_filled}**"
+        )
+        await msg.edit(content=report)
 
 
 async def setup(bot):

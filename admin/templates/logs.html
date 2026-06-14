@@ -5,7 +5,7 @@
 {% block content %}
 <div class="page-header">
     <h1><i class="fas fa-list-alt"></i> Логи</h1>
-    <p class="text-muted">Просмотр логов действий из Discord</p>
+    <p class="text-muted">Просмотр логов действий из Discord и сайта</p>
 </div>
 
 <!-- Фильтры -->
@@ -24,7 +24,9 @@
                     <option value="ban">Баны</option>
                     <option value="role">Изменение ролей</option>
                     <option value="voice">Голосовые каналы</option>
+                    <option value="channel">Каналы</option>
                     <option value="recruitment">Рекрутинг</option>
+                    <option value="site">Действия на сайте</option>
                 </select>
             </div>
             <div class="col-md-3">
@@ -45,7 +47,7 @@
                 <button type="button" class="btn btn-primary me-2" onclick="loadLogs()">
                     <i class="fas fa-filter"></i>
                 </button>
-                <button type="button" class="btn btn-outline-secondary" onclick="loadLogs()">
+                <button type="button" class="btn btn-outline-secondary" onclick="resetFilters()">
                     <i class="fas fa-sync"></i>
                 </button>
             </div>
@@ -61,20 +63,56 @@
                 <div class="spinner-border text-primary" role="status">
                     <span class="visually-hidden">Загрузка...</span>
                 </div>
-                <p class="mt-2">Загрузка логов из Discord...</p>
+                <p class="mt-2">Загрузка логов...</p>
             </div>
         </div>
+        
+        <!-- Пагинация -->
+        <nav id="pagination-nav" class="mt-3 d-none" aria-label="Навигация по страницам">
+            <ul class="pagination justify-content-center">
+                <li class="page-item" id="prev-page">
+                    <a class="page-link" href="#" onclick="changePage(-1)"><i class="fas fa-chevron-left"></i></a>
+                </li>
+                <li class="page-item disabled">
+                    <span class="page-link" id="page-info">Страница 1 из 1</span>
+                </li>
+                <li class="page-item" id="next-page">
+                    <a class="page-link" href="#" onclick="changePage(1)"><i class="fas fa-chevron-right"></i></a>
+                </li>
+            </ul>
+        </nav>
     </div>
 </div>
 
 {% endblock %}
 
 {% block scripts %}
+<div id="initial-data"
+     data-page="{{ page | default(1) }}"
+     data-type="{{ log_type | default('all') }}"
+     data-user="{{ user_filter | default('') }}"
+     data-date-from="{{ date_from | default('') }}"
+     data-date-to="{{ date_to | default('') }}"
+     style="display:none;"></div>
 <style>
 .log-entry { border-left: 4px solid #9b59b6; background: #1a1a1a; border-radius: 8px; padding: 12px 16px; margin-bottom: 12px; transition: transform 0.2s; }
 .log-entry:hover { transform: translateX(3px); }
+.log-entry .source-badge { font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; }
+.source-discord { background: #5865F2; color: #fff; }
+.source-site { background: #9b59b6; color: #fff; }
+.page-link { background: #252525; border-color: #3a3a3a; color: #b0b0b0; }
+.page-link:hover { background: #e91e63; border-color: #e91e63; color: #fff; }
+.page-item.disabled .page-link { background: #1a1a1a; border-color: #3a3a3a; color: #666; }
 </style>
 <script>
+let initData = document.getElementById('initial-data').dataset;
+let currentPage = parseInt(initData.page) || 1;
+let currentType = initData.type || 'all';
+let currentUserFilter = initData.user || '';
+let currentDateFrom = initData.dateFrom || '';
+let currentDateTo = initData.dateTo || '';
+let totalPages = 1;
+
 // Загрузка списка пользователей для фильтра
 async function loadUsers() {
     try {
@@ -89,9 +127,33 @@ async function loadUsers() {
                 select.appendChild(opt);
             }
         }
+        // Устанавливаем выбранного пользователя если передан
+        if (currentUserFilter) {
+            select.value = currentUserFilter;
+        }
     } catch (e) {
         console.error('Failed to load users:', e);
     }
+}
+
+function resetFilters() {
+    document.getElementById('log-type').value = 'all';
+    document.getElementById('log-user').value = '';
+    document.getElementById('log-date-from').value = '';
+    document.getElementById('log-date-to').value = '';
+    currentPage = 1;
+    currentType = 'all';
+    currentUserFilter = '';
+    currentDateFrom = '';
+    currentDateTo = '';
+    loadLogs();
+}
+
+function changePage(delta) {
+    const newPage = currentPage + delta;
+    if (newPage < 1 || newPage > totalPages) return;
+    currentPage = newPage;
+    loadLogs();
 }
 
 async function loadLogs() {
@@ -99,6 +161,13 @@ async function loadLogs() {
     const logType = document.getElementById('log-type').value;
     const userSelect = document.getElementById('log-user');
     const userFilter = userSelect.value;
+    const dateFrom = document.getElementById('log-date-from').value;
+    const dateTo = document.getElementById('log-date-to').value;
+    
+    currentType = logType;
+    currentUserFilter = userFilter;
+    currentDateFrom = dateFrom;
+    currentDateTo = dateTo;
     
     container.innerHTML = `
         <div class="text-center py-4">
@@ -108,9 +177,7 @@ async function loadLogs() {
     `;
     
     try {
-        const dateFrom = document.getElementById('log-date-from').value;
-        const dateTo = document.getElementById('log-date-to').value;
-        let url = `/api/logs?type=${logType}&per_page=50`;
+        let url = `/api/logs?type=${logType}&page=${currentPage}&per_page=50`;
         if (userFilter) url += `&user_id=${encodeURIComponent(userFilter)}`;
         if (dateFrom) url += `&date_from=${dateFrom}`;
         if (dateTo) url += `&date_to=${dateTo}`;
@@ -130,74 +197,72 @@ async function loadLogs() {
         }
         
         const logs = data.logs || [];
-        const channelName = data.channel_name || 'логи';
+        totalPages = data.total_pages || 1;
         
         if (logs.length === 0) {
             container.innerHTML = `
                 <div class="text-center text-muted py-4">
                     <i class="fas fa-inbox fa-3x mb-3"></i>
                     <h5>Логи не найдены</h5>
-                    <p>В канале <strong>#${channelName}</strong> пока нет сообщений</p>
+                    <p>По заданным фильтрам ничего не найдено</p>
                 </div>
             `;
+            updatePagination();
             return;
         }
         
         let html = `
             <div class="mb-3 text-muted small">
-                <i class="fas fa-hashtag"></i> Канал: <strong>#${channelName}</strong> &middot; 
-                <span id="log-count">${logs.length}</span> записей
+                <i class="fas fa-database"></i> Всего записей: <strong>${data.total}</strong> &middot; 
+                Страница ${currentPage} из ${totalPages}
             </div>
         `;
         
         for (const log of logs) {
-            const date = new Date(log.timestamp);
-            const dateStr = date.toLocaleString('ru-RU');
-            
-            // Фильтр по дате на клиенте (для точности)
-            if (dateFrom) {
-                const from = new Date(dateFrom + 'T00:00:00');
-                if (date < from) continue;
-            }
-            if (dateTo) {
-                const to = new Date(dateTo + 'T23:59:59');
-                if (date > to) continue;
-            }
+            const timestamp = log.timestamp;
+            let dateStr = timestamp;
+            try {
+                const date = new Date(timestamp);
+                dateStr = date.toLocaleString('ru-RU');
+            } catch(e) {}
             
             let borderColor = '#9b59b6';
             let typeLabel = '📝 Действие';
             
-            if (log.embeds && log.embeds.length > 0) {
-                const title = (log.embeds[0].title || '').toLowerCase();
-                if (title.includes('ошибка') || title.includes('бан') || title.includes('удалён') || title.includes('удалено')) {
-                    borderColor = '#dc3545'; typeLabel = '❌ Удаление';
-                } else if (title.includes('выполнена') || title.includes('новый') || title.includes('создан') || title.includes('подключение')) {
-                    borderColor = '#28a745'; typeLabel = '✅ Выполнение';
-                } else if (title.includes('изменение') || title.includes('отредактировано')) {
-                    borderColor = '#f1c40f'; typeLabel = '✏️ Изменение';
-                } else if (title.includes('покинул') || title.includes('отключение') || title.includes('удален')) {
-                    borderColor = '#e67e22'; typeLabel = '🚪 Выход';
-                } else if (title.includes('разбан')) {
-                    borderColor = '#28a745'; typeLabel = '🔓 Разбан';
-                } else if (title.includes('рол')) {
-                    borderColor = '#1abc9c'; typeLabel = '🛡️ Роли';
-                } else if (title.includes('голосов')) {
-                    borderColor = '#3498db'; typeLabel = '🎤 Голос';
-                } else if (title.includes('анкет') || title.includes('рекрут')) {
-                    borderColor = '#9b59b6'; typeLabel = '📋 Рекрутинг';
-                } else if (title.includes('канал') || title.includes('категори')) {
-                    borderColor = '#2ecc71'; typeLabel = '📁 Каналы';
-                }
+            const title = (log.title || '').toLowerCase();
+            if (title.includes('ошибка') || title.includes('бан') || title.includes('удалён') || title.includes('удалено')) {
+                borderColor = '#dc3545'; typeLabel = '❌ Удаление/Бан';
+            } else if (title.includes('выполнена') || title.includes('новый') || title.includes('создан') || title.includes('подключение') || title.includes('вход')) {
+                borderColor = '#28a745'; typeLabel = '✅ Создание/Вход';
+            } else if (title.includes('изменение') || title.includes('отредактировано') || title.includes('редактирование')) {
+                borderColor = '#f1c40f'; typeLabel = '✏️ Изменение';
+            } else if (title.includes('покинул') || title.includes('отключение') || title.includes('удален') || title.includes('выход')) {
+                borderColor = '#e67e22'; typeLabel = '🚪 Выход';
+            } else if (title.includes('разбан')) {
+                borderColor = '#28a745'; typeLabel = '🔓 Разбан';
+            } else if (title.includes('рол')) {
+                borderColor = '#1abc9c'; typeLabel = '🛡️ Роли';
+            } else if (title.includes('голосов')) {
+                borderColor = '#3498db'; typeLabel = '🎤 Голос';
+            } else if (title.includes('анкет') || title.includes('рекрут')) {
+                borderColor = '#9b59b6'; typeLabel = '📋 Рекрутинг';
+            } else if (title.includes('канал') || title.includes('категори')) {
+                borderColor = '#2ecc71'; typeLabel = '📁 Каналы';
+            } else if (title.includes('сайт') || title.includes('site')) {
+                borderColor = '#e91e63'; typeLabel = '🌐 Сайт';
             }
             
-            // Показываем никнейм на сервере, если есть, иначе username
-            const displayName = log.author_nickname || log.author || 'Система';
+            const displayName = log.author_name || log.author_id || 'Система';
+            const sourceBadge = log.source === 'site' 
+                ? '<span class="source-badge source-site"><i class="fas fa-globe"></i> Сайт</span>'
+                : '<span class="source-badge source-discord"><i class="fab fa-discord"></i> Discord</span>';
             
             html += `
                 <div class="log-entry" style="border-left-color: ${borderColor};">
                     <div class="d-flex justify-content-between align-items-start mb-2">
                         <div>
                             <span class="badge bg-secondary me-2" style="font-size: 0.75rem;">${typeLabel}</span>
+                            ${sourceBadge}
                             <strong style="color: #e91e63; font-size: 1.05rem;">${displayName}</strong>
                             <span class="text-muted ms-2" style="font-size: 0.8rem;">
                                 <code>${log.author_id || ''}</code>
@@ -205,32 +270,23 @@ async function loadLogs() {
                         </div>
                         <small class="text-muted"><i class="far fa-clock"></i> ${dateStr}</small>
                     </div>
+                    
+                    <div class="fw-bold mb-1" style="color: #fff; font-size: 1rem;">${log.title || ''}</div>
+                    
+                    <div class="mb-1" style="color: #b0b0b0; white-space: pre-wrap; font-size: 0.9rem; line-height: 1.5;">${log.description || ''}</div>
+                    
+                    ${log.fields && log.fields.length > 0 ? log.fields.map(f => `
+                        <div class="mb-1" style="font-size: 0.85rem;">
+                            <span style="color: #888;">${f.name || f.key || ''}:</span> 
+                            <span style="color: #ccc;">${f.value || ''}</span>
+                        </div>
+                    `).join('') : ''}
+                </div>
             `;
-            
-            if (log.embeds && log.embeds.length > 0) {
-                for (const embed of log.embeds) {
-                    if (embed.title) {
-                        html += `<div class="fw-bold mb-1" style="color: #fff; font-size: 1rem;">${embed.title}</div>`;
-                    }
-                    if (embed.description) {
-                        html += `<div class="mb-1" style="color: #b0b0b0; white-space: pre-wrap; font-size: 0.9rem; line-height: 1.5;">${embed.description}</div>`;
-                    }
-                    if (embed.fields && embed.fields.length > 0) {
-                        for (const field of embed.fields) {
-                            html += `<div class="mb-1" style="font-size: 0.85rem;"><span style="color: #888;">${field.name}:</span> <span style="color: #ccc;">${field.value}</span></div>`;
-                        }
-                    }
-                }
-            }
-            
-            if (log.content) {
-                html += `<div class="small mt-1" style="color: #666; font-style: italic;">${log.content}</div>`;
-            }
-            
-            html += `</div>`;
         }
         
         container.innerHTML = html;
+        updatePagination();
         
     } catch (e) {
         console.error('Failed to load logs:', e);
@@ -243,6 +299,33 @@ async function loadLogs() {
         `;
     }
 }
+
+function updatePagination() {
+    const nav = document.getElementById('pagination-nav');
+    const pageInfo = document.getElementById('page-info');
+    const prevItem = document.getElementById('prev-page');
+    const nextItem = document.getElementById('next-page');
+    
+    if (totalPages <= 1) {
+        nav.classList.add('d-none');
+        return;
+    }
+    
+    nav.classList.remove('d-none');
+    pageInfo.textContent = `Страница ${currentPage} из ${totalPages}`;
+    
+    prevItem.classList.toggle('disabled', currentPage <= 1);
+    nextItem.classList.toggle('disabled', currentPage >= totalPages);
+}
+
+// Устанавливаем значения из URL параметров
+document.addEventListener('DOMContentLoaded', function() {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('type')) document.getElementById('log-type').value = params.get('type');
+    if (params.get('date_from')) document.getElementById('log-date-from').value = params.get('date_from');
+    if (params.get('date_to')) document.getElementById('log-date-to').value = params.get('date_to');
+    if (params.get('page')) currentPage = parseInt(params.get('page'));
+});
 
 loadUsers();
 loadLogs();

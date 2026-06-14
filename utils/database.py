@@ -1,6 +1,7 @@
 import json
 import os
 from datetime import datetime
+from typing import Optional
 import config
 
 class Database:
@@ -229,4 +230,30 @@ class Database:
 
     def __del__(self):
         """Сохраняет данные при уничтожении объекта"""
+        self.save_data()
+
+    # ==================== SITE ROLES PERSISTENCE ====================
+
+    def get_site_roles(self) -> dict:
+        """Возвращает сохранённые site_roles из БД"""
+        return self.data.get('_site_roles', {})
+
+    def set_site_role(self, user_id: str, role: str):
+        """Устанавливает роль пользователя на сайте и сохраняет в БД"""
+        if '_site_roles' not in self.data:
+            self.data['_site_roles'] = {}
+        self.data['_site_roles'][str(user_id)] = role
+        self.save_data()
+
+    def remove_site_role(self, user_id: str):
+        """Удаляет роль пользователя на сайте"""
+        if '_site_roles' in self.data and str(user_id) in self.data['_site_roles']:
+            del self.data['_site_roles'][str(user_id)]
+            self.save_data()
+
+    def merge_site_roles(self, roles: dict):
+        """Сливает переданные site_roles с сохранёнными (для миграции из хардкода)"""
+        current = self.get_site_roles()
+        current.update(roles)
+        self.data['_site_roles'] = current
         self.save_data()
