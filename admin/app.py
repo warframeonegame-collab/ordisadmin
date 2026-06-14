@@ -37,18 +37,30 @@ except Exception as e:
 
 # ==================== HELPERS ====================
 
+# Используем единый Database класс (как и бот), чтобы не перезаписывать данные
+_db_instance = None
+def get_db():
+    global _db_instance
+    if _db_instance is None:
+        _db_instance = Database()
+    return _db_instance
+
 def load_database():
-    """Загружает database.json"""
-    try:
-        with open(config.DATABASE_PATH, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        return {}
+    """Загружает database.json через единый Database"""
+    return get_db().get_all_users()
 
 def save_database(data):
-    """Сохраняет database.json"""
-    with open(config.DATABASE_PATH, 'w', encoding='utf-8') as f:
-        json.dump(data, f, indent=4, ensure_ascii=False)
+    """Сохраняет database.json через единый Database (замена только пользователей)"""
+    db = get_db()
+    # Сохраняем системные ключи (_site_roles и т.д.)
+    system_keys = {k: v for k, v in db.data.items() if k.startswith('_')}
+    # Обновляем данные пользователей
+    for uid, user_data in data.items():
+        if not uid.startswith('_'):
+            db.data[uid] = user_data
+    # Восстанавливаем системные данные
+    db.data.update(system_keys)
+    db.save_data()
 
 def get_user_role(user_id):
     """Возвращает роль пользователя на сайте (из БД с фолбеком на config)"""
@@ -579,31 +591,13 @@ def api_server_stats():
             
             for member in members:
                 member_roles = member.get('roles', [])
-                user = member.get('user', {})
-                
-                # Проверяем статус (presence недоступен через простой API)
-                # Используем статусы: если не оффлайн — считается онлайн
-                # (Примечание: presence требует дополнительного API)
                 
                 # Проверяем, есть ли роль старшего состава (Outside Tier или 1 Tier)
-                is_senior = False
                 for role_id in member_roles:
                     if str(role_id) in ['1492100129342357534', '1493218079528976414']:
-                        is_senior = True
                         break
                 
-                # Для определения онлайна проверяем presence пользователя
-                # Через отдельный запрос к /members/{id} неэффективно, 
-                # поэтому используем статусы из этого же ответа
-                # (Discord API member object содержит presence если запросить)
-                
-                # К сожалению, для точного онлайна нужен Gateway, 
-                # поэтому используем подсчёт из БД как fallback
-                online_count += 1  # Считаем всех участников сервера для total_on_server
-            
-            # Для реального онлайна — используем status из присутствия
-            # или оцениваем через активность на сервере
-            online_count = min(total_count, total_count)  # placeholder
+                online_count += 1
     
     except Exception as e:
         logging.warning(f"Не удалось получить статистику сервера: {e}")

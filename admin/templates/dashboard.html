@@ -68,7 +68,7 @@
     </div>
 </div>
 
-<!-- Статистика сервера (заменяет Warframe блок) -->
+<!-- Информация о сервере -->
 <div class="row mb-4">
     <div class="col-md-7">
         <div class="card">
@@ -142,27 +142,6 @@
     color: #888;
     font-size: 0.85rem;
 }
-.invite-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    padding: 12px 24px;
-    background: linear-gradient(135deg, #5865F2, #4752C4);
-    color: white;
-    text-decoration: none;
-    border-radius: 8px;
-    font-weight: 600;
-    font-size: 1.1rem;
-    transition: all 0.3s ease;
-    width: 100%;
-    justify-content: center;
-}
-.invite-btn:hover {
-    background: linear-gradient(135deg, #4752C4, #3a45b5);
-    transform: translateY(-2px);
-    box-shadow: 0 5px 20px rgba(88, 101, 242, 0.4);
-    color: white;
-}
 </style>
 <script>
 async function loadServerInfo() {
@@ -206,15 +185,6 @@ async function loadServerInfo() {
                     </div>
                     <i class="fas fa-crown fa-2x" style="color: #f1c40f; opacity: 0.3;"></i>
                 </div>
-            </div>
-            
-            <hr class="border-secondary">
-            
-            <div class="text-center">
-                <p class="text-muted mb-3"><i class="fas fa-info-circle"></i> Присоединяйся к нашему сообществу!</p>
-                <a href="${data.invite_url || '{{ invite_url }}'}" target="_blank" class="invite-btn">
-                    <i class="fab fa-discord"></i> Вступить в Arasaka Plaza
-                </a>
             </div>
         `;
     } catch (e) {

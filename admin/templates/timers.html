@@ -216,12 +216,17 @@ async function loadTimers() {
                     </div>
                 `;
                 if (baro.inventory && baro.inventory.length > 0) {
-                    html += `<hr><h6>📦 Товары (${baro.inventory.length}):</h6><div class="row">`;
-                    for (const item of baro.inventory.slice(0, 12)) {
+                    html += `<hr>
+                        <div class="baro-items-wrapper">
+                            <div class="d-flex justify-content-between align-items-center mb-2" style="cursor:pointer;" onclick="toggleBaroItems()">
+                                <h6 class="mb-0">📦 Товары Баро (${baro.inventory.length})</h6>
+                                <span id="baro-items-toggle"><i class="fas fa-chevron-down"></i></span>
+                            </div>
+                            <div id="baro-items-list" class="row" style="display:none;">`;
+                    for (const item of baro.inventory) {
                         html += `<div class="col-md-4 mb-2"><small>• ${item.item || item.name || 'Предмет'}</small></div>`;
                     }
-                    if (baro.inventory.length > 12) html += `<div class="col-12"><small class="text-muted">...и ещё ${baro.inventory.length - 12}</small></div>`;
-                    html += '</div>';
+                    html += `</div></div>`;
                 }
             } else if (isArriving) {
                 html = `
@@ -303,7 +308,8 @@ async function loadTimers() {
             if (state === 'day' || cycle.isDay) badgeClass = 'warning';
             else if (state === 'warm' || cycle.isWarm) badgeClass = 'warning';
             else if (state === 'fass') badgeClass = 'danger';
-            else if (state === 'vome' || state === 'night' || state === 'cold') badgeClass = 'dark';
+            else if (state === 'vome' || state === 'night') badgeClass = 'dark';
+            else if (state === 'cold') badgeClass = 'info';
             else if (state === 'unknown') badgeClass = 'secondary';
             
             cyclesHtml += `
@@ -353,6 +359,18 @@ async function loadTimers() {
     } catch (e) {
         console.error('Failed to load timers:', e);
         document.getElementById('baro-info').innerHTML = `<div class="text-center text-muted"><i class="fas fa-exclamation-circle fa-3x mb-3"></i><p>Не удалось загрузить данные</p></div>`;
+    }
+}
+
+function toggleBaroItems() {
+    const list = document.getElementById('baro-items-list');
+    const toggle = document.getElementById('baro-items-toggle');
+    if (list.style.display === 'none') {
+        list.style.display = 'flex';
+        toggle.innerHTML = '<i class="fas fa-chevron-up"></i>';
+    } else {
+        list.style.display = 'none';
+        toggle.innerHTML = '<i class="fas fa-chevron-down"></i>';
     }
 }
 
