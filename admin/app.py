@@ -37,6 +37,10 @@ except Exception as e:
 
 # ==================== HELPERS ====================
 
+def get_user_entries(db):
+    """Возвращает только пользовательские записи из БД (исключая системные ключи, начинающиеся с _)"""
+    return {uid: data for uid, data in db.items() if not uid.startswith('_')}
+
 # Используем единый Database класс (как и бот), чтобы не перезаписывать данные
 _db_instance = None
 def get_db():
@@ -46,8 +50,9 @@ def get_db():
     return _db_instance
 
 def load_database():
-    """Загружает database.json через единый Database"""
-    return get_db().get_all_users()
+    """Загружает database.json через единый Database (исключая системные ключи)"""
+    all_data = get_db().get_all_users()
+    return {uid: data for uid, data in all_data.items() if not uid.startswith('_')}
 
 def save_database(data):
     """Сохраняет database.json через единый Database (замена только пользователей)"""
