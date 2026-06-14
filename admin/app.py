@@ -406,6 +406,13 @@ def commands_page():
             'variables': []
         },
         {
+            'name': 'unwarn',
+            'description': 'Снять одно предупреждение',
+            'category': 'moderation',
+            'requires_user': True,
+            'variables': []
+        },
+        {
             'name': 'ban',
             'description': 'Выдать штрафную роль',
             'category': 'moderation',
@@ -521,6 +528,11 @@ def roles_page():
 def settings_page():
     return render_template('settings.html', role=session.get('role', 'user'))
 
+@app.route('/rules')
+@login_required
+def rules_page():
+    return render_template('rules.html', role=session.get('role', 'user'))
+
 # ==================== API ROUTES ====================
 
 @app.route('/api/members')
@@ -564,80 +576,34 @@ def api_stats():
 @login_required
 def api_server_stats():
     """Возвращает статистику сервера Discord (онлайн, старший состав)"""
-    online_count = 0
-    total_count = 0
-    senior_online = 0  # Outside Tier + 1 Tier
+    # Используем кэш presence из бота
+    presence_cache_file = os.path.join(config.DATA_DIR, 'presence_cache.json')
+    presence_cache = {}
     
     try:
-        headers = {'Authorization': f'Bot {config.DISCORD_BOT_TOKEN}'}
-        
-        # Получаем участников
-        resp = requests.get(
-            f'https://discord.com/api/guilds/{config.GUILD_ID}/members',
-            headers=headers,
-            params={'limit': 1000},
-            timeout=10
-        )
-        
-        if resp.status_code == 200:
-            members = resp.json()
-            total_count = len(members)
-            
-            for member in members:
-                member_roles = member.get('roles', [])
-                
-                # Проверяем, есть ли роль старшего состава (Outside Tier или 1 Tier)
-                for role_id in member_roles:
-                    if str(role_id) in ['1492100129342357534', '1493218079528976414']:
-                        break
-                
-                online_count += 1
-    
+        if os.path.exists(presence_cache_file):
+            with open(presence_cache_file, 'r', encoding='utf-8') as f:
+                presence_cache = json.load(f)
     except Exception as e:
-        logging.warning(f"Не удалось получить статистику сервера: {e}")
+        logging.warning(f"Не удалось загрузить кэш presence: {e}")
+    
+    # Роли старшего состава (Outside Tier + 1 Tier)
+    SENIOR_ROLE_IDS = ['1492100129342357534', '1493218079528976414']
+    
+    # Подсчёт онлайн
+    online_now = 0
+    senior_online_count = 0
+    for user_id, data in presence_cache.items():
+        status = data.get('status', 'offline')
+        if status in ('online', 'idle', 'dnd'):
+            online_now += 1
+            roles = data.get('roles', [])
+            if any(rid in SENIOR_ROLE_IDS for rid in roles):
+                senior_online_count += 1
     
     # Получаем данные из БД
     db = load_database()
     total_in_db = len(db)
-    
-    # Для онлайна используем информацию о голосовых каналах
-    online_now = 0
-    senior_online_count = 0
-    try:
-        # Получаем список голосовых каналов и участников в них
-        channels_resp = requests.get(
-            f'https://discord.com/api/guilds/{config.GUILD_ID}/channels',
-            headers={'Authorization': f'Bot {config.DISCORD_BOT_TOKEN}'},
-            timeout=10
-        )
-        if channels_resp.status_code == 200:
-            voice_channels = [ch for ch in channels_resp.json() if ch.get('type') in (2, 13)]  # voice, stage
-            
-            # Получаем информацию о каждом голосовом канале через members endpoint
-            members_resp = requests.get(
-                f'https://discord.com/api/guilds/{config.GUILD_ID}/members',
-                headers={'Authorization': f'Bot {config.DISCORD_BOT_TOKEN}'},
-                params={'limit': 1000},
-                timeout=10
-            )
-            if members_resp.status_code == 200:
-                all_members = members_resp.json()
-                # Проверяем presence каждого участника (если есть)
-                for m in all_members:
-                    presence = m.get('presence')
-                    if presence:
-                        status = presence.get('status', 'offline')
-                        if status in ('online', 'idle', 'dnd'):
-                            online_now += 1
-                            member_roles = m.get('roles', [])
-                            if any(str(rid) in ['1492100129342357534', '1493218079528976414'] for rid in member_roles):
-                                senior_online_count += 1
-    except Exception as e:
-        logging.warning(f"Не удалось определить онлайн статус: {e}")
-    
-    # Если не удалось получить presence через API, используем оценку
-    if online_now == 0:
-        online_now = max(1, total_in_db // 2)  # Примерно 50% онлайн
     
     # Считаем старший состав по наличию тиров в БД
     senior_total = 0
@@ -649,7 +615,7 @@ def api_server_stats():
     return jsonify({
         'total_members': total_in_db,
         'online_now': online_now,
-        'senior_online': senior_online_count if senior_online_count > 0 else max(1, senior_total // 2),
+        'senior_online': senior_online_count,
         'senior_total': senior_total,
         'invite_url': config.INVITE_URL,
     })
@@ -789,6 +755,65 @@ def api_roles_create():
     config.ROLE_NAMES[role_name] = role_display
     
     return jsonify({'success': True})
+
+@app.route('/api/members/add', methods=['POST'])
+@login_required
+def api_member_add():
+    """Ручное добавление пользователя по Discord ID (только founder/cofounder)"""
+    user_role = session.get('role', 'user')
+    if user_role not in ('founder', 'cofounder'):
+        return jsonify({'error': 'Insufficient permissions'}), 403
+    
+    data = request.json
+    user_id = str(data.get('user_id', '')).strip()
+    
+    if not user_id or not user_id.isdigit():
+        return jsonify({'error': 'Введите корректный Discord ID (только цифры)'}), 400
+    
+    db = load_database()
+    if user_id in db:
+        return jsonify({'error': 'Пользователь уже есть в базе данных'}), 400
+    
+    # Пытаемся получить информацию из Discord
+    nickname = ''
+    try:
+        headers = {'Authorization': f'Bot {config.DISCORD_BOT_TOKEN}'}
+        resp = requests.get(
+            f'https://discord.com/api/guilds/{config.GUILD_ID}/members/{user_id}',
+            headers=headers,
+            timeout=10
+        )
+        if resp.status_code == 200:
+            member_data = resp.json()
+            nickname = member_data.get('nick') or member_data.get('user', {}).get('username', '')
+    except Exception as e:
+        logging.warning(f"Не удалось получить данные участника {user_id} из Discord: {e}")
+    
+    # Создаём запись в БД
+    from datetime import datetime
+    new_user = {
+        'nickname': nickname,
+        'level': 1,
+        'xp': 0,
+        'position': '',
+        'subdivision': '',
+        'warns': [],
+        'banned': False,
+        'joined_at': datetime.now().strftime('%d.%m.%Y'),
+    }
+    
+    db[user_id] = new_user
+    save_database(db)
+    
+    # Логируем
+    logs_manager.log_site_action(
+        action='Добавление участника',
+        description=f'Добавлен участник {user_id} ({nickname}) вручную',
+        user_id=session.get('user_id', ''),
+        user_name=session.get('username', 'Unknown')
+    )
+    
+    return jsonify({'success': True, 'message': f'Участник {user_id} добавлен', 'nickname': nickname})
 
 @app.route('/api/members/update', methods=['POST'])
 @login_required

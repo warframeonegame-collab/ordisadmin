@@ -35,6 +35,11 @@
                     </a>
                 </li>
                 <li class="nav-item">
+                    <a class="nav-link {% if request.endpoint == 'rules_page' %}active{% endif %}" href="{{ url_for('rules_page') }}">
+                        <i class="fas fa-book"></i><span>Правила</span>
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a class="nav-link {% if request.endpoint == 'commands_page' %}active{% endif %}" href="{{ url_for('commands_page') }}">
                         <i class="fas fa-terminal"></i><span>Команды</span>
                     </a>

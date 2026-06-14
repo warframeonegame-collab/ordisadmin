@@ -199,6 +199,66 @@ class Moderation(commands.Cog):
         else:
             await ctx.send(f"✅ {member.mention} получил варн ({len(warns)}/3). Причина: {reason}", delete_after=10)
 
+    @commands.command(name="unwarn")
+    async def unwarn(self, ctx, member: discord.Member):
+        """Снимает одно предупреждение с пользователя (последнее)."""
+        if not self._check_permission(ctx.author):
+            await ctx.send("❌ У вас нет прав для этой команды.", delete_after=10)
+            return
+
+        try:
+            await ctx.message.delete()
+        except Exception:
+            pass
+
+        user_data = self.db.get_user(member.id)
+        warns = user_data.get('warns', [])
+
+        if not warns:
+            await ctx.send(f"❌ У {member.mention} нет предупреждений.", delete_after=10)
+            return
+
+        # Удаляем последний warn
+        removed_warn = warns.pop()
+        self.db.update_user(member.id, warns=warns)
+
+        # Если штрафная роль есть — снимаем её и возвращаем роли
+        penalty_role = member.guild.get_role(PENALTY_ROLE_ID)
+        if penalty_role and penalty_role in member.roles:
+            saved_role_ids = user_data.get('saved_roles', [])
+            restored_roles = []
+            for role_id in saved_role_ids:
+                role = member.guild.get_role(role_id)
+                if role and role not in member.roles:
+                    restored_roles.append(role)
+
+            try:
+                await member.remove_roles(penalty_role, reason="Unwarn: снятие штрафной роли")
+                if restored_roles:
+                    await member.add_roles(*restored_roles, reason="Unwarn: восстановление ролей")
+                self.db.update_user(member.id,
+                                    saved_roles=[],
+                                    position=user_data.get('saved_position'),
+                                    subdivision=user_data.get('saved_subdivision'))
+            except Exception as e:
+                logging.error(f"[Moderation] Ошибка при снятии штрафной роли для {member.id}: {e}")
+
+        reason = removed_warn.get('reason', 'Причина не указана')
+        date = removed_warn.get('date', '')
+        remaining = len(warns)
+
+        if penalty_role and penalty_role not in member.roles and remaining < 3:
+            await ctx.send(
+                f"✅ Снят варн с {member.mention} (было {remaining + 1}/3, осталось {remaining}/3). "
+                f"Штрафная роль снята. Причина снятого варна: {reason}",
+                delete_after=15
+            )
+        else:
+            await ctx.send(
+                f"✅ Снят варн с {member.mention} ({remaining}/3). Причина снятого варна: {reason}",
+                delete_after=10
+            )
+
     @commands.command(name="mute")
     async def mute(self, ctx, member: discord.Member, flag: str = "--chat", *, reason: str = "Причина не указана"):
         """Мут пользователя. Флаги: --chat (чат), --voice (голос)."""

@@ -1,0 +1,137 @@
+{% extends 'base.html' %}
+
+{% block title %}Правила{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1><i class="fas fa-book"></i> Правила</h1>
+    <p class="text-muted">Правила сервера Arasaka Plaza</p>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <div id="rules-container">
+            <div class="text-center py-4">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Загрузка...</span>
+                </div>
+                <p class="mt-2">Загрузка правил...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<style>
+.rules-content {
+    color: #e0e0e0;
+    line-height: 1.8;
+    font-size: 1rem;
+}
+.rules-content h1, .rules-content h2, .rules-content h3, .rules-content h4 {
+    color: #e91e63;
+    margin-top: 1.5rem;
+    margin-bottom: 0.8rem;
+}
+.rules-content p {
+    margin-bottom: 0.8rem;
+}
+.rules-content ul, .rules-content ol {
+    margin-bottom: 1rem;
+    padding-left: 1.5rem;
+}
+.rules-content li {
+    margin-bottom: 0.4rem;
+}
+.rules-content a {
+    color: #e91e63;
+    text-decoration: underline;
+}
+.rules-content table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 1rem;
+}
+.rules-content th, .rules-content td {
+    border: 1px solid #3a3a3a;
+    padding: 8px 12px;
+    text-align: left;
+}
+.rules-content th {
+    background: #2a2a2a;
+    color: #e91e63;
+}
+.rules-content td {
+    background: #1a1a1a;
+}
+.rules-content img {
+    max-width: 100%;
+    border-radius: 8px;
+    margin: 8px 0;
+}
+.rules-content blockquote {
+    border-left: 4px solid #e91e63;
+    padding-left: 1rem;
+    margin: 1rem 0;
+    color: #aaa;
+    font-style: italic;
+}
+.rules-content hr {
+    border-color: #3a3a3a;
+    margin: 1.5rem 0;
+}
+.rules-content strong {
+    color: #fff;
+}
+.rules-content em {
+    color: #ccc;
+}
+.rules-iframe {
+    width: 100%;
+    height: 80vh;
+    border: none;
+    border-radius: 8px;
+    background: #fff;
+}
+.rules-fallback {
+    text-align: center;
+    padding: 2rem;
+}
+.rules-fallback a {
+    color: #e91e63;
+    font-size: 1.2rem;
+}
+</style>
+<script>
+async function loadRules() {
+    const container = document.getElementById('rules-container');
+    const docId = '1-tbBVPKZZRZQduyspKD8gbH0al3Mr20Wul27NNOkgio';
+    const exportUrl = 'https://docs.google.com/document/d/' + docId + '/export?format=html';
+    
+    try {
+        const resp = await fetch(exportUrl);
+        if (!resp.ok) throw new Error('Failed to fetch');
+        const html = await resp.text();
+        
+        // Извлекаем только body содержимое
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        const body = doc.body;
+        
+        if (body && body.innerHTML.trim()) {
+            container.innerHTML = '<div class="rules-content">' + body.innerHTML + '</div>';
+        } else {
+            throw new Error('Empty content');
+        }
+    } catch (e) {
+        console.error('Failed to load rules:', e);
+        // Fallback: iframe
+        container.innerHTML = '<iframe class="rules-iframe" src="https://docs.google.com/document/d/' + docId + '/preview"></iframe>';
+    }
+}
+
+loadRules();
+</script>
+{% endblock %}

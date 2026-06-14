@@ -170,6 +170,12 @@ class Logs(commands.Cog):
     async def on_message_edit(self, before, after):
         if before.author.bot or before.content == after.content:
             return  # Не логируем ботов и пустые правки
+        
+        # Собираем URL вложений (изображения)
+        attachments = []
+        for att in after.attachments:
+            attachments.append(att.url)
+        
         await self.send_log(
             title="Отредактировано сообщение",
             description=f"Автор: {before.author.mention}\n"
@@ -184,7 +190,8 @@ class Logs(commands.Cog):
             title='Отредактировано сообщение',
             description=f"Автор: {before.author}\nКанал: {before.channel.name}\nБыло: {before.content[:200]}\nСтало: {after.content[:200]}",
             executor=before.author,
-            color=0x3498db
+            color=0x3498db,
+            attachments=attachments
         )
 
     # Логирование подключения пользователя (с определением источника приглашения)
