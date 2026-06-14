@@ -200,7 +200,7 @@ class Moderation(commands.Cog):
             await ctx.send(f"✅ {member.mention} получил варн ({len(warns)}/3). Причина: {reason}", delete_after=10)
 
     @commands.command(name="unwarn")
-    async def unwarn(self, ctx, member: discord.Member):
+    async def unwarn(self, ctx, member: discord.Member, *, reason: str = ""):
         """Снимает одно предупреждение с пользователя (последнее)."""
         if not self._check_permission(ctx.author):
             await ctx.send("❌ У вас нет прав для этой команды.", delete_after=10)
@@ -210,6 +210,10 @@ class Moderation(commands.Cog):
             await ctx.message.delete()
         except Exception:
             pass
+
+        if not reason.strip():
+            await ctx.send("❌ Укажите причину снятия варна.", delete_after=5)
+            return
 
         user_data = self.db.get_user(member.id)
         warns = user_data.get('warns', [])

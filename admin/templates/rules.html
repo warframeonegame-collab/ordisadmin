@@ -10,7 +10,7 @@
 
 <div class="card">
     <div class="card-body">
-        <div id="rules-container">
+        <div id="rules-container" data-role="{{ role }}">
             <div class="text-center py-4">
                 <div class="spinner-border text-primary" role="status">
                     <span class="visually-hidden">Загрузка...</span>
@@ -29,14 +29,25 @@
     color: #e0e0e0;
     line-height: 1.8;
     font-size: 1rem;
+    text-align: justify;
 }
-.rules-content h1, .rules-content h2, .rules-content h3, .rules-content h4 {
+.rules-content h1 {
+    color: #e91e63;
+    margin-top: 1.5rem;
+    margin-bottom: 0.8rem;
+    text-align: center;
+}
+.rules-content h1:first-child {
+    font-size: 1.8rem;
+}
+.rules-content h2, .rules-content h3, .rules-content h4 {
     color: #e91e63;
     margin-top: 1.5rem;
     margin-bottom: 0.8rem;
 }
 .rules-content p {
     margin-bottom: 0.8rem;
+    text-align: justify;
 }
 .rules-content ul, .rules-content ol {
     margin-bottom: 1rem;
@@ -122,6 +133,26 @@ async function loadRules() {
         
         if (body && body.innerHTML.trim()) {
             container.innerHTML = '<div class="rules-content">' + body.innerHTML + '</div>';
+            
+            // Фильтрация правил рекрутеров — показываем только для роли "recruiter"
+            const userRole = container.getAttribute('data-role');
+            if (userRole !== 'recruiter') {
+                // Скрываем секции с заголовками, содержащими "рекрутер" или "рекрутинг"
+                const headings = container.querySelectorAll('h1, h2, h3, h4, h5');
+                headings.forEach(h => {
+                    const text = h.textContent.toLowerCase();
+                    if (text.includes('рекрутер') || text.includes('рекрутинг')) {
+                        // Скрываем заголовок и все следующие элементы до следующего заголовка того же уровня или выше
+                        let el = h.nextElementSibling;
+                        h.style.display = 'none';
+                        while (el) {
+                            if (el.tagName && el.tagName.match(/^H[1-5]$/)) break;
+                            el.style.display = 'none';
+                            el = el.nextElementSibling;
+                        }
+                    }
+                });
+            }
         } else {
             throw new Error('Empty content');
         }

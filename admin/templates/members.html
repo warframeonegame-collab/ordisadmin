@@ -255,7 +255,7 @@ function quickCommand(cmd, userId, nickname) {
     reasonInput.value = '';
     
     // Показываем поле причины для команд с причиной
-    const needsReason = cmd.startsWith('warn') || cmd.startsWith('mute') || cmd.startsWith('ban');
+    const needsReason = cmd.startsWith('warn') || cmd.startsWith('unwarn') || cmd.startsWith('mute') || cmd.startsWith('ban');
     reasonSection.style.display = needsReason ? 'block' : 'none';
     
     modal.show();
@@ -268,7 +268,7 @@ async function executeQuickCmd() {
     
     let cmd = '.' + quickCmdData.cmd + ' <@' + quickCmdData.userId + '>';
     
-    const needsReason = quickCmdData.cmd.startsWith('warn') || quickCmdData.cmd.startsWith('mute') || quickCmdData.cmd.startsWith('ban');
+    const needsReason = quickCmdData.cmd.startsWith('warn') || quickCmdData.cmd.startsWith('unwarn') || quickCmdData.cmd.startsWith('mute') || quickCmdData.cmd.startsWith('ban');
     if (needsReason && reason) {
         cmd += ' ' + reason;
     } else if (needsReason && !reason) {

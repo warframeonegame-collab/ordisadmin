@@ -50,8 +50,10 @@ def get_db():
     return _db_instance
 
 def load_database():
-    """Загружает database.json через единый Database"""
-    return get_db().get_all_users()
+    """Загружает database.json напрямую из файла (всегда свежие данные)"""
+    db = get_db()
+    db.refresh()
+    return db.get_all_users()
 
 def save_database(data):
     """Сохраняет database.json через единый Database"""
@@ -410,7 +412,9 @@ def commands_page():
             'description': 'Снять одно предупреждение',
             'category': 'moderation',
             'requires_user': True,
-            'variables': []
+            'variables': [
+                {'name': 'reason', 'label': 'Причина снятия', 'type': 'text', 'required': True}
+            ]
         },
         {
             'name': 'ban',
