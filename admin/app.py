@@ -60,16 +60,17 @@ def save_database(data):
     db.save_data()
 
 def get_user_role(user_id):
-    """Возвращает роль пользователя на сайте (из БД с фолбеком на config)"""
+    """Возвращает роль пользователя на сайте (читает напрямую из файла)"""
     user_id_str = str(user_id)
     
-    # Сначала проверяем сохранённые в БД роли (они приоритетнее)
+    # Читаем site_roles.json напрямую из файла (всегда актуальные данные)
     try:
-        from utils.database import Database
-        db = Database()
-        site_roles = db.get_site_roles()
-        if user_id_str in site_roles:
-            return site_roles[user_id_str]
+        site_roles_file = os.path.join(config.DATA_DIR, 'site_roles.json')
+        if os.path.exists(site_roles_file):
+            with open(site_roles_file, 'r', encoding='utf-8') as f:
+                site_roles = json.load(f)
+            if user_id_str in site_roles:
+                return site_roles[user_id_str]
     except Exception:
         pass
     
