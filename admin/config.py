@@ -52,6 +52,7 @@ ROLE_PERMISSIONS = {
         'settings_manage': False,
         'questionnaires_view': True,
         'recruiter_rules_view': True,
+        'rules_edit': False,
     },
     'user': {
         'dashboard': True,
@@ -64,6 +65,7 @@ ROLE_PERMISSIONS = {
         'roles_manage': False,
         'settings_manage': False,
         'recruiter_rules_view': False,
+        'rules_edit': False,
     },
     'admin': {
         'dashboard': True,
@@ -77,6 +79,7 @@ ROLE_PERMISSIONS = {
         'settings_manage': False,
         'questionnaires_view': True,
         'recruiter_rules_view': True,
+        'rules_edit': True,
     },
     'cofounder': {
         'dashboard': True,
@@ -90,6 +93,7 @@ ROLE_PERMISSIONS = {
         'settings_manage': False,
         'questionnaires_view': True,
         'recruiter_rules_view': True,
+        'rules_edit': True,
     },
     'founder': {
         'dashboard': True,
@@ -103,6 +107,7 @@ ROLE_PERMISSIONS = {
         'settings_manage': True,
         'questionnaires_view': True,
         'recruiter_rules_view': True,
+        'rules_edit': True,
     },
 }
 

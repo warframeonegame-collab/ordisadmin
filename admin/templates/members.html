@@ -229,7 +229,15 @@ async function executeQuickCmd() {
     const btn = document.getElementById('quickCmdExecBtn');
     const status = document.getElementById('quickCmdStatus');
     const reason = document.getElementById('quickCmdReason').value.trim();
-    let cmd = '.' + quickCmdData.cmd + ' <@' + quickCmdData.userId + '>';
+    let cmd;
+    // Для mute флаг (--chat/--voice) должен быть после @user
+    if (quickCmdData.cmd.startsWith('mute ') && quickCmdData.cmd.includes('--')) {
+        const parts = quickCmdData.cmd.split(' ');
+        const flag = parts.pop(); // --chat или --voice
+        cmd = '.mute <@' + quickCmdData.userId + '> ' + flag;
+    } else {
+        cmd = '.' + quickCmdData.cmd + ' <@' + quickCmdData.userId + '>';
+    }
     const needsReason = quickCmdData.cmd.startsWith('warn') || quickCmdData.cmd.startsWith('unwarn') || quickCmdData.cmd.startsWith('mute') || quickCmdData.cmd.startsWith('ban');
     if (needsReason && reason) { cmd += ' ' + reason; }
     else if (needsReason && !reason) { status.innerHTML = '<div class="alert alert-danger">Укажите причину!</div>'; return; }

@@ -548,7 +548,92 @@ def settings_page():
 @app.route('/rules')
 @login_required
 def rules_page():
-    return render_template('rules.html', role=session.get('role', 'user'))
+    return render_template('rules.html', role=session.get('role', 'user'),
+                         has_perm=lambda p: has_permission(session.get('user_id'), p))
+
+@app.route('/api/hierarchy', methods=['GET', 'POST'])
+@login_required
+def api_hierarchy():
+    """GET: получить структуру иерархии. POST: сохранить (rules_edit)."""
+    hier_file = os.path.join(config.DATA_DIR, 'hierarchy.json')
+    
+    if request.method == 'GET':
+        try:
+            if os.path.exists(hier_file):
+                with open(hier_file, 'r', encoding='utf-8') as f:
+                    return jsonify(json.load(f))
+        except:
+            pass
+        return jsonify({'tiers': []})
+    
+    # POST
+    if not has_permission(session.get('user_id'), 'rules_edit'):
+        return jsonify({'error': 'Нет прав на редактирование иерархии'}), 403
+    
+    data = request.json
+    if not data or 'tiers' not in data:
+        return jsonify({'error': 'Неверный формат данных'}), 400
+    
+    try:
+        with open(hier_file, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        
+        # Обновляем дефолтный файл если редактировали
+        default_hier = os.path.join(os.path.dirname(__file__), '..', 'data', 'hierarchy.json')
+        if os.path.abspath(hier_file) != os.path.abspath(default_hier):
+            pass  # тот же файл
+        
+        logs_manager.log_site_action(
+            action='Обновление иерархии клана',
+            description=f'Пользователь {session.get("username")} обновил иерархию клана',
+            user_id=session.get('user_id', ''),
+            user_name=session.get('username', 'Unknown')
+        )
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/rules/content', methods=['GET', 'POST'])
+@login_required
+def api_rules_content():
+    """GET: получить текст основных правил. POST: сохранить (rules_edit)."""
+    rules_file = os.path.join(config.DATA_DIR, 'main_rules.json')
+    
+    if request.method == 'GET':
+        content = ''
+        try:
+            if os.path.exists(rules_file):
+                with open(rules_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    content = data.get('content', '')
+        except:
+            pass
+        return jsonify({'content': content})
+    
+    # POST
+    if not has_permission(session.get('user_id'), 'rules_edit'):
+        return jsonify({'error': 'Нет прав на редактирование правил'}), 403
+    
+    data = request.json
+    content = data.get('content', '')
+    
+    try:
+        with open(rules_file, 'w', encoding='utf-8') as f:
+            json.dump({
+                'content': content,
+                'updated_by': session.get('username', 'Unknown'),
+                'updated_at': datetime.now().isoformat()
+            }, f, ensure_ascii=False, indent=2)
+        
+        logs_manager.log_site_action(
+            action='Обновление основных правил',
+            description=f'Пользователь {session.get("username")} обновил основные правила',
+            user_id=session.get('user_id', ''),
+            user_name=session.get('username', 'Unknown')
+        )
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/recruiter-rules')
 @login_required

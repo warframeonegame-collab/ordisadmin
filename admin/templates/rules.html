@@ -4,128 +4,67 @@
 
 {% block content %}
 
-<!-- Иерархия клана -->
+<!-- Иерархия -->
 <div class="card mb-4">
-    <div class="card-header">
-        <h5><i class="fas fa-sitemap"></i> Иерархия клана</h5>
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="fas fa-sitemap"></i> Иерархия клана</h5>
+        {% if has_perm('rules_edit') %}
+        <button class="btn btn-outline-primary btn-sm" id="hierEditBtn" onclick="toggleHierEdit()">
+            <i class="fas fa-edit"></i> Изменить
+        </button>
+        {% endif %}
     </div>
     <div class="card-body">
-        <div class="hierarchy-wrapper">
-            <svg viewBox="0 0 800 520" class="hierarchy-svg" xmlns="http://www.w3.org/2000/svg">
-                <defs>
-                    <filter id="glow-purple"><feGaussianBlur stdDeviation="3" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-                    <filter id="glow-green"><feGaussianBlur stdDeviation="3" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-                    <filter id="glow-blue"><feGaussianBlur stdDeviation="2" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-                    <filter id="glow-yellow"><feGaussianBlur stdDeviation="2" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-                    <filter id="glow-red"><feGaussianBlur stdDeviation="2" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-                </defs>
-                <style>
-                    .h-label { fill: #ccc; font-size: 11px; font-family: 'Segoe UI', sans-serif; text-anchor: middle; }
-                    .h-title { fill: #fff; font-size: 13px; font-weight: 700; font-family: 'Segoe UI', sans-serif; text-anchor: middle; }
-                    .h-sub { fill: #999; font-size: 10px; font-family: 'Segoe UI', sans-serif; text-anchor: middle; }
-                    .h-line { stroke: #3a3a3a; stroke-width: 2; fill: none; }
-                </style>
-                <!-- OUTSIDE TIER -->
-                <text x="400" y="18" class="h-label" fill="#ce93d8" font-weight="700">🟣 Outside Tier</text>
-                <line x1="400" y1="24" x2="400" y2="38" class="h-line" stroke="#ce93d8" stroke-width="1.5"/>
-                <!-- Вестник Лотос -->
-                <circle cx="280" cy="60" r="24" fill="#ce93d8" opacity="0.2" stroke="#ce93d8" stroke-width="3" filter="url(#glow-purple)"/>
-                <circle cx="280" cy="60" r="16" fill="#ce93d8"/>
-                <text x="280" y="65" class="h-title" fill="#fff" font-size="10">Л</text>
-                <text x="280" y="98" class="h-title" fill="#fff">Вестник Лотос</text>
-                <text x="280" y="113" class="h-sub">Основатель</text>
-                <!-- Наблюдатель -->
-                <circle cx="520" cy="60" r="24" fill="#ce93d8" opacity="0.2" stroke="#ce93d8" stroke-width="3" filter="url(#glow-purple)"/>
-                <circle cx="520" cy="60" r="16" fill="#ce93d8"/>
-                <text x="520" y="65" class="h-title" fill="#fff" font-size="10">Н</text>
-                <text x="520" y="98" class="h-title" fill="#fff">Наблюдатель</text>
-                <text x="520" y="113" class="h-sub">Со-основатель</text>
-                <!-- Линии от Outside к 1 Tier -->
-                <line x1="280" y1="84" x2="280" y2="135" class="h-line" stroke="#ce93d8"/>
-                <line x1="520" y1="84" x2="520" y2="135" class="h-line" stroke="#ce93d8"/>
-                <line x1="280" y1="135" x2="520" y2="135" class="h-line" stroke="#ce93d8"/>
-                
-                <!-- 1 TIER -->
-                <text x="400" y="158" class="h-label" fill="#81c784" font-weight="700">🟢 1 Tier</text>
-                <line x1="400" y1="164" x2="400" y2="178" class="h-line" stroke="#81c784" stroke-width="1.5"/>
-                <!-- Высшие Тэнно -->
-                <circle cx="220" cy="200" r="24" fill="#81c784" opacity="0.2" stroke="#81c784" stroke-width="3" filter="url(#glow-green)"/>
-                <circle cx="220" cy="200" r="16" fill="#81c784"/>
-                <text x="220" y="205" class="h-title" fill="#fff" font-size="10">Т</text>
-                <text x="220" y="238" class="h-title" fill="#fff">Высшие Тэнно</text>
-                <text x="220" y="253" class="h-sub">Гл. Рекрутер</text>
-                <!-- Хранитель Додзё -->
-                <circle cx="580" cy="200" r="24" fill="#81c784" opacity="0.2" stroke="#81c784" stroke-width="3" filter="url(#glow-green)"/>
-                <circle cx="580" cy="200" r="16" fill="#81c784"/>
-                <text x="580" y="205" class="h-title" fill="#fff" font-size="10">Д</text>
-                <text x="580" y="238" class="h-title" fill="#fff">Хранитель Додзё</text>
-                <text x="580" y="253" class="h-sub">Гл. Строитель</text>
-                <!-- Линии от 1 Tier -->
-                <line x1="400" y1="135" x2="220" y2="176" class="h-line" stroke="#81c784"/>
-                <line x1="400" y1="135" x2="580" y2="176" class="h-line" stroke="#81c784"/>
-                
-                <!-- 2 TIER -->
-                <text x="400" y="278" class="h-label" fill="#64b5f6" font-weight="700">🔵 2 Tier</text>
-                <line x1="400" y1="284" x2="400" y2="298" class="h-line" stroke="#64b5f6" stroke-width="1.5"/>
-                <!-- Рекрутер -->
-                <circle cx="220" cy="318" r="22" fill="#64b5f6" opacity="0.2" stroke="#64b5f6" stroke-width="2.5" filter="url(#glow-blue)"/>
-                <circle cx="220" cy="318" r="14" fill="#64b5f6"/>
-                <text x="220" y="323" class="h-title" fill="#fff" font-size="9">Р</text>
-                <text x="220" y="354" class="h-title" fill="#fff">Рекрутер</text>
-                <!-- Архитектор Додзё -->
-                <circle cx="580" cy="318" r="22" fill="#64b5f6" opacity="0.2" stroke="#64b5f6" stroke-width="2.5" filter="url(#glow-blue)"/>
-                <circle cx="580" cy="318" r="14" fill="#64b5f6"/>
-                <text x="580" y="323" class="h-title" fill="#fff" font-size="9">А</text>
-                <text x="580" y="354" class="h-title" fill="#fff">Архитектор Додзё</text>
-                <text x="580" y="369" class="h-sub">Строитель</text>
-                <!-- Линии от 1 Tier к 2 Tier -->
-                <line x1="220" y1="224" x2="220" y2="296" class="h-line" stroke="#64b5f6"/>
-                <line x1="580" y1="224" x2="580" y2="296" class="h-line" stroke="#64b5f6"/>
-                
-                <!-- 3 TIER -->
-                <text x="400" y="395" class="h-label" fill="#fdd835" font-weight="700">🟡 3 Tier</text>
-                <line x1="400" y1="401" x2="400" y2="415" class="h-line" stroke="#fdd835" stroke-width="1.5"/>
-                <!-- Линии от рекрутеров -->
-                <line x1="220" y1="340" x2="220" y2="415" class="h-line" stroke="#fdd835" stroke-dasharray="6,3"/>
-                <line x1="220" y1="415" x2="120" y2="430" class="h-line" stroke="#fdd835"/>
-                <line x1="220" y1="415" x2="320" y2="430" class="h-line" stroke="#fdd835"/>
-                <!-- Вестник Орокин -->
-                <circle cx="120" cy="450" r="22" fill="#fdd835" opacity="0.2" stroke="#fdd835" stroke-width="2.5" filter="url(#glow-yellow)"/>
-                <circle cx="120" cy="450" r="14" fill="#fdd835"/>
-                <text x="120" y="455" class="h-title" fill="#1a1a1a" font-size="9">В</text>
-                <text x="120" y="486" class="h-title" fill="#fff">Вестник Орокин</text>
-                <text x="120" y="501" class="h-sub">Активный участник</text>
-                <!-- Посвященный Тэнно -->
-                <circle cx="320" cy="450" r="22" fill="#fdd835" opacity="0.2" stroke="#fdd835" stroke-width="2.5" filter="url(#glow-yellow)"/>
-                <circle cx="320" cy="450" r="14" fill="#fdd835"/>
-                <text x="320" y="455" class="h-title" fill="#1a1a1a" font-size="9">П</text>
-                <text x="320" y="486" class="h-title" fill="#fff">Посвященный Тэнно</text>
-                <text x="320" y="501" class="h-sub">Новичок клана</text>
-                
-                <!-- 4 TIER -->
-                <text x="580" y="425" class="h-label" fill="#ef5350" font-weight="700">🔴 4 Tier</text>
-                <line x1="580" y1="340" x2="580" y2="440" class="h-line" stroke="#ef5350" stroke-dasharray="6,3"/>
-                <!-- Отреченный -->
-                <circle cx="580" cy="460" r="22" fill="#ef5350" opacity="0.2" stroke="#ef5350" stroke-width="2.5" filter="url(#glow-red)"/>
-                <circle cx="580" cy="460" r="14" fill="#ef5350"/>
-                <text x="580" y="465" class="h-title" fill="#fff" font-size="9">О</text>
-                <text x="580" y="496" class="h-title" fill="#fff">Отреченный</text>
-                <text x="580" y="511" class="h-sub">Штрафной ранг</text>
-            </svg>
+        <div id="hierViewMode">
+            <div class="hierarchy-wrapper">
+                <svg id="hierarchySvg" xmlns="http://www.w3.org/2000/svg"></svg>
+            </div>
         </div>
+        <div id="hierEditMode" style="display:none;">
+            <textarea id="hierEditor" class="form-control" style="min-height:400px;font-family:monospace;font-size:0.85rem;background:#121212;color:#e0e0e0;border-color:#3a3a3a;" placeholder='{"tiers": [...]}'></textarea>
+            <div class="d-flex gap-2 mt-3">
+                <button class="btn btn-primary" onclick="saveHier()" id="hierSaveBtn"><i class="fas fa-save"></i> Сохранить</button>
+                <button class="btn btn-outline-secondary" onclick="toggleHierEdit()"><i class="fas fa-times"></i> Отмена</button>
+            </div>
+            <div id="hierSaveStatus" class="mt-2"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Правила отсутствия активности -->
+<div class="card mb-4">
+    <div class="card-header"><h5 class="mb-0"><i class="fas fa-clock"></i> Правила отсутствия активности</h5></div>
+    <div class="card-body">
+        <table class="table table-dark table-bordered mb-0" style="width:100%;">
+            <thead><tr><th>Тир</th><th>Максимальное отсутствие</th></tr></thead>
+            <tbody>
+                <tr><td><span style="color:#ce93d8;">🟣</span> Outside Tier</td><td>Отсутствует</td></tr>
+                <tr><td><span style="color:#81c784;">🟢</span> First Tier</td><td>30 дней</td></tr>
+                <tr><td><span style="color:#64b5f6;">🔵</span> Second Tier</td><td>20 дней</td></tr>
+                <tr><td><span style="color:#fdd835;">🟡</span> Third Tier</td><td>14 дней</td></tr>
+            </tbody>
+        </table>
+        <p class="text-muted text-center mt-3 mb-0" style="font-size:0.85rem;">Отсутствие актива более указанного времени согласовывается со старшим составом</p>
     </div>
 </div>
 
 <!-- Основные правила -->
 <div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="fas fa-book"></i> Основные правила сервера</h5>
+        <div>
+            {% if has_perm('rules_edit') %}
+            <button class="btn btn-outline-primary btn-sm" id="editRulesBtn" onclick="toggleRulesEdit()"><i class="fas fa-edit"></i> Редактировать</button>
+            {% endif %}
+            <span id="recruiterRulesBtnWrapper"></span>
+        </div>
+    </div>
     <div class="card-body">
-        <div id="rules-container" data-role="{{ role }}" data-user-id="{{ session.get('user_id', '') }}">
-            <div class="text-center py-4">
-                <div class="spinner-border text-primary" role="status">
-                    <span class="visually-hidden">Загрузка...</span>
-                </div>
-                <p class="mt-2">Загрузка правил...</p>
-            </div>
+        <div id="rulesViewMode"><div class="rules-content" id="rulesContent"></div><div class="text-center text-muted py-5" id="emptyRules" style="display:none;"><i class="fas fa-book-open fa-3x mb-3" style="opacity:0.3;"></i><p>Правила пока не заданы.</p></div></div>
+        <div id="rulesEditMode" style="display:none;">
+            <textarea id="rulesEditor" class="form-control" style="min-height:500px;font-family:'Segoe UI',sans-serif;font-size:0.95rem;line-height:1.7;background:#121212;color:#e0e0e0;border-color:#3a3a3a;"></textarea>
+            <div class="d-flex gap-2 mt-3"><button class="btn btn-primary" onclick="saveRules()" id="saveBtn"><i class="fas fa-save"></i> Сохранить</button><button class="btn btn-outline-secondary" onclick="toggleRulesEdit()"><i class="fas fa-times"></i> Отмена</button></div>
+            <div id="saveStatus" class="mt-2"></div>
         </div>
     </div>
 </div>
@@ -134,171 +73,215 @@
 
 {% block scripts %}
 <style>
-.hierarchy-wrapper { text-align: center; padding: 1rem; }
-.hierarchy-svg { max-width: 100%; height: auto; display: inline-block; }
-
-.rules-content {
-    color: #e0e0e0;
-    line-height: 1.8;
-    font-size: 1rem;
-    text-align: justify;
-}
-.rules-content h1 {
-    color: #fff;
-    font-size: 1.8rem;
-    font-weight: 700;
-    margin: 2rem 0 1rem 0;
-    padding: 0.75rem 1.5rem;
-    background: linear-gradient(135deg, rgba(233, 30, 99, 0.2), rgba(156, 39, 176, 0.2));
-    border-left: 4px solid #e91e63;
-    border-radius: 0 8px 8px 0;
-    text-align: left;
-}
-.rules-content h1:first-child { margin-top: 0; }
-.rules-content h2 {
-    color: #f48fb1;
-    font-size: 1.4rem;
-    font-weight: 600;
-    margin: 1.8rem 0 0.8rem 0;
-    padding: 0.5rem 1rem;
-    border-left: 3px solid #e91e63;
-    background: rgba(233, 30, 99, 0.08);
-    border-radius: 0 6px 6px 0;
-}
-.rules-content h3 {
-    color: #e91e63;
-    font-size: 1.15rem;
-    font-weight: 600;
-    margin: 1.5rem 0 0.6rem 0;
-    padding-left: 0.5rem;
-    border-left: 2px solid #e91e63;
-}
-.rules-content h4, .rules-content h5 { color: #e91e63; font-size: 1rem; font-weight: 600; margin: 1.2rem 0 0.5rem 0; opacity: 0.85; }
-.rules-content p { margin-bottom: 0.8rem; text-align: justify; color: #d0d0d0; }
-.rules-content ul, .rules-content ol { margin: 0.8rem 0 1.2rem 0; padding-left: 2rem; list-style: none; }
-.rules-content li { margin-bottom: 0.5rem; position: relative; color: #d0d0d0; padding-left: 1.2rem; }
-.rules-content ul li::before { content: "◆"; color: #e91e63; position: absolute; left: 0; font-size: 0.55rem; top: 0.45rem; }
-.rules-content ol { counter-reset: rule-item; }
-.rules-content ol li::before { content: counter(rule-item) "."; counter-increment: rule-item; color: #e91e63; position: absolute; left: 0; font-weight: 600; }
-.rules-content a { color: #e91e63; text-decoration: none; border-bottom: 1px dashed rgba(233, 30, 99, 0.4); transition: all 0.2s; }
-.rules-content a:hover { color: #f48fb1; border-bottom-color: #f48fb1; }
-.rules-content table { width: auto; border-collapse: collapse; margin: 1rem auto 1.5rem auto; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
-.rules-content th { background: linear-gradient(135deg, #1a1a1a, #252525); color: #e91e63; padding: 10px 16px; font-weight: 600; text-transform: uppercase; font-size: 0.8rem; letter-spacing: 0.5px; border-bottom: 2px solid #e91e63; }
-.rules-content td { background: #151515; color: #e0e0e0; padding: 10px 16px; border-bottom: 1px solid #2a2a2a; }
-.rules-content tr:last-child td { border-bottom: none; }
-.rules-content tr:hover td { background: #1a1a1a; }
-.rules-content img { max-width: 100%; border-radius: 12px; margin: 1rem 0; display: block; }
-.rules-content blockquote { background: rgba(233, 30, 99, 0.05); border-left: 4px solid #e91e63; padding: 1rem 1.5rem; margin: 1.2rem 0; color: #bbb; font-style: italic; border-radius: 0 8px 8px 0; }
-.rules-content hr { border: none; height: 1px; background: linear-gradient(90deg, transparent, #3a3a3a, transparent); margin: 2rem 0; }
-.rules-content strong { color: #fff; font-weight: 600; }
-.rules-content em { color: #ccc; }
-.rules-iframe { width: 100%; height: 80vh; border: none; border-radius: 8px; background: #fff; }
-
-.recruiter-rules-btn-wrapper {
-    text-align: center;
-    margin-top: 2.5rem;
-    padding: 2rem 1.5rem;
-    border-top: 2px solid #2a2a2a;
-    background: linear-gradient(180deg, rgba(233, 30, 99, 0.03), transparent);
-    border-radius: 0 0 12px 12px;
-}
-.recruiter-rules-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.6rem;
-    padding: 0.85rem 2.5rem;
-    background: linear-gradient(135deg, #e91e63, #9c27b0);
-    color: #fff;
-    text-decoration: none;
-    border-radius: 50px;
-    font-weight: 600;
-    font-size: 1rem;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    border: none;
-    cursor: pointer;
-    box-shadow: 0 4px 15px rgba(233, 30, 99, 0.3);
-}
-.recruiter-rules-btn:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 8px 30px rgba(233, 30, 99, 0.5);
-    color: #fff;
-    background: linear-gradient(135deg, #f06292, #ab47bc);
-}
-.recruiter-rules-btn i { font-size: 1.1rem; }
+.hierarchy-wrapper { text-align:center; padding:1rem 0; }
+#hierarchySvg { max-width:100%; height:auto; display:inline-block; }
+.rules-content { color:#e0e0e0; line-height:1.8; font-size:1rem; text-align:justify; }
+.rules-content h1 { color:#fff; font-size:1.8rem; font-weight:700; margin:2rem 0 1rem 0; padding:0.75rem 1.5rem; background:linear-gradient(135deg, rgba(233,30,99,0.2), rgba(156,39,176,0.2)); border-left:4px solid #e91e63; border-radius:0 8px 8px 0; text-align:left; }
+.rules-content h1:first-child { margin-top:0; }
+.rules-content h2 { color:#f48fb1; font-size:1.4rem; font-weight:600; margin:1.8rem 0 0.8rem 0; padding:0.5rem 1rem; border-left:3px solid #e91e63; background:rgba(233,30,99,0.08); border-radius:0 6px 6px 0; }
+.rules-content h3 { color:#e91e63; font-size:1.15rem; font-weight:600; margin:1.5rem 0 0.6rem 0; padding-left:0.5rem; border-left:2px solid #e91e63; }
+.rules-content h4,.rules-content h5 { color:#e91e63; font-size:1rem; font-weight:600; margin:1.2rem 0 0.5rem 0; opacity:0.85; }
+.rules-content p { margin-bottom:0.8rem; text-align:justify; color:#d0d0d0; }
+.rules-content ul,.rules-content ol { margin:0.8rem 0 1.2rem 0; padding-left:2rem; list-style:none; }
+.rules-content li { margin-bottom:0.5rem; position:relative; color:#d0d0d0; padding-left:1.2rem; }
+.rules-content ul li::before { content:"◆"; color:#e91e63; position:absolute; left:0; font-size:0.55rem; top:0.45rem; }
+.rules-content ol { counter-reset:rule-item; }
+.rules-content ol li::before { content:counter(rule-item)"."; counter-increment:rule-item; color:#e91e63; position:absolute; left:0; font-weight:600; }
+.rules-content a { color:#e91e63; text-decoration:none; border-bottom:1px dashed rgba(233,30,99,0.4); }
+.rules-content a:hover { color:#f48fb1; border-bottom-color:#f48fb1; }
+.rules-content table { width:auto; border-collapse:collapse; margin:1rem auto; border-radius:8px; overflow:hidden; box-shadow:0 4px 20px rgba(0,0,0,0.3); }
+.rules-content th { background:linear-gradient(135deg,#1a1a1a,#252525); color:#e91e63; padding:10px 16px; font-weight:600; text-transform:uppercase; font-size:0.8rem; border-bottom:2px solid #e91e63; }
+.rules-content td { background:#151515; color:#e0e0e0; padding:10px 16px; border-bottom:1px solid #2a2a2a; }
+.rules-content tr:last-child td { border-bottom:none; }
+.rules-content tr:hover td { background:#1a1a1a; }
+.rules-content img { max-width:100%; border-radius:12px; margin:1rem 0; display:block; }
+.rules-content blockquote { background:rgba(233,30,99,0.05); border-left:4px solid #e91e63; padding:1rem 1.5rem; margin:1.2rem 0; color:#bbb; font-style:italic; border-radius:0 8px 8px 0; }
+.rules-content hr { border:none; height:1px; background:linear-gradient(90deg,transparent,#3a3a3a,transparent); margin:2rem 0; }
+.rules-content strong { color:#fff; font-weight:600; }
 </style>
 <script>
-async function loadRules() {
-    const container = document.getElementById('rules-container');
-    const docId = '1-tbBVPKZZRZQduyspKD8gbH0al3Mr20Wul27NNOkgio';
-    const exportUrl = 'https://docs.google.com/document/d/' + docId + '/export?format=html';
-    
+// ========== HIERARCHY ==========
+let hierData = null, hierEditing = false;
+
+async function loadHierarchy() {
     try {
-        const resp = await fetch(exportUrl);
-        if (!resp.ok) throw new Error('Failed to fetch');
-        const html = await resp.text();
-        
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(html, 'text/html');
-        const body = doc.body;
-        
-        if (body && body.innerHTML.trim()) {
-            const allElements = body.querySelectorAll('*');
-            allElements.forEach(el => {
-                el.removeAttribute('class');
-                if (el.style) el.removeAttribute('style');
-            });
-            
-            container.innerHTML = '<div class="rules-content">' + body.innerHTML + '</div>';
-            
-            const headings = container.querySelectorAll('h1, h2, h3, h4, h5');
-            let recruiterFound = false;
-            headings.forEach(h => {
-                const text = h.textContent.toLowerCase();
-                if (text.includes('рекрутер') || text.includes('рекрутинг')) {
-                    recruiterFound = true;
-                    let el = h.nextElementSibling;
-                    const tagLevel = parseInt(h.tagName.substring(1));
-                    h.style.display = 'none';
-                    while (el) {
-                        if (el.tagName && el.tagName.match(/^H[1-5]$/)) {
-                            const nextLevel = parseInt(el.tagName.substring(1));
-                            if (nextLevel <= tagLevel) break;
-                        }
-                        el.style.display = 'none';
-                        el = el.nextElementSibling;
-                    }
-                }
-            });
-            
-            if (recruiterFound) {
-                const userId = container.getAttribute('data-user-id');
-                let hasPerm = false;
-                try {
-                    const res = await fetch('/api/permissions/check', {
-                        method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({ permission: 'recruiter_rules_view' })
-                    });
-                    if (res.ok) { const d = await res.json(); hasPerm = d.has_permission; }
-                } catch (e) { console.error(e); }
-                
-                if (hasPerm) {
-                    const rulesContent = container.querySelector('.rules-content');
-                    const btnWrapper = document.createElement('div');
-                    btnWrapper.className = 'recruiter-rules-btn-wrapper';
-                    btnWrapper.innerHTML = '<a href="/recruiter-rules" class="recruiter-rules-btn"><i class="fas fa-user-plus"></i> Правила для рекрутеров</a>';
-                    rulesContent.appendChild(btnWrapper);
-                }
-            }
-        } else {
-            throw new Error('Empty content');
-        }
-    } catch (e) {
-        console.error('Failed to load rules:', e);
-        container.innerHTML = '<iframe class="rules-iframe" src="https://docs.google.com/document/d/' + docId + '/preview"></iframe>';
-    }
+        const r = await fetch('/api/hierarchy');
+        if (r.ok) { hierData = await r.json(); renderHierarchy(); }
+    } catch(e){ console.error(e); }
 }
 
-loadRules();
+function renderHierarchy() {
+    const svg = document.getElementById('hierarchySvg');
+    if (!hierData || !hierData.tiers) return;
+    const T = hierData.tiers;
+    const R = 16, GAP_X = 180, GAP_Y = 40, ROW_H = 90, LABEL_H = 20;
+    const TIER_X = 60, ROLE_START_X = 160;
+    const NAMES_Y_OFF = R + 20, SUB_Y_OFF = R + 34;
+
+    // Build layout: assign x/y for each tier and each role
+    const layout = [];
+    for (let ti = 0; ti < T.length; ti++) {
+        const t = T[ti];
+        const n = t.roles.length;
+        const span = n === 1 && t.roles[0].span ? t.roles[0].span : n;
+        const rolesX = [];
+        const tierW = Math.max(span * GAP_X, GAP_X);
+        const startX = ROLE_START_X + (span === 2 ? 0 : GAP_X / 2 - (n - 1) * GAP_X / 2);
+        for (let i = 0; i < n; i++) {
+            rolesX.push(startX + i * (span > 1 ? GAP_X * span / n : GAP_X));
+        }
+        layout.push({ ti, n, span, rolesX, tierW, startX });
+    }
+
+    // Calculate total height
+    let totalH = 40;
+    for (let ti = 0; ti < T.length; ti++) {
+        totalH += LABEL_H + GAP_Y + R * 2 + NAMES_Y_OFF + SUB_Y_OFF + 10;
+    }
+    totalH = Math.max(totalH, 600);
+    let totalW = ROLE_START_X + Math.max(...layout.map(l => l.startX + l.tierW)) + 40;
+    totalW = Math.max(totalW, 700);
+    svg.setAttribute('viewBox', `0 0 ${totalW} ${totalH}`);
+
+    let html = '';
+    let y = 30;
+    // Store role center positions for lines
+    const rolePos = {}; // key: "ti-ri" -> {x,y}
+
+    for (let ti = 0; ti < T.length; ti++) {
+        const t = T[ti];
+        const lay = layout[ti];
+        const color = t.color || '#888';
+        const emoji = t.emoji || '';
+
+        // Tier label
+        const labelY = y;
+        html += `<text x="${TIER_X}" y="${labelY}" fill="${color}" font-size="12" font-weight="700" font-family="'Segoe UI',sans-serif">${emoji} ${t.name}</text>`;
+        y += LABEL_H + 8;
+
+        // Roles row
+        const rowY = y;
+        for (let i = 0; i < t.roles.length; i++) {
+            const role = t.roles[i];
+            const rx = lay.rolesX[i];
+            const ry = rowY + R;
+            rolePos[`${ti}-${i}`] = { x: rx, y: ry };
+
+            // Circle
+            html += `<circle cx="${rx}" cy="${ry}" r="${R+4}" fill="${color}" opacity="0.18" stroke="${color}" stroke-width="2.5"/>`;
+            html += `<circle cx="${rx}" cy="${ry}" r="${R}" fill="${color}"/>`;
+            // Emoji inside circle
+            html += `<text x="${rx}" y="${ry+5}" text-anchor="middle" fill="#fff" font-size="12">${emoji}</text>`;
+            // Name below
+            html += `<text x="${rx}" y="${ry+NAMES_Y_OFF}" text-anchor="middle" fill="#fff" font-size="12" font-weight="600" font-family="'Segoe UI',sans-serif">${role.name||''}</text>`;
+            if (role.subtitle) {
+                html += `<text x="${rx}" y="${ry+SUB_Y_OFF}" text-anchor="middle" fill="#888" font-size="10" font-family="'Segoe UI',sans-serif">${role.subtitle}</text>`;
+            }
+        }
+        y = rowY + R + SUB_Y_OFF + 12;
+    }
+
+    // Draw vertical connecting lines between tiers
+    for (let ti = 1; ti < T.length; ti++) {
+        const tcurr = T[ti];
+        const layoutCurr = layout[ti];
+        const tprev = T[ti - 1];
+        const layoutPrev = layout[ti - 1];
+
+        for (let i = 0; i < tcurr.roles.length; i++) {
+            const pidx = (tcurr.parents && tcurr.parents[i] !== undefined) ? tcurr.parents[i] : 0;
+            if (pidx >= tprev.roles.length) continue;
+            const prevPos = rolePos[`${ti-1}-${pidx}`];
+            const currPos = rolePos[`${ti}-${i}`];
+            if (prevPos && currPos) {
+                const color = tcurr.color || '#888';
+                // Vertical from parent down, then horizontal to child, then vertical down
+                const midY = (prevPos.y + currPos.y) / 2;
+                html += `<line x1="${prevPos.x}" y1="${prevPos.y + R + 4}" x2="${prevPos.x}" y2="${midY}" stroke="${color}" stroke-width="1.5"/>`;
+                html += `<line x1="${prevPos.x}" y1="${midY}" x2="${currPos.x}" y2="${midY}" stroke="${color}" stroke-width="1.5"/>`;
+                html += `<line x1="${currPos.x}" y1="${midY}" x2="${currPos.x}" y2="${currPos.y - R - 4}" stroke="${color}" stroke-width="1.5"/>`;
+            }
+        }
+    }
+
+    // Extra lines (dashed, annotations)
+    if (hierData.extra_lines) {
+        for (const el of hierData.extra_lines) {
+            const fromPos = rolePos[`${el.from_tier}-${el.from_role}`];
+            const toPos = rolePos[`${el.to_tier}-${el.to_role}`];
+            if (!fromPos || !toPos) continue;
+            const color = el.color || '#888';
+            const dash = el.dash ? '8,4' : '';
+            html += `<line x1="${fromPos.x}" y1="${fromPos.y + R + 4}" x2="${toPos.x}" y2="${toPos.y - R - 4}" stroke="${color}" stroke-width="1.2" stroke-dasharray="${dash}" opacity="0.5"/>`;
+            if (el.label) {
+                const mx = (fromPos.x + toPos.x) / 2;
+                const my = (fromPos.y + toPos.y) / 2;
+                html += `<text x="${mx}" y="${my}" text-anchor="middle" fill="${color}" font-size="9" font-family="'Segoe UI',sans-serif" opacity="0.6">${el.label}</text>`;
+            }
+        }
+    }
+
+    svg.innerHTML = html;
+}
+
+function toggleHierEdit() {
+    if (!hierEditing) {
+        document.getElementById('hierEditor').value = JSON.stringify(hierData, null, 2);
+        document.getElementById('hierViewMode').style.display = 'none';
+        document.getElementById('hierEditMode').style.display = '';
+        document.getElementById('hierEditBtn').style.display = 'none';
+    } else {
+        document.getElementById('hierEditMode').style.display = 'none';
+        document.getElementById('hierViewMode').style.display = '';
+        document.getElementById('hierEditBtn').style.display = '';
+        loadHierarchy();
+    }
+    hierEditing = !hierEditing;
+}
+
+async function saveHier() {
+    const btn = document.getElementById('hierSaveBtn');
+    const st = document.getElementById('hierSaveStatus');
+    btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Сохранение...'; st.innerHTML = '';
+    try {
+        const data = JSON.parse(document.getElementById('hierEditor').value);
+        const r = await fetch('/api/hierarchy', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data) });
+        if (r.ok) { st.innerHTML='<div class="alert alert-success mt-2"><i class="fas fa-check"></i> Иерархия сохранена!</div>'; hierData=data; renderHierarchy(); setTimeout(()=>toggleHierEdit(),1000); }
+        else { const e=await r.json(); st.innerHTML='<div class="alert alert-danger mt-2">'+(e.error||'Ошибка')+'</div>'; }
+    } catch(e) { st.innerHTML='<div class="alert alert-danger mt-2">Ошибка JSON: '+e.message+'</div>'; }
+    btn.disabled = false; btn.innerHTML = '<i class="fas fa-save"></i> Сохранить';
+}
+
+// ========== RULES ==========
+let rulesEditing = false;
+async function loadRules() {
+    try {
+        const r = await fetch('/api/rules/content');
+        if (r.ok) { const d=await r.json(); const c=d.content||''; if(c.trim()){ document.getElementById('rulesContent').innerHTML=c; document.getElementById('emptyRules').style.display='none'; document.getElementById('rulesContent').style.display=''; } else { document.getElementById('rulesContent').style.display='none'; document.getElementById('emptyRules').style.display=''; } }
+    } catch(e){}
+}
+async function loadRecruiterBtn() {
+    try {
+        const r = await fetch('/api/permissions/check', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({permission:'recruiter_rules_view'}) });
+        if (r.ok) { const d=await r.json(); if(d.has_permission) document.getElementById('recruiterRulesBtnWrapper').innerHTML='<a href="/recruiter-rules" class="btn btn-outline-primary btn-sm ms-2"><i class="fas fa-user-plus"></i> Правила рекрутеров</a>'; }
+    } catch(e){}
+}
+function toggleRulesEdit() {
+    if (!rulesEditing) { document.getElementById('saveStatus').innerHTML=''; document.getElementById('rulesEditor').value=document.getElementById('rulesContent').innerHTML; document.getElementById('rulesViewMode').style.display='none'; document.getElementById('rulesEditMode').style.display=''; document.getElementById('editRulesBtn').style.display='none'; }
+    else { document.getElementById('rulesEditMode').style.display='none'; document.getElementById('rulesViewMode').style.display=''; document.getElementById('editRulesBtn').style.display=''; loadRules(); }
+    rulesEditing=!rulesEditing;
+}
+async function saveRules() {
+    const btn=document.getElementById('saveBtn'), st=document.getElementById('saveStatus'), c=document.getElementById('rulesEditor').value;
+    btn.disabled=true; btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Сохранение...'; st.innerHTML='';
+    try {
+        const r = await fetch('/api/rules/content', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({content:c}) });
+        if (r.ok) { st.innerHTML='<div class="alert alert-success mt-2"><i class="fas fa-check"></i> Правила сохранены!</div>'; document.getElementById('rulesContent').innerHTML=c; if(c.trim()){document.getElementById('emptyRules').style.display='none';document.getElementById('rulesContent').style.display='';} setTimeout(()=>toggleRulesEdit(),1000); }
+        else { const e=await r.json(); st.innerHTML='<div class="alert alert-danger mt-2">'+(e.error||'Ошибка')+'</div>'; }
+    } catch(e) { st.innerHTML='<div class="alert alert-danger mt-2">Ошибка: '+e.message+'</div>'; }
+    btn.disabled=false; btn.innerHTML='<i class="fas fa-save"></i> Сохранить';
+}
+
+loadHierarchy(); loadRules(); loadRecruiterBtn();
 </script>
 {% endblock %}
