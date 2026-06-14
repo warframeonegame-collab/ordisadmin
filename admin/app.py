@@ -6,15 +6,23 @@ import requests
 import secrets
 from datetime import datetime, timedelta
 from functools import wraps
+admin_dir = os.path.dirname(__file__)
+sys.path.insert(0, os.path.join(admin_dir, '..'))
+
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify, abort
-import config
+
+# Загружаем admin/config.py через importlib, чтобы не путать с корневым config.py
+import importlib.util as _importlib_util
+cfg_spec = _importlib_util.spec_from_file_location("admin_config", os.path.join(admin_dir, 'config.py'))
+admin_config = _importlib_util.module_from_spec(cfg_spec)
+cfg_spec.loader.exec_module(admin_config)
+config = admin_config
 
 # Импортируем наш менеджер логов
 from utils.logs_manager import LogsManager
 logs_manager = LogsManager()
 
 # Импортируем Database для сохранения site_roles
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from utils.database import Database
 
 app = Flask(__name__)
@@ -232,10 +240,10 @@ def callback():
             user_role = 'recruiter'
     session['role'] = user_role
     
-    # Логируем вход на сайт
+    # Логируем авторизацию
     logs_manager.log_site_action(
-        action='Вход на сайт',
-        description=f'Пользователь {user_info["username"]} вошёл на сайт',
+        action='Авторизация',
+        description=f'Пользователь {user_info["username"]} авторизовался на сайте (роль: {user_role})',
         user_id=user_id,
         user_name=user_info['username']
     )
@@ -244,16 +252,7 @@ def callback():
 
 @app.route('/logout')
 def logout():
-    user_id = session.get('user_id', '')
-    username = session.get('username', '')
     session.clear()
-    if user_id:
-        logs_manager.log_site_action(
-            action='Выход с сайта',
-            description=f'Пользователь {username} вышел с сайта',
-            user_id=user_id,
-            user_name=username
-        )
     return redirect(url_for('login'))
 
 # ==================== MAIN ROUTES ====================

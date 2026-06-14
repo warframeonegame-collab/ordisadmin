@@ -13,8 +13,10 @@ DISCORD_BOT_TOKEN = os.getenv('DISCORD_TOKEN', '')
 
 # ==================== FLASK ====================
 SECRET_KEY = os.getenv('FLASK_SECRET_KEY', 'arasaka-plaza-admin-secret-key-change-me')
-# Путь к БД: DATA_DIR (или /app/data) + database.json
-DATA_DIR = os.getenv('DATA_DIR', '/app/data')
+# Путь к БД: корень проекта /data
+# На хостинге: /app/data, локально: e:\bots DS\Ordis2\data
+PROJECT_ROOT = os.path.dirname(os.path.dirname(__file__))
+DATA_DIR = os.getenv('DATA_DIR', os.path.join(PROJECT_ROOT, 'data'))
 DATABASE_PATH = os.path.join(DATA_DIR, 'database.json')
 LOGS_PATH = os.path.join(DATA_DIR, 'logs.json')
 
