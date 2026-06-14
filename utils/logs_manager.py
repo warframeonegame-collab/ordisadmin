@@ -38,7 +38,7 @@ class LogsManager:
     def add_log(self, log_type: str, title: str, description: str, 
                 author_id: str = '', author_name: str = '', 
                 color: int = 0, fields: Optional[List[Dict]] = None,
-                source: str = 'discord'):
+                source: str = 'discord', attachments: Optional[List[str]] = None):
         """Добавляет запись в локальный файл логов"""
         logs = self._load_logs()
         log_entry = {
@@ -52,6 +52,7 @@ class LogsManager:
             'color': color,
             'fields': fields or [],
             'source': source,
+            'attachments': attachments or [],
         }
         logs.append(log_entry)
         

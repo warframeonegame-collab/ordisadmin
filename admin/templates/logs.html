@@ -281,6 +281,17 @@ async function loadLogs() {
                             <span style="color: #ccc;">${f.value || ''}</span>
                         </div>
                     `).join('') : ''}
+                    
+                    ${log.attachments && log.attachments.length > 0 ? `
+                        <div class="mt-2">
+                            ${log.attachments.map(url => `
+                                <img src="${url}" style="max-width: 400px; max-height: 300px; border-radius: 8px; margin-top: 8px; cursor: pointer;" 
+                                     onclick="window.open('${url}', '_blank')" 
+                                     onerror="this.style.display='none'"
+                                     loading="lazy">
+                            `).join('')}
+                        </div>
+                    ` : ''}
                 </div>
             `;
         }

@@ -955,7 +955,10 @@ def api_log_action():
 @login_required
 @permission_required('questionnaires_view')
 def api_questionnaires():
-    """Получает все анкеты рекрутинга из database.json"""
+    """Получает анкеты рекрутинга из database.json с пагинацией"""
+    page = request.args.get('page', 1, type=int)
+    per_page = 10
+    
     db = load_database()
     discord_nicks = fetch_discord_members()
     
@@ -971,7 +974,18 @@ def api_questionnaires():
     # Сортируем по дате заполнения (новые сверху)
     questionnaires.sort(key=lambda x: x.get('filled_at', ''), reverse=True)
     
-    return jsonify(questionnaires)
+    total = len(questionnaires)
+    total_pages = max(1, (total + per_page - 1) // per_page)
+    start = (page - 1) * per_page
+    end = start + per_page
+    
+    return jsonify({
+        'questionnaires': questionnaires[start:end],
+        'page': page,
+        'per_page': per_page,
+        'total': total,
+        'total_pages': total_pages,
+    })
 
 @app.route('/api/leaderboard')
 @login_required

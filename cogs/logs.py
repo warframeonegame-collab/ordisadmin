@@ -58,7 +58,7 @@ class Logs(commands.Cog):
         except Exception as e:
             print(f"[ОШИБКА ЛОГОВ] Не удалось отправить лог: {e}")
 
-    async def send_log_local(self, log_type, title, description, executor=None, color=None):
+    async def send_log_local(self, log_type, title, description, executor=None, color=None, attachments=None):
         """Дублирует лог в локальный файл"""
         if color is None:
             color = 0xf1c40f
@@ -71,6 +71,7 @@ class Logs(commands.Cog):
             author_id=author_id,
             author_name=author_name,
             color=color,
+            attachments=attachments or [],
         )
 
 
@@ -126,20 +127,42 @@ class Logs(commands.Cog):
     async def on_message_delete(self, message):
         if message.author.bot:
             return  # Не логируем ботов
-        await self.send_log(
+        
+        # Собираем URL вложений (изображения)
+        attachments = []
+        for att in message.attachments:
+            attachments.append(att.url)
+        
+        # Формируем описание для Discord embed
+        desc = f"Автор: {message.author.mention}\n"
+        desc += f"Сервер: {message.guild.name}\n"
+        desc += f"Канал: {message.channel.mention}\n"
+        if message.content:
+            desc += f"Сообщение: {message.content}"
+        
+        # Отправляем в Discord (с изображением если есть)
+        embed = discord.Embed(
             title="Удалено сообщение",
-            description=f"Автор: {message.author.mention}\n"
-                       f"Сервер: {message.guild.name}\n"
-                       f"Канал: {message.channel.mention}\n"
-                       f"Сообщение: {message.content}",
-            color=discord.Color.purple()
+            description=desc,
+            color=discord.Color.purple(),
+            timestamp=datetime.utcnow()
         )
+        if attachments:
+            embed.set_image(url=attachments[0])
+        try:
+            channel = await self.bot.fetch_channel(self.LOG_CHANNEL_ID)
+            await channel.send(embed=embed)
+        except Exception as e:
+            print(f"[ОШИБКА ЛОГОВ] {e}")
+        
+        # Дублируем в локальный лог (с изображениями)
         await self.send_log_local(
             log_type='delete',
             title='Удалено сообщение',
             description=f"Автор: {message.author}\nКанал: {message.channel.name}\nСообщение: {message.content[:200]}",
             executor=message.author,
-            color=0x9b59b6
+            color=0x9b59b6,
+            attachments=attachments
         )
 
     # Логирование редактирования сообщений

@@ -17,10 +17,10 @@
                 <input type="text" class="form-control" id="q-search" placeholder="Имя...">
             </div>
             <div class="col-md-3 d-flex gap-2">
-                <button class="btn btn-primary" onclick="loadQuestionnaires()">
+                <button class="btn btn-primary" onclick="loadQuestionnaires(1)">
                     <i class="fas fa-filter"></i> Загрузить
                 </button>
-                <button class="btn btn-outline-secondary" onclick="loadQuestionnaires()">
+                <button class="btn btn-outline-secondary" onclick="loadQuestionnaires(1)">
                     <i class="fas fa-sync"></i>
                 </button>
             </div>
@@ -54,9 +54,17 @@
 .q-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #3a3a3a; }
 .q-name { color: #e91e63; font-weight: 700; font-size: 1.1rem; }
 .q-date { color: #888; font-size: 0.8rem; }
+.pagination { display: flex; gap: 4px; justify-content: center; margin-top: 20px; }
+.pagination button { background: #2a2a2a; border: 1px solid #3a3a3a; color: #e0e0e0; padding: 6px 12px; border-radius: 6px; cursor: pointer; transition: all 0.2s; }
+.pagination button:hover { background: #3a3a3a; }
+.pagination button.active { background: #e91e63; border-color: #e91e63; color: white; }
+.pagination button:disabled { opacity: 0.4; cursor: not-allowed; }
 </style>
 <script>
-async function loadQuestionnaires() {
+let currentPage = 1;
+
+async function loadQuestionnaires(page) {
+    currentPage = page || 1;
     const container = document.getElementById('q-container');
     const search = document.getElementById('q-search').value.toLowerCase();
     
@@ -68,12 +76,15 @@ async function loadQuestionnaires() {
     `;
     
     try {
-        const resp = await fetch('/api/questionnaires');
+        const resp = await fetch(`/api/questionnaires?page=${currentPage}`);
         const data = await resp.json();
         
-        let qList = Array.isArray(data) ? data : [];
+        let qList = Array.isArray(data.questionnaires) ? data.questionnaires : [];
+        const total = data.total || 0;
+        const totalPages = data.total_pages || 1;
+        const page = data.page || 1;
         
-        // Фильтр по имени
+        // Фильтр по имени (клиентский)
         if (search) {
             qList = qList.filter(q => 
                 (q.name || '').toLowerCase().includes(search) ||
@@ -92,7 +103,7 @@ async function loadQuestionnaires() {
             return;
         }
         
-        let html = `<div class="mb-3 text-muted small">Всего анкет: <strong>${qList.length}</strong></div>`;
+        let html = `<div class="mb-3 text-muted small">Всего анкет: <strong>${total}</strong> | Страница ${page} из ${totalPages}</div>`;
         
         for (const q of qList) {
             html += `
@@ -124,6 +135,23 @@ async function loadQuestionnaires() {
             `;
         }
         
+        // Пагинация
+        if (totalPages > 1) {
+            html += '<div class="pagination">';
+            html += `<button ${page <= 1 ? 'disabled' : ''} onclick="loadQuestionnaires(${page - 1})"><i class="fas fa-chevron-left"></i></button>`;
+            
+            for (let i = 1; i <= totalPages; i++) {
+                if (i === 1 || i === totalPages || (i >= page - 2 && i <= page + 2)) {
+                    html += `<button class="${i === page ? 'active' : ''}" onclick="loadQuestionnaires(${i})">${i}</button>`;
+                } else if (i === page - 3 || i === page + 3) {
+                    html += `<button disabled>...</button>`;
+                }
+            }
+            
+            html += `<button ${page >= totalPages ? 'disabled' : ''} onclick="loadQuestionnaires(${page + 1})"><i class="fas fa-chevron-right"></i></button>`;
+            html += '</div>';
+        }
+        
         container.innerHTML = html;
         
     } catch (e) {
@@ -138,6 +166,8 @@ async function loadQuestionnaires() {
     }
 }
 
-loadQuestionnaires();
+
+
+loadQuestionnaires(1);
 </script>
 {% endblock %}
