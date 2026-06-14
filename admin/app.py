@@ -28,6 +28,12 @@ from utils.database import Database
 app = Flask(__name__)
 app.secret_key = config.SECRET_KEY
 
+@app.before_request
+def refresh_session_role():
+    """Обновляет роль в сессии из БД при каждом запросе, чтобы изменения вступали в силу сразу"""
+    if 'user_id' in session:
+        session['role'] = get_user_role(session['user_id'])
+
 # При запуске мигрируем site_roles из хардкода в БД
 try:
     db = Database()
@@ -1007,9 +1013,12 @@ def api_log_action():
 
 @app.route('/api/questionnaires')
 @login_required
-@permission_required('questionnaires_view')
 def api_questionnaires():
     """Получает анкеты рекрутинга из database.json с пагинацией"""
+    user_id = session.get('user_id')
+    if not has_permission(user_id, 'questionnaires_view') and not has_permission(user_id, 'logs_view'):
+        return jsonify({'error': 'Forbidden'}), 403
+    
     page = request.args.get('page', 1, type=int)
     per_page = 10
     
@@ -1017,13 +1026,30 @@ def api_questionnaires():
     discord_nicks = fetch_discord_members()
     
     questionnaires = []
-    for uid, data in db.items():
+    for uid, data in list(db.items()):
+        # Пропускаем системные ключи (начинаются с _)
+        if uid.startswith('_'):
+            continue
         q = data.get('questionnaire')
-        if q:
+        if q and isinstance(q, dict):
             nickname = data.get('nickname') or discord_nicks.get(uid, '')
-            q_with_nickname = dict(q)
-            q_with_nickname['nickname'] = nickname
-            questionnaires.append(q_with_nickname)
+            # Копируем анкету, добавляем ник и ID
+            q_copy = {}
+            for k, v in q.items():
+                q_copy[k] = str(v) if v is not None else ''
+            q_copy['nickname'] = nickname or ''
+            q_copy['user_id'] = uid
+            questionnaires.append(q_copy)
+        elif q and isinstance(q, str):
+            # На случай если анкета — строка JSON
+            try:
+                q_parsed = json.loads(q)
+                nickname = data.get('nickname') or discord_nicks.get(uid, '')
+                q_parsed['nickname'] = nickname or ''
+                q_parsed['user_id'] = uid
+                questionnaires.append(q_parsed)
+            except:
+                pass
     
     # Сортируем по дате заполнения (новые сверху)
     questionnaires.sort(key=lambda x: x.get('filled_at', ''), reverse=True)

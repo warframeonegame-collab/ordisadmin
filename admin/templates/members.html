@@ -9,15 +9,12 @@
         <p class="text-muted">Управление участниками клана Arasaka Plaza</p>
     </div>
     {% if role in ['founder', 'cofounder'] %}
-    <div>
-        <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#addMemberModal">
-            <i class="fas fa-plus"></i> Добавить участника
-        </button>
-    </div>
+    <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#addMemberModal">
+        <i class="fas fa-plus"></i> Добавить
+    </button>
     {% endif %}
 </div>
 
-<!-- Модальное окно добавления участника -->
 {% if role in ['founder', 'cofounder'] %}
 <div class="modal fade" id="addMemberModal" tabindex="-1">
     <div class="modal-dialog">
@@ -27,7 +24,7 @@
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <p class="text-muted mb-3">Введите Discord ID участника. Если он есть на сервере — никнейм подтянется автоматически.</p>
+                <p class="text-muted mb-3">Введите Discord ID участника.</p>
                 <div class="mb-3">
                     <label class="form-label">Discord ID</label>
                     <input type="text" class="form-control" id="add-member-id" placeholder="например: 436827887165898752">
@@ -45,36 +42,25 @@
 </div>
 {% endif %}
 
-<!-- Поиск и фильтры -->
+<!-- Поиск и сортировка -->
 <div class="card mb-4">
-    <div class="card-body">
-        <form method="GET" class="row g-3">
-            <div class="col-md-6">
-                <div class="input-group">
-                    <span class="input-group-text"><i class="fas fa-search"></i></span>
-                    <input type="text" class="form-control" name="search" value="{{ search }}" 
-                           placeholder="Поиск по нику или ID...">
-                </div>
+    <div class="card-body py-2">
+        <form method="GET" class="d-flex gap-2 align-items-center flex-wrap">
+            <div class="input-group flex-grow-1" style="max-width: 320px;">
+                <span class="input-group-text"><i class="fas fa-search"></i></span>
+                <input type="text" class="form-control" name="search" value="{{ search }}" placeholder="Поиск по нику или ID...">
             </div>
-            <div class="col-md-3">
-                <select class="form-select" name="sort">
-                    <option value="level" {{ 'selected' if sort_by == 'level' }}>Уровень</option>
-                    <option value="xp" {{ 'selected' if sort_by == 'xp' }}>Опыт</option>
-                    <option value="warns" {{ 'selected' if sort_by == 'warns' }}>Варны</option>
-                    <option value="nickname" {{ 'selected' if sort_by == 'nickname' }}>Никнейм</option>
-                </select>
-            </div>
-            <div class="col-md-2">
-                <select class="form-select" name="order">
-                    <option value="desc" {{ 'selected' if order == 'desc' }}>По убыванию</option>
-                    <option value="asc" {{ 'selected' if order == 'asc' }}>По возрастанию</option>
-                </select>
-            </div>
-            <div class="col-md-1">
-                <button type="submit" class="btn btn-primary w-100">
-                    <i class="fas fa-filter"></i>
-                </button>
-            </div>
+            <select class="form-select" name="sort" style="width: auto; min-width: 130px;">
+                <option value="level" {{ 'selected' if sort_by == 'level' }}>Уровень</option>
+                <option value="xp" {{ 'selected' if sort_by == 'xp' }}>Опыт</option>
+                <option value="warns" {{ 'selected' if sort_by == 'warns' }}>Варны</option>
+                <option value="nickname" {{ 'selected' if sort_by == 'nickname' }}>Никнейм</option>
+            </select>
+            <select class="form-select" name="order" style="width: auto; min-width: 140px;">
+                <option value="desc" {{ 'selected' if order == 'desc' }}>По убыванию</option>
+                <option value="asc" {{ 'selected' if order == 'asc' }}>По возрастанию</option>
+            </select>
+            <button type="submit" class="btn btn-primary"><i class="fas fa-filter"></i></button>
         </form>
     </div>
 </div>
@@ -82,30 +68,39 @@
 <!-- Таблица участников -->
 <div class="card">
     <div class="card-body">
+        {% if members %}
         <div class="table-responsive">
-            <table class="table table-dark table-hover">
+            <table class="table table-dark table-hover align-middle mb-0">
                 <thead>
                     <tr>
-                        <th>ID</th>
-                        <th>Никнейм</th>
-                        <th>Уровень</th>
+                        <th style="width: 40px;">#</th>
+                        <th>Участник</th>
+                        <th>LVL</th>
                         <th>XP</th>
                         <th>Должность</th>
-                        <th>Подразделение</th>
                         <th>Варны</th>
                         <th>Статус</th>
-                        <th>Действия</th>
+                        <th style="width: 50px;"></th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for member in members %}
-                    <tr class="{{ 'table-danger' if member.banned }}">
-                        <td><code>{{ member.id }}</code></td>
-                        <td>{{ member.nickname or '—' }}</td>
+                    <tr class="{{ 'table-danger' if member.banned }}" style="cursor: pointer;" onclick="window.location='{{ url_for('member_detail', user_id=member.id) }}'">
+                        <td class="text-muted small">{{ loop.index }}</td>
+                        <td>
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="avatar-circle-sm" style="background: linear-gradient(135deg, #e91e63, #9c27b0); width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 600; flex-shrink: 0;">
+                                    {{ (member.nickname or member.id)[:1].upper() }}
+                                </div>
+                                <div>
+                                    <div class="fw-semibold">{{ member.nickname or '—' }}</div>
+                                    <small class="text-muted">{{ member.subdivision or '' }}</small>
+                                </div>
+                            </div>
+                        </td>
                         <td><span class="badge bg-primary">{{ member.level }}</span></td>
-                        <td>{{ "{:,}".format(member.xp | int) }}</td>
+                        <td class="text-muted small">{{ "{:,}".format(member.xp | int) }}</td>
                         <td>{{ member.position or '—' }}</td>
-                        <td>{{ member.subdivision or '—' }}</td>
                         <td>
                             {% if member.warns > 0 %}
                             <span class="badge bg-warning">{{ member.warns }}</span>
@@ -115,53 +110,44 @@
                         </td>
                         <td>
                             {% if member.banned %}
-                            <span class="badge bg-danger">Забанен</span>
+                            <span class="badge bg-danger">Ban</span>
                             {% else %}
-                            <span class="badge bg-success">Активен</span>
+                            <span class="badge bg-success" style="background: #1b5e20;">OK</span>
                             {% endif %}
                         </td>
-                        <td>
-                            <div class="btn-group btn-group-sm">
-                                <a href="{{ url_for('member_detail', user_id=member.id) }}" 
-                                   class="btn btn-outline-info" title="Профиль">
-                                    <i class="fas fa-eye"></i>
-                                </a>
-                                {% if role in ['admin', 'cofounder', 'founder'] %}
-                                <div class="dropdown">
-                                    <button class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" title="Действия">
-                                        <i class="fas fa-ellipsis-v"></i>
-                                    </button>
-                                    <ul class="dropdown-menu dropdown-menu-dark" style="min-width: 180px;">
-                                        <li><a class="dropdown-item" href="#" onclick="quickCommand('warn', '{{ member.id }}', '{{ member.nickname or member.id }}')"><i class="fas fa-exclamation-triangle text-warning"></i> Warn</a></li>
-                                        <li><a class="dropdown-item" href="#" onclick="quickCommand('unwarn', '{{ member.id }}', '{{ member.nickname or member.id }}')"><i class="fas fa-check text-success"></i> Unwarn</a></li>
-                                        <li><hr class="dropdown-divider"></li>
-                                        <li><a class="dropdown-item" href="#" onclick="quickCommand('mute --chat', '{{ member.id }}', '{{ member.nickname or member.id }}')"><i class="fas fa-comment-slash text-danger"></i> Mute (чат)</a></li>
-                                        <li><a class="dropdown-item" href="#" onclick="quickCommand('mute --voice', '{{ member.id }}', '{{ member.nickname or member.id }}')"><i class="fas fa-microphone-slash text-danger"></i> Mute (голос)</a></li>
-                                        <li><a class="dropdown-item" href="#" onclick="quickCommand('unmute', '{{ member.id }}', '{{ member.nickname or member.id }}')"><i class="fas fa-check text-success"></i> Unmute</a></li>
-                                        <li><hr class="dropdown-divider"></li>
-                                        <li><a class="dropdown-item" href="#" onclick="quickCommand('ban', '{{ member.id }}', '{{ member.nickname or member.id }}')"><i class="fas fa-ban text-danger"></i> Ban</a></li>
-                                        <li><a class="dropdown-item" href="#" onclick="quickCommand('unban', '{{ member.id }}', '{{ member.nickname or member.id }}')"><i class="fas fa-check text-success"></i> Unban</a></li>
-                                    </ul>
-                                </div>
-                                {% endif %}
+                        <td onclick="event.stopPropagation();">
+                            {% if role in ['admin', 'cofounder', 'founder'] %}
+                            <div class="dropdown">
+                                <button class="btn btn-sm btn-outline-secondary dropdown-toggle-no-caret" data-bs-toggle="dropdown" title="Действия" style="border: none; padding: 4px 8px;">
+                                    <i class="fas fa-ellipsis-v"></i>
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end" style="min-width: 160px;">
+                                    <li><a class="dropdown-item" href="#" onclick="quickCommand('warn', '{{ member.id }}', '{{ member.nickname or member.id }}')"><i class="fas fa-exclamation-triangle text-warning me-2"></i>Warn</a></li>
+                                    <li><a class="dropdown-item" href="#" onclick="quickCommand('unwarn', '{{ member.id }}', '{{ member.nickname or member.id }}')"><i class="fas fa-check text-success me-2"></i>Unwarn</a></li>
+                                    <li><a class="dropdown-item" href="#" onclick="quickCommand('mute --chat', '{{ member.id }}', '{{ member.nickname or member.id }}')"><i class="fas fa-comment-slash text-danger me-2"></i>Mute chat</a></li>
+                                    <li><a class="dropdown-item" href="#" onclick="quickCommand('mute --voice', '{{ member.id }}', '{{ member.nickname or member.id }}')"><i class="fas fa-microphone-slash text-danger me-2"></i>Mute voice</a></li>
+                                    <li><a class="dropdown-item" href="#" onclick="quickCommand('unmute', '{{ member.id }}', '{{ member.nickname or member.id }}')"><i class="fas fa-check text-success me-2"></i>Unmute</a></li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li><a class="dropdown-item" href="#" onclick="quickCommand('ban', '{{ member.id }}', '{{ member.nickname or member.id }}')"><i class="fas fa-ban text-danger me-2"></i>Ban</a></li>
+                                    <li><a class="dropdown-item" href="#" onclick="quickCommand('unban', '{{ member.id }}', '{{ member.nickname or member.id }}')"><i class="fas fa-check text-success me-2"></i>Unban</a></li>
+                                </ul>
                             </div>
+                            {% endif %}
                         </td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
-        
-        {% if not members %}
-        <div class="text-center text-muted py-4">
-            <i class="fas fa-users fa-3x mb-3"></i>
+        {% else %}
+        <div class="text-center text-muted py-5">
+            <i class="fas fa-users fa-3x mb-3" style="opacity: 0.3;"></i>
             <p>Участники не найдены</p>
         </div>
         {% endif %}
     </div>
 </div>
 
-<!-- Модальное окно быстрой команды -->
 <div class="modal fade" id="quickCmdModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content" style="background: #1a1a1a; border: 1px solid #3a3a3a;">
@@ -174,12 +160,6 @@
                 <div class="mb-3" id="quickCmdReasonSection">
                     <label class="form-label">Причина</label>
                     <input type="text" class="form-control" id="quickCmdReason" placeholder="Укажите причину">
-                </div>
-                <div class="mb-3" id="quickCmdChannelSection" style="display:none;">
-                    <label class="form-label">Канал (для clear)</label>
-                    <select class="form-select" id="quickCmdChannel">
-                        <option value="">Выберите канал...</option>
-                    </select>
                 </div>
                 <div id="quickCmdStatus"></div>
             </div>
@@ -196,6 +176,10 @@
 {% endblock %}
 
 {% block scripts %}
+<style>
+.dropdown-toggle-no-caret::after { display: none !important; }
+.table-dark tbody tr { transition: background 0.15s ease; }
+</style>
 <script>
 let quickCmdData = {};
 
@@ -204,25 +188,17 @@ async function addMember() {
     const status = document.getElementById('add-member-status');
     const btn = document.getElementById('add-member-btn');
     const userId = input.value.trim();
-    
-    if (!userId) {
-        status.innerHTML = '<div class="alert alert-danger">Введите Discord ID</div>';
-        return;
-    }
-    
+    if (!userId) { status.innerHTML = '<div class="alert alert-danger">Введите Discord ID</div>'; return; }
     btn.disabled = true;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Добавление...';
     status.innerHTML = '';
-    
     try {
         const resp = await fetch('/api/members/add', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({user_id: userId})
         });
-        
         const data = await resp.json();
-        
         if (resp.ok) {
             status.innerHTML = '<div class="alert alert-success"><i class="fas fa-check"></i> ' + data.message + '</div>';
             input.value = '';
@@ -233,31 +209,19 @@ async function addMember() {
     } catch (e) {
         status.innerHTML = '<div class="alert alert-danger"><i class="fas fa-times"></i> Ошибка: ' + e.message + '</div>';
     }
-    
     btn.disabled = false;
     btn.innerHTML = '<i class="fas fa-plus"></i> Добавить';
 }
 
 function quickCommand(cmd, userId, nickname) {
     quickCmdData = {cmd, userId, nickname};
-    
     const modal = new bootstrap.Modal(document.getElementById('quickCmdModal'));
-    const title = document.getElementById('quickCmdTitle');
-    const target = document.getElementById('quickCmdTarget');
-    const reasonSection = document.getElementById('quickCmdReasonSection');
-    const channelSection = document.getElementById('quickCmdChannelSection');
-    const status = document.getElementById('quickCmdStatus');
-    const reasonInput = document.getElementById('quickCmdReason');
-    
-    title.innerHTML = '<i class="fas fa-terminal"></i> .' + cmd + ' @' + nickname;
-    target.innerHTML = 'Пользователь: <strong>' + nickname + '</strong> (' + userId + ')';
-    status.innerHTML = '';
-    reasonInput.value = '';
-    
-    // Показываем поле причины для команд с причиной
+    document.getElementById('quickCmdTitle').innerHTML = '<i class="fas fa-terminal"></i> .' + cmd + ' @' + nickname;
+    document.getElementById('quickCmdTarget').innerHTML = 'Пользователь: <strong>' + nickname + '</strong> (' + userId + ')';
+    document.getElementById('quickCmdStatus').innerHTML = '';
+    document.getElementById('quickCmdReason').value = '';
     const needsReason = cmd.startsWith('warn') || cmd.startsWith('unwarn') || cmd.startsWith('mute') || cmd.startsWith('ban');
-    reasonSection.style.display = needsReason ? 'block' : 'none';
-    
+    document.getElementById('quickCmdReasonSection').style.display = needsReason ? 'block' : 'none';
     modal.show();
 }
 
@@ -265,42 +229,29 @@ async function executeQuickCmd() {
     const btn = document.getElementById('quickCmdExecBtn');
     const status = document.getElementById('quickCmdStatus');
     const reason = document.getElementById('quickCmdReason').value.trim();
-    
     let cmd = '.' + quickCmdData.cmd + ' <@' + quickCmdData.userId + '>';
-    
     const needsReason = quickCmdData.cmd.startsWith('warn') || quickCmdData.cmd.startsWith('unwarn') || quickCmdData.cmd.startsWith('mute') || quickCmdData.cmd.startsWith('ban');
-    if (needsReason && reason) {
-        cmd += ' ' + reason;
-    } else if (needsReason && !reason) {
-        status.innerHTML = '<div class="alert alert-danger">Укажите причину!</div>';
-        return;
-    }
-    
+    if (needsReason && reason) { cmd += ' ' + reason; }
+    else if (needsReason && !reason) { status.innerHTML = '<div class="alert alert-danger">Укажите причину!</div>'; return; }
     btn.disabled = true;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Отправка...';
     status.innerHTML = '';
-    
     try {
         const resp = await fetch('/api/execute', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({command: cmd})
         });
-        
         const data = await resp.json();
-        
         if (resp.ok) {
             status.innerHTML = '<div class="alert alert-success"><i class="fas fa-check"></i> Команда отправлена!</div>';
-            setTimeout(() => { 
-                bootstrap.Modal.getInstance(document.getElementById('quickCmdModal')).hide();
-            }, 1500);
+            setTimeout(() => { bootstrap.Modal.getInstance(document.getElementById('quickCmdModal')).hide(); }, 1500);
         } else {
             status.innerHTML = '<div class="alert alert-danger"><i class="fas fa-times"></i> ' + data.error + '</div>';
         }
     } catch (e) {
         status.innerHTML = '<div class="alert alert-danger"><i class="fas fa-times"></i> Ошибка: ' + e.message + '</div>';
     }
-    
     btn.disabled = false;
     btn.innerHTML = '<i class="fas fa-paper-plane"></i> Выполнить';
 }

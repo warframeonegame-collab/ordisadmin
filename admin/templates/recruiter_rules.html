@@ -3,9 +3,6 @@
 {% block title %}Правила для рекрутеров{% endblock %}
 
 {% block content %}
-<div class="page-header">
-    <h1><i class="fas fa-user-plus"></i> Правила для рекрутеров</h1>
-</div>
 
 <div class="card">
     <div class="card-body">
@@ -19,6 +16,7 @@
         </div>
     </div>
 </div>
+
 {% endblock %}
 
 {% block scripts %}
@@ -30,73 +28,136 @@
     text-align: justify;
 }
 .rules-content h1 {
-    color: #e91e63;
-    margin-top: 1.5rem;
-    margin-bottom: 0.8rem;
-    text-align: center;
-}
-.rules-content h1:first-child {
+    color: #fff;
     font-size: 1.8rem;
+    font-weight: 700;
+    margin: 2rem 0 1rem 0;
+    padding: 0.75rem 1.5rem;
+    background: linear-gradient(135deg, rgba(233, 30, 99, 0.2), rgba(156, 39, 176, 0.2));
+    border-left: 4px solid #e91e63;
+    border-radius: 0 8px 8px 0;
+    text-align: left;
 }
-.rules-content h2, .rules-content h3, .rules-content h4 {
+.rules-content h1:first-child { margin-top: 0; }
+.rules-content h2 {
+    color: #f48fb1;
+    font-size: 1.4rem;
+    font-weight: 600;
+    margin: 1.8rem 0 0.8rem 0;
+    padding: 0.5rem 1rem;
+    border-left: 3px solid #e91e63;
+    background: rgba(233, 30, 99, 0.08);
+    border-radius: 0 6px 6px 0;
+}
+.rules-content h3 {
     color: #e91e63;
-    margin-top: 1.5rem;
-    margin-bottom: 0.8rem;
+    font-size: 1.15rem;
+    font-weight: 600;
+    margin: 1.5rem 0 0.6rem 0;
+    padding-left: 0.5rem;
+    border-left: 2px solid #e91e63;
+}
+.rules-content h4, .rules-content h5 {
+    color: #e91e63;
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 1.2rem 0 0.5rem 0;
+    opacity: 0.85;
 }
 .rules-content p {
     margin-bottom: 0.8rem;
     text-align: justify;
+    color: #d0d0d0;
 }
 .rules-content ul, .rules-content ol {
-    margin-bottom: 1rem;
-    padding-left: 1.5rem;
+    margin: 0.8rem 0 1.2rem 0;
+    padding-left: 2rem;
+    list-style: none;
 }
 .rules-content li {
-    margin-bottom: 0.4rem;
+    margin-bottom: 0.5rem;
+    position: relative;
+    color: #d0d0d0;
+    padding-left: 1.2rem;
+}
+.rules-content ul li::before {
+    content: "◆";
+    color: #e91e63;
+    position: absolute;
+    left: 0;
+    font-size: 0.55rem;
+    top: 0.45rem;
+}
+.rules-content ol {
+    counter-reset: rule-item;
+}
+.rules-content ol li::before {
+    content: counter(rule-item) ".";
+    counter-increment: rule-item;
+    color: #e91e63;
+    position: absolute;
+    left: 0;
+    font-weight: 600;
 }
 .rules-content a {
     color: #e91e63;
-    text-decoration: underline;
+    text-decoration: none;
+    border-bottom: 1px dashed rgba(233, 30, 99, 0.4);
+    transition: all 0.2s;
+}
+.rules-content a:hover {
+    color: #f48fb1;
+    border-bottom-color: #f48fb1;
 }
 .rules-content table {
     width: auto;
     border-collapse: collapse;
-    margin: 0 auto 1rem auto;
-}
-.rules-content th, .rules-content td {
-    border: 1px solid #3a3a3a;
-    padding: 8px 12px;
-    text-align: left;
+    margin: 1rem auto 1.5rem auto;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
 .rules-content th {
-    background: #2a2a2a;
+    background: linear-gradient(135deg, #1a1a1a, #252525);
     color: #e91e63;
+    padding: 10px 16px;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.8rem;
+    letter-spacing: 0.5px;
+    border-bottom: 2px solid #e91e63;
 }
 .rules-content td {
-    background: #1a1a1a;
+    background: #151515;
+    color: #e0e0e0;
+    padding: 10px 16px;
+    border-bottom: 1px solid #2a2a2a;
 }
+.rules-content tr:last-child td { border-bottom: none; }
+.rules-content tr:hover td { background: #1a1a1a; }
 .rules-content img {
     max-width: 100%;
-    border-radius: 8px;
-    margin: 8px 0;
+    border-radius: 12px;
+    margin: 1rem 0;
+    display: block;
 }
 .rules-content blockquote {
+    background: rgba(233, 30, 99, 0.05);
     border-left: 4px solid #e91e63;
-    padding-left: 1rem;
-    margin: 1rem 0;
-    color: #aaa;
+    padding: 1rem 1.5rem;
+    margin: 1.2rem 0;
+    color: #bbb;
     font-style: italic;
+    border-radius: 0 8px 8px 0;
 }
 .rules-content hr {
-    border-color: #3a3a3a;
-    margin: 1.5rem 0;
+    border: none;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, #3a3a3a, transparent);
+    margin: 2rem 0;
 }
-.rules-content strong {
-    color: #fff;
-}
-.rules-content em {
-    color: #ccc;
-}
+.rules-content strong { color: #fff; font-weight: 600; }
+.rules-content em { color: #ccc; }
 .rules-iframe {
     width: 100%;
     height: 80vh;
@@ -105,31 +166,34 @@
     background: #fff;
 }
 
-/* Кнопка возврата к основным правилам */
 .back-btn-wrapper {
     text-align: center;
-    margin-top: 2rem;
-    padding: 1.5rem;
-    border-top: 1px solid #3a3a3a;
+    margin-top: 2.5rem;
+    padding: 2rem 1.5rem;
+    border-top: 2px solid #2a2a2a;
+    background: linear-gradient(180deg, rgba(233, 30, 99, 0.03), transparent);
+    border-radius: 0 0 12px 12px;
 }
 .back-btn {
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
-    padding: 0.75rem 2rem;
+    padding: 0.85rem 2rem;
     background: transparent;
-    color: var(--accent-pink);
+    color: #e91e63;
     text-decoration: none;
-    border-radius: 8px;
+    border-radius: 50px;
     font-weight: 600;
-    transition: all 0.3s ease;
-    border: 1px solid var(--accent-pink);
-    cursor: pointer;
     font-size: 1rem;
+    transition: all 0.3s;
+    border: 2px solid #e91e63;
+    cursor: pointer;
 }
 .back-btn:hover {
-    background: rgba(233, 30, 99, 0.15);
-    color: var(--accent-pink);
+    background: rgba(233, 30, 99, 0.12);
+    color: #e91e63;
+    transform: translateY(-2px);
+    box-shadow: 0 5px 20px rgba(233, 30, 99, 0.2);
 }
 </style>
 <script>
@@ -148,24 +212,26 @@ async function loadRecruiterRules() {
         const body = doc.body;
         
         if (body && body.innerHTML.trim()) {
+            // Очищаем от Google-стилей
+            const allElements = body.querySelectorAll('*');
+            allElements.forEach(el => {
+                el.removeAttribute('class');
+                if (el.style) el.removeAttribute('style');
+            });
+            
             container.innerHTML = '<div class="rules-content">' + body.innerHTML + '</div>';
             
             // Скрываем всё, КРОМЕ секций с рекрутерами
             const headings = container.querySelectorAll('h1, h2, h3, h4, h5');
-            let insideRecruiterSection = false;
-            let recruiterSectionContent = [];
+            let insideRecruiter = false;
             
             headings.forEach(h => {
                 const text = h.textContent.toLowerCase();
                 const tagLevel = parseInt(h.tagName.substring(1));
                 
                 if (text.includes('рекрутер') || text.includes('рекрутинг')) {
-                    insideRecruiterSection = true;
-                    // Показываем этот заголовок
+                    insideRecruiter = true;
                     h.style.display = '';
-                    recruiterSectionContent.push(h);
-                    
-                    // Собираем все элементы до следующего заголовка того же уровня
                     let el = h.nextElementSibling;
                     while (el) {
                         if (el.tagName && el.tagName.match(/^H[1-5]$/)) {
@@ -173,11 +239,9 @@ async function loadRecruiterRules() {
                             if (nextLevel <= tagLevel) break;
                         }
                         el.style.display = '';
-                        recruiterSectionContent.push(el);
                         el = el.nextElementSibling;
                     }
-                } else if (!insideRecruiterSection) {
-                    // Скрываем всё до найденной секции рекрутеров
+                } else if (!insideRecruiter) {
                     h.style.display = 'none';
                     let el = h.nextElementSibling;
                     while (el) {
@@ -189,7 +253,6 @@ async function loadRecruiterRules() {
                         el = el.nextElementSibling;
                     }
                 } else {
-                    // После секции рекрутеров — скрываем всё остальное
                     h.style.display = 'none';
                     let el = h.nextElementSibling;
                     while (el) {
@@ -203,15 +266,14 @@ async function loadRecruiterRules() {
                 }
             });
             
-            // Добавляем кнопку возврата
-            const btnWrapper = document.createElement('div');
-            btnWrapper.className = 'back-btn-wrapper';
-            btnWrapper.innerHTML = `
-                <a href="/rules" class="back-btn">
-                    <i class="fas fa-arrow-left"></i> Вернуться к основным правилам
-                </a>
-            `;
-            container.querySelector('.rules-content').appendChild(btnWrapper);
+            // Кнопка возврата
+            const rulesContent = container.querySelector('.rules-content');
+            if (rulesContent) {
+                const btnWrapper = document.createElement('div');
+                btnWrapper.className = 'back-btn-wrapper';
+                btnWrapper.innerHTML = '<a href="/rules" class="back-btn"><i class="fas fa-arrow-left"></i> Вернуться к основным правилам</a>';
+                rulesContent.appendChild(btnWrapper);
+            }
         } else {
             throw new Error('Empty content');
         }
