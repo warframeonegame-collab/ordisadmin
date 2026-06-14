@@ -241,12 +241,8 @@ def callback():
     session['avatar'] = user_info.get('avatar', '')
     session['discriminator'] = user_info.get('discriminator', '0')
     
-    # Определяем роль: сначала проверяем SITE_ROLES, затем Discord роль рекрутера
+    # Определяем роль: только из SITE_ROLES (без автовыдачи по Discord роли)
     user_role = get_user_role(user_id)
-    if user_role == 'user':
-        # Если нет явной роли в SITE_ROLES, проверяем Discord роль рекрутера
-        if check_discord_role(user_id, config.RECRUITER_DISCORD_ROLE_ID):
-            user_role = 'recruiter'
     session['role'] = user_role
     
     # Логируем авторизацию
