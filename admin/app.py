@@ -319,9 +319,13 @@ def members():
             continue
         # Используем ник из Discord если в database его нет
         nickname = data.get('nickname') or discord_nicks.get(uid, '')
+        # Получаем аватарку: Discord CDN не принимает avatar=None, нужен дефолтный хэш
+        avatar_hash = data.get('avatar') or '0'
+        avatar_url = f'https://cdn.discordapp.com/avatars/{uid}/{avatar_hash}.png?size=64' if avatar_hash != '0' else f'https://cdn.discordapp.com/embed/avatars/0.png'
         members_list.append({
             'id': uid,
             'nickname': nickname,
+            'avatar_url': avatar_url,
             'level': data.get('level', 1),
             'xp': data.get('xp', 0),
             'position': data.get('position', ''),
@@ -554,6 +558,49 @@ def recruiter_rules_page():
     if not has_permission(user_id, 'recruiter_rules_view'):
         abort(403)
     return render_template('recruiter_rules.html', role=session.get('role', 'user'))
+
+@app.route('/api/recruiter-rules/content', methods=['GET', 'POST'])
+@login_required
+def api_recruiter_rules_content():
+    """GET: получить текст правил рекрутеров. POST: сохранить (admin+)."""
+    rules_file = os.path.join(config.DATA_DIR, 'recruiter_rules.json')
+    
+    if request.method == 'GET':
+        content = ''
+        try:
+            if os.path.exists(rules_file):
+                with open(rules_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    content = data.get('content', '')
+        except:
+            pass
+        return jsonify({'content': content})
+    
+    # POST: сохранить
+    user_role = session.get('role', 'user')
+    if user_role not in ('admin', 'cofounder', 'founder'):
+        return jsonify({'error': 'Нет прав на редактирование'}), 403
+    
+    data = request.json
+    content = data.get('content', '')
+    
+    try:
+        with open(rules_file, 'w', encoding='utf-8') as f:
+            json.dump({
+                'content': content,
+                'updated_by': session.get('username', 'Unknown'),
+                'updated_at': datetime.now().isoformat()
+            }, f, ensure_ascii=False, indent=2)
+        
+        logs_manager.log_site_action(
+            action='Обновление правил рекрутеров',
+            description=f'Пользователь {session.get("username")} обновил правила рекрутеров',
+            user_id=session.get('user_id', ''),
+            user_name=session.get('username', 'Unknown')
+        )
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 # ==================== API ROUTES ====================
 

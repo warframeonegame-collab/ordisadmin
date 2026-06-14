@@ -3,20 +3,55 @@
 {% block title %}Правила для рекрутеров{% endblock %}
 
 {% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <div>
+        <h1><i class="fas fa-user-plus"></i> Правила для рекрутеров</h1>
+        <p class="text-muted">Редактирование правил рекрутинга</p>
+    </div>
+    {% if role in ['admin', 'cofounder', 'founder'] %}
+    <button class="btn btn-outline-primary" id="editBtn" onclick="toggleEdit()">
+        <i class="fas fa-edit"></i> Редактировать
+    </button>
+    {% endif %}
+</div>
 
 <div class="card">
     <div class="card-body">
-        <div id="recruiter-rules-container">
-            <div class="text-center py-4">
-                <div class="spinner-border text-primary" role="status">
-                    <span class="visually-hidden">Загрузка...</span>
-                </div>
-                <p class="mt-2">Загрузка правил...</p>
+        <!-- Режим просмотра -->
+        <div id="viewMode">
+            <div class="rules-content" id="rulesContent"></div>
+            <div class="text-center text-muted py-5" id="emptyRules" style="display:none;">
+                <i class="fas fa-book-open fa-3x mb-3" style="opacity: 0.3;"></i>
+                <p>Правила для рекрутеров пока не заданы.</p>
+                {% if role in ['admin', 'cofounder', 'founder'] %}
+                <button class="btn btn-outline-primary mt-2" onclick="toggleEdit()">
+                    <i class="fas fa-plus"></i> Добавить правила
+                </button>
+                {% endif %}
             </div>
+        </div>
+        <!-- Режим редактирования -->
+        <div id="editMode" style="display:none;">
+            <textarea id="rulesEditor" class="form-control" style="min-height: 400px; font-family: 'Segoe UI', sans-serif; font-size: 0.95rem; line-height: 1.7; background: #121212; color: #e0e0e0; border-color: #3a3a3a;" placeholder="Введите текст правил для рекрутеров...&#10;&#10;Можно использовать базовый HTML: <strong>жирный</strong>, <em>курсив</em>, <h3>заголовки</h3>, <ul><li>списки</li></ul>"></textarea>
+            <div class="d-flex gap-2 mt-3">
+                <button class="btn btn-primary" onclick="saveRules()" id="saveBtn">
+                    <i class="fas fa-save"></i> Сохранить
+                </button>
+                <button class="btn btn-outline-secondary" onclick="toggleEdit()">
+                    <i class="fas fa-times"></i> Отмена
+                </button>
+            </div>
+            <div id="saveStatus" class="mt-2"></div>
         </div>
     </div>
 </div>
 
+<!-- Кнопка возврата -->
+<div class="text-center mt-3">
+    <a href="/rules" class="btn btn-outline-secondary">
+        <i class="fas fa-arrow-left"></i> Вернуться к основным правилам
+    </a>
+</div>
 {% endblock %}
 
 {% block scripts %}
@@ -57,232 +92,108 @@
     padding-left: 0.5rem;
     border-left: 2px solid #e91e63;
 }
-.rules-content h4, .rules-content h5 {
-    color: #e91e63;
-    font-size: 1rem;
-    font-weight: 600;
-    margin: 1.2rem 0 0.5rem 0;
-    opacity: 0.85;
-}
-.rules-content p {
-    margin-bottom: 0.8rem;
-    text-align: justify;
-    color: #d0d0d0;
-}
-.rules-content ul, .rules-content ol {
-    margin: 0.8rem 0 1.2rem 0;
-    padding-left: 2rem;
-    list-style: none;
-}
-.rules-content li {
-    margin-bottom: 0.5rem;
-    position: relative;
-    color: #d0d0d0;
-    padding-left: 1.2rem;
-}
-.rules-content ul li::before {
-    content: "◆";
-    color: #e91e63;
-    position: absolute;
-    left: 0;
-    font-size: 0.55rem;
-    top: 0.45rem;
-}
-.rules-content ol {
-    counter-reset: rule-item;
-}
-.rules-content ol li::before {
-    content: counter(rule-item) ".";
-    counter-increment: rule-item;
-    color: #e91e63;
-    position: absolute;
-    left: 0;
-    font-weight: 600;
-}
-.rules-content a {
-    color: #e91e63;
-    text-decoration: none;
-    border-bottom: 1px dashed rgba(233, 30, 99, 0.4);
-    transition: all 0.2s;
-}
-.rules-content a:hover {
-    color: #f48fb1;
-    border-bottom-color: #f48fb1;
-}
-.rules-content table {
-    width: auto;
-    border-collapse: collapse;
-    margin: 1rem auto 1.5rem auto;
-    border-radius: 8px;
-    overflow: hidden;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-}
-.rules-content th {
-    background: linear-gradient(135deg, #1a1a1a, #252525);
-    color: #e91e63;
-    padding: 10px 16px;
-    font-weight: 600;
-    text-transform: uppercase;
-    font-size: 0.8rem;
-    letter-spacing: 0.5px;
-    border-bottom: 2px solid #e91e63;
-}
-.rules-content td {
-    background: #151515;
-    color: #e0e0e0;
-    padding: 10px 16px;
-    border-bottom: 1px solid #2a2a2a;
-}
+.rules-content h4, .rules-content h5 { color: #e91e63; font-size: 1rem; font-weight: 600; margin: 1.2rem 0 0.5rem 0; opacity: 0.85; }
+.rules-content p { margin-bottom: 0.8rem; text-align: justify; color: #d0d0d0; }
+.rules-content ul, .rules-content ol { margin: 0.8rem 0 1.2rem 0; padding-left: 2rem; list-style: none; }
+.rules-content li { margin-bottom: 0.5rem; position: relative; color: #d0d0d0; padding-left: 1.2rem; }
+.rules-content ul li::before { content: "◆"; color: #e91e63; position: absolute; left: 0; font-size: 0.55rem; top: 0.45rem; }
+.rules-content ol { counter-reset: rule-item; }
+.rules-content ol li::before { content: counter(rule-item) "."; counter-increment: rule-item; color: #e91e63; position: absolute; left: 0; font-weight: 600; }
+.rules-content a { color: #e91e63; text-decoration: none; border-bottom: 1px dashed rgba(233, 30, 99, 0.4); }
+.rules-content a:hover { color: #f48fb1; border-bottom-color: #f48fb1; }
+.rules-content table { width: auto; border-collapse: collapse; margin: 1rem auto 1.5rem auto; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
+.rules-content th { background: linear-gradient(135deg, #1a1a1a, #252525); color: #e91e63; padding: 10px 16px; font-weight: 600; text-transform: uppercase; font-size: 0.8rem; border-bottom: 2px solid #e91e63; }
+.rules-content td { background: #151515; color: #e0e0e0; padding: 10px 16px; border-bottom: 1px solid #2a2a2a; }
 .rules-content tr:last-child td { border-bottom: none; }
-.rules-content tr:hover td { background: #1a1a1a; }
-.rules-content img {
-    max-width: 100%;
-    border-radius: 12px;
-    margin: 1rem 0;
-    display: block;
-}
-.rules-content blockquote {
-    background: rgba(233, 30, 99, 0.05);
-    border-left: 4px solid #e91e63;
-    padding: 1rem 1.5rem;
-    margin: 1.2rem 0;
-    color: #bbb;
-    font-style: italic;
-    border-radius: 0 8px 8px 0;
-}
-.rules-content hr {
-    border: none;
-    height: 1px;
-    background: linear-gradient(90deg, transparent, #3a3a3a, transparent);
-    margin: 2rem 0;
-}
 .rules-content strong { color: #fff; font-weight: 600; }
 .rules-content em { color: #ccc; }
-.rules-iframe {
-    width: 100%;
-    height: 80vh;
-    border: none;
-    border-radius: 8px;
-    background: #fff;
-}
-
-.back-btn-wrapper {
-    text-align: center;
-    margin-top: 2.5rem;
-    padding: 2rem 1.5rem;
-    border-top: 2px solid #2a2a2a;
-    background: linear-gradient(180deg, rgba(233, 30, 99, 0.03), transparent);
-    border-radius: 0 0 12px 12px;
-}
-.back-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.85rem 2rem;
-    background: transparent;
-    color: #e91e63;
-    text-decoration: none;
-    border-radius: 50px;
-    font-weight: 600;
-    font-size: 1rem;
-    transition: all 0.3s;
-    border: 2px solid #e91e63;
-    cursor: pointer;
-}
-.back-btn:hover {
-    background: rgba(233, 30, 99, 0.12);
-    color: #e91e63;
-    transform: translateY(-2px);
-    box-shadow: 0 5px 20px rgba(233, 30, 99, 0.2);
-}
+.rules-content hr { border: none; height: 1px; background: linear-gradient(90deg, transparent, #3a3a3a, transparent); margin: 2rem 0; }
 </style>
 <script>
-async function loadRecruiterRules() {
-    const container = document.getElementById('recruiter-rules-container');
-    const docId = '1-tbBVPKZZRZQduyspKD8gbH0al3Mr20Wul27NNOkgio';
-    const exportUrl = 'https://docs.google.com/document/d/' + docId + '/export?format=html';
-    
+let isEditing = false;
+
+async function loadRules() {
     try {
-        const resp = await fetch(exportUrl);
-        if (!resp.ok) throw new Error('Failed to fetch');
-        const html = await resp.text();
-        
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(html, 'text/html');
-        const body = doc.body;
-        
-        if (body && body.innerHTML.trim()) {
-            // Очищаем от Google-стилей
-            const allElements = body.querySelectorAll('*');
-            allElements.forEach(el => {
-                el.removeAttribute('class');
-                if (el.style) el.removeAttribute('style');
-            });
-            
-            container.innerHTML = '<div class="rules-content">' + body.innerHTML + '</div>';
-            
-            // Скрываем всё, КРОМЕ секций с рекрутерами
-            const headings = container.querySelectorAll('h1, h2, h3, h4, h5');
-            let insideRecruiter = false;
-            
-            headings.forEach(h => {
-                const text = h.textContent.toLowerCase();
-                const tagLevel = parseInt(h.tagName.substring(1));
-                
-                if (text.includes('рекрутер') || text.includes('рекрутинг')) {
-                    insideRecruiter = true;
-                    h.style.display = '';
-                    let el = h.nextElementSibling;
-                    while (el) {
-                        if (el.tagName && el.tagName.match(/^H[1-5]$/)) {
-                            const nextLevel = parseInt(el.tagName.substring(1));
-                            if (nextLevel <= tagLevel) break;
-                        }
-                        el.style.display = '';
-                        el = el.nextElementSibling;
-                    }
-                } else if (!insideRecruiter) {
-                    h.style.display = 'none';
-                    let el = h.nextElementSibling;
-                    while (el) {
-                        if (el.tagName && el.tagName.match(/^H[1-5]$/)) {
-                            const nextLevel = parseInt(el.tagName.substring(1));
-                            if (nextLevel <= tagLevel) break;
-                        }
-                        el.style.display = 'none';
-                        el = el.nextElementSibling;
-                    }
-                } else {
-                    h.style.display = 'none';
-                    let el = h.nextElementSibling;
-                    while (el) {
-                        if (el.tagName && el.tagName.match(/^H[1-5]$/)) {
-                            const nextLevel = parseInt(el.tagName.substring(1));
-                            if (nextLevel <= tagLevel) break;
-                        }
-                        el.style.display = 'none';
-                        el = el.nextElementSibling;
-                    }
-                }
-            });
-            
-            // Кнопка возврата
-            const rulesContent = container.querySelector('.rules-content');
-            if (rulesContent) {
-                const btnWrapper = document.createElement('div');
-                btnWrapper.className = 'back-btn-wrapper';
-                btnWrapper.innerHTML = '<a href="/rules" class="back-btn"><i class="fas fa-arrow-left"></i> Вернуться к основным правилам</a>';
-                rulesContent.appendChild(btnWrapper);
+        const resp = await fetch('/api/recruiter-rules/content');
+        if (resp.ok) {
+            const data = await resp.json();
+            const content = data.content || '';
+            if (content.trim()) {
+                document.getElementById('rulesContent').innerHTML = content;
+                document.getElementById('emptyRules').style.display = 'none';
+                document.getElementById('rulesContent').style.display = '';
+            } else {
+                document.getElementById('rulesContent').style.display = 'none';
+                document.getElementById('emptyRules').style.display = '';
             }
-        } else {
-            throw new Error('Empty content');
         }
     } catch (e) {
         console.error('Failed to load recruiter rules:', e);
-        container.innerHTML = '<iframe class="rules-iframe" src="https://docs.google.com/document/d/' + docId + '/preview"></iframe>';
+        document.getElementById('emptyRules').style.display = '';
     }
 }
 
-loadRecruiterRules();
+function toggleEdit() {
+    isEditing = !isEditing;
+    const viewMode = document.getElementById('viewMode');
+    const editMode = document.getElementById('editMode');
+    const editBtn = document.getElementById('editBtn');
+    const saveStatus = document.getElementById('saveStatus');
+    
+    if (isEditing) {
+        // Переходим в режим редактирования
+        saveStatus.innerHTML = '';
+        const currentContent = document.getElementById('rulesContent').innerHTML;
+        document.getElementById('rulesEditor').value = currentContent;
+        viewMode.style.display = 'none';
+        editMode.style.display = '';
+        if (editBtn) editBtn.style.display = 'none';
+    } else {
+        // Возвращаемся в режим просмотра
+        editMode.style.display = 'none';
+        viewMode.style.display = '';
+        if (editBtn) editBtn.style.display = '';
+        loadRules(); // перезагружаем
+    }
+}
+
+async function saveRules() {
+    const btn = document.getElementById('saveBtn');
+    const status = document.getElementById('saveStatus');
+    const content = document.getElementById('rulesEditor').value;
+    
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Сохранение...';
+    status.innerHTML = '';
+    
+    try {
+        const resp = await fetch('/api/recruiter-rules/content', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ content: content })
+        });
+        
+        if (resp.ok) {
+            status.innerHTML = '<div class="alert alert-success mt-2"><i class="fas fa-check"></i> Правила сохранены!</div>';
+            // Сохраняем в DOM для отображения
+            document.getElementById('rulesContent').innerHTML = content;
+            if (content.trim()) {
+                document.getElementById('emptyRules').style.display = 'none';
+                document.getElementById('rulesContent').style.display = '';
+            }
+            setTimeout(() => { toggleEdit(); }, 1000);
+        } else {
+            const err = await resp.json();
+            status.innerHTML = '<div class="alert alert-danger mt-2"><i class="fas fa-times"></i> Ошибка: ' + (err.error || 'Неизвестная') + '</div>';
+        }
+    } catch (e) {
+        status.innerHTML = '<div class="alert alert-danger mt-2"><i class="fas fa-times"></i> Ошибка: ' + e.message + '</div>';
+    }
+    
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-save"></i> Сохранить';
+}
+
+loadRules();
 </script>
 {% endblock %}
