@@ -8,7 +8,7 @@
 <div class="card mb-4">
     <div class="card-header d-flex justify-content-between align-items-center">
         <h5 class="mb-0"><i class="fas fa-sitemap"></i> Иерархия клана</h5>
-        {% if has_perm('rules_edit') %}
+        {% if role == 'founder' %}
         <button class="btn btn-outline-primary btn-sm" id="hierEditBtn" onclick="toggleHierEdit()">
             <i class="fas fa-edit"></i> Изменить
         </button>
@@ -48,15 +48,16 @@
     </div>
 </div>
 
-<!-- Основные правила -->
+<!-- Категории правил -->
 <div class="card">
-    <div class="card-header d-flex justify-content-between align-items-center">
-        <h5 class="mb-0"><i class="fas fa-book"></i> Основные правила сервера</h5>
-        <div>
+    <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <h5 class="mb-0"><i class="fas fa-book"></i> <span id="rulesCategoryTitle">Правила</span></h5>
+        <div class="d-flex gap-2 align-items-center flex-wrap">
+            <!-- Навигация по категориям -->
+            <div class="btn-group btn-group-sm" id="categoryTabs" role="group"></div>
             {% if has_perm('rules_edit') %}
             <button class="btn btn-outline-primary btn-sm" id="editRulesBtn" onclick="toggleRulesEdit()"><i class="fas fa-edit"></i> Редактировать</button>
             {% endif %}
-            <span id="recruiterRulesBtnWrapper"></span>
         </div>
     </div>
     <div class="card-body">
@@ -98,6 +99,8 @@
 .rules-content blockquote { background:rgba(233,30,99,0.05); border-left:4px solid #e91e63; padding:1rem 1.5rem; margin:1.2rem 0; color:#bbb; font-style:italic; border-radius:0 8px 8px 0; }
 .rules-content hr { border:none; height:1px; background:linear-gradient(90deg,transparent,#3a3a3a,transparent); margin:2rem 0; }
 .rules-content strong { color:#fff; font-weight:600; }
+.category-tab { cursor:pointer; }
+.category-tab.active { background:#e91e63; border-color:#e91e63; color:white; }
 </style>
 <script>
 // ========== HIERARCHY ==========
@@ -114,11 +117,11 @@ function renderHierarchy() {
     const svg = document.getElementById('hierarchySvg');
     if (!hierData || !hierData.tiers) return;
     const T = hierData.tiers;
-    const R = 16, GAP_X = 180, GAP_Y = 40, ROW_H = 90, LABEL_H = 20;
-    const TIER_X = 60, ROLE_START_X = 160;
+    // Увеличиваем ширину для лучшего отображения
+    const R = 16, GAP_X = 220, GAP_Y = 40, ROW_H = 90, LABEL_H = 20;
+    const TIER_X = 60, ROLE_START_X = 180;
     const NAMES_Y_OFF = R + 20, SUB_Y_OFF = R + 34;
 
-    // Build layout: assign x/y for each tier and each role
     const layout = [];
     for (let ti = 0; ti < T.length; ti++) {
         const t = T[ti];
@@ -133,20 +136,18 @@ function renderHierarchy() {
         layout.push({ ti, n, span, rolesX, tierW, startX });
     }
 
-    // Calculate total height
     let totalH = 40;
     for (let ti = 0; ti < T.length; ti++) {
         totalH += LABEL_H + GAP_Y + R * 2 + NAMES_Y_OFF + SUB_Y_OFF + 10;
     }
     totalH = Math.max(totalH, 600);
     let totalW = ROLE_START_X + Math.max(...layout.map(l => l.startX + l.tierW)) + 40;
-    totalW = Math.max(totalW, 700);
+    totalW = Math.max(totalW, 900);
     svg.setAttribute('viewBox', `0 0 ${totalW} ${totalH}`);
 
     let html = '';
     let y = 30;
-    // Store role center positions for lines
-    const rolePos = {}; // key: "ti-ri" -> {x,y}
+    const rolePos = {};
 
     for (let ti = 0; ti < T.length; ti++) {
         const t = T[ti];
@@ -154,12 +155,10 @@ function renderHierarchy() {
         const color = t.color || '#888';
         const emoji = t.emoji || '';
 
-        // Tier label
         const labelY = y;
         html += `<text x="${TIER_X}" y="${labelY}" fill="${color}" font-size="12" font-weight="700" font-family="'Segoe UI',sans-serif">${emoji} ${t.name}</text>`;
         y += LABEL_H + 8;
 
-        // Roles row
         const rowY = y;
         for (let i = 0; i < t.roles.length; i++) {
             const role = t.roles[i];
@@ -167,12 +166,9 @@ function renderHierarchy() {
             const ry = rowY + R;
             rolePos[`${ti}-${i}`] = { x: rx, y: ry };
 
-            // Circle
             html += `<circle cx="${rx}" cy="${ry}" r="${R+4}" fill="${color}" opacity="0.18" stroke="${color}" stroke-width="2.5"/>`;
             html += `<circle cx="${rx}" cy="${ry}" r="${R}" fill="${color}"/>`;
-            // Emoji inside circle
             html += `<text x="${rx}" y="${ry+5}" text-anchor="middle" fill="#fff" font-size="12">${emoji}</text>`;
-            // Name below
             html += `<text x="${rx}" y="${ry+NAMES_Y_OFF}" text-anchor="middle" fill="#fff" font-size="12" font-weight="600" font-family="'Segoe UI',sans-serif">${role.name||''}</text>`;
             if (role.subtitle) {
                 html += `<text x="${rx}" y="${ry+SUB_Y_OFF}" text-anchor="middle" fill="#888" font-size="10" font-family="'Segoe UI',sans-serif">${role.subtitle}</text>`;
@@ -181,7 +177,6 @@ function renderHierarchy() {
         y = rowY + R + SUB_Y_OFF + 12;
     }
 
-    // Draw vertical connecting lines between tiers
     for (let ti = 1; ti < T.length; ti++) {
         const tcurr = T[ti];
         const layoutCurr = layout[ti];
@@ -195,7 +190,6 @@ function renderHierarchy() {
             const currPos = rolePos[`${ti}-${i}`];
             if (prevPos && currPos) {
                 const color = tcurr.color || '#888';
-                // Vertical from parent down, then horizontal to child, then vertical down
                 const midY = (prevPos.y + currPos.y) / 2;
                 html += `<line x1="${prevPos.x}" y1="${prevPos.y + R + 4}" x2="${prevPos.x}" y2="${midY}" stroke="${color}" stroke-width="1.5"/>`;
                 html += `<line x1="${prevPos.x}" y1="${midY}" x2="${currPos.x}" y2="${midY}" stroke="${color}" stroke-width="1.5"/>`;
@@ -204,7 +198,6 @@ function renderHierarchy() {
         }
     }
 
-    // Extra lines (dashed, annotations)
     if (hierData.extra_lines) {
         for (const el of hierData.extra_lines) {
             const fromPos = rolePos[`${el.from_tier}-${el.from_role}`];
@@ -252,36 +245,131 @@ async function saveHier() {
     btn.disabled = false; btn.innerHTML = '<i class="fas fa-save"></i> Сохранить';
 }
 
-// ========== RULES ==========
+// ========== RULES CATEGORIES ==========
+let currentCategoryId = null;
+let categoryData = null;
 let rulesEditing = false;
-async function loadRules() {
+
+async function loadCategories() {
     try {
-        const r = await fetch('/api/rules/content');
-        if (r.ok) { const d=await r.json(); const c=d.content||''; if(c.trim()){ document.getElementById('rulesContent').innerHTML=c; document.getElementById('emptyRules').style.display='none'; document.getElementById('rulesContent').style.display=''; } else { document.getElementById('rulesContent').style.display='none'; document.getElementById('emptyRules').style.display=''; } }
-    } catch(e){}
-}
-async function loadRecruiterBtn() {
-    try {
-        const r = await fetch('/api/permissions/check', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({permission:'recruiter_rules_view'}) });
-        if (r.ok) { const d=await r.json(); if(d.has_permission) document.getElementById('recruiterRulesBtnWrapper').innerHTML='<a href="/recruiter-rules" class="btn btn-outline-primary btn-sm ms-2"><i class="fas fa-user-plus"></i> Правила рекрутеров</a>'; }
-    } catch(e){}
-}
-function toggleRulesEdit() {
-    if (!rulesEditing) { document.getElementById('saveStatus').innerHTML=''; document.getElementById('rulesEditor').value=document.getElementById('rulesContent').innerHTML; document.getElementById('rulesViewMode').style.display='none'; document.getElementById('rulesEditMode').style.display=''; document.getElementById('editRulesBtn').style.display='none'; }
-    else { document.getElementById('rulesEditMode').style.display='none'; document.getElementById('rulesViewMode').style.display=''; document.getElementById('editRulesBtn').style.display=''; loadRules(); }
-    rulesEditing=!rulesEditing;
-}
-async function saveRules() {
-    const btn=document.getElementById('saveBtn'), st=document.getElementById('saveStatus'), c=document.getElementById('rulesEditor').value;
-    btn.disabled=true; btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Сохранение...'; st.innerHTML='';
-    try {
-        const r = await fetch('/api/rules/content', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({content:c}) });
-        if (r.ok) { st.innerHTML='<div class="alert alert-success mt-2"><i class="fas fa-check"></i> Правила сохранены!</div>'; document.getElementById('rulesContent').innerHTML=c; if(c.trim()){document.getElementById('emptyRules').style.display='none';document.getElementById('rulesContent').style.display='';} setTimeout(()=>toggleRulesEdit(),1000); }
-        else { const e=await r.json(); st.innerHTML='<div class="alert alert-danger mt-2">'+(e.error||'Ошибка')+'</div>'; }
-    } catch(e) { st.innerHTML='<div class="alert alert-danger mt-2">Ошибка: '+e.message+'</div>'; }
-    btn.disabled=false; btn.innerHTML='<i class="fas fa-save"></i> Сохранить';
+        const r = await fetch('/api/rules');
+        if (r.ok) {
+            const data = await r.json();
+            categoryData = data;
+            renderCategoryTabs(data.categories || []);
+            // Auto-select first category
+            if (data.categories && data.categories.length > 0) {
+                selectCategory(data.categories[0].id);
+            } else {
+                document.getElementById('rulesContent').innerHTML = '';
+                document.getElementById('emptyRules').style.display = '';
+                document.getElementById('rulesContent').style.display = 'none';
+            }
+        }
+    } catch(e) {
+        console.error('Failed to load categories:', e);
+    }
 }
 
-loadHierarchy(); loadRules(); loadRecruiterBtn();
+function renderCategoryTabs(categories) {
+    const tabs = document.getElementById('categoryTabs');
+    if (!categories.length) {
+        tabs.innerHTML = '';
+        document.getElementById('rulesCategoryTitle').textContent = 'Правила';
+        return;
+    }
+    let html = '';
+    categories.forEach((cat, i) => {
+        const active = cat.id === currentCategoryId ? 'active' : '';
+        html += `<button class="btn btn-outline-secondary btn-sm category-tab ${active}" data-cat-id="${cat.id}" onclick="selectCategory('${cat.id}')">${cat.name}</button>`;
+    });
+    tabs.innerHTML = html;
+}
+
+async function selectCategory(catId) {
+    currentCategoryId = catId;
+    document.querySelectorAll('.category-tab').forEach(t => {
+        t.classList.toggle('active', t.dataset.catId === catId);
+    });
+    
+    // Update title
+    const cat = categoryData.categories.find(c => c.id === catId);
+    document.getElementById('rulesCategoryTitle').textContent = cat ? cat.name : 'Правила';
+    
+    // Show/hide edit button based on can_edit
+    const editBtn = document.getElementById('editRulesBtn');
+    if (editBtn) {
+        editBtn.style.display = (cat && cat.can_edit) ? '' : 'none';
+    }
+    
+    // Load content
+    try {
+        const r = await fetch(`/api/rules/${catId}/content`);
+        if (r.ok) {
+            const d = await r.json();
+            const c = d.content || '';
+            if (c.trim()) {
+                document.getElementById('rulesContent').innerHTML = c;
+                document.getElementById('emptyRules').style.display = 'none';
+                document.getElementById('rulesContent').style.display = '';
+            } else {
+                document.getElementById('rulesContent').style.display = 'none';
+                document.getElementById('emptyRules').style.display = '';
+            }
+        }
+    } catch(e) {
+        console.error('Failed to load rules content:', e);
+    }
+}
+
+function toggleRulesEdit() {
+    const editBtn = document.getElementById('editRulesBtn');
+    if (!rulesEditing) {
+        document.getElementById('saveStatus').innerHTML = '';
+        document.getElementById('rulesEditor').value = document.getElementById('rulesContent').innerHTML;
+        document.getElementById('rulesViewMode').style.display = 'none';
+        document.getElementById('rulesEditMode').style.display = '';
+        if (editBtn) editBtn.style.display = 'none';
+    } else {
+        document.getElementById('rulesEditMode').style.display = 'none';
+        document.getElementById('rulesViewMode').style.display = '';
+        if (editBtn) editBtn.style.display = '';
+        selectCategory(currentCategoryId);
+    }
+    rulesEditing = !rulesEditing;
+}
+
+async function saveRules() {
+    const btn = document.getElementById('saveBtn'), st = document.getElementById('saveStatus');
+    const c = document.getElementById('rulesEditor').value;
+    if (!currentCategoryId) { st.innerHTML = '<div class="alert alert-danger mt-2">Нет выбранной категории</div>'; return; }
+    
+    btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Сохранение...'; st.innerHTML = '';
+    try {
+        const r = await fetch(`/api/rules/${currentCategoryId}/content`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({content: c})
+        });
+        if (r.ok) {
+            st.innerHTML = '<div class="alert alert-success mt-2"><i class="fas fa-check"></i> Правила сохранены!</div>';
+            document.getElementById('rulesContent').innerHTML = c;
+            if (c.trim()) {
+                document.getElementById('emptyRules').style.display = 'none';
+                document.getElementById('rulesContent').style.display = '';
+            }
+            setTimeout(() => toggleRulesEdit(), 1000);
+        } else {
+            const e = await r.json();
+            st.innerHTML = '<div class="alert alert-danger mt-2">' + (e.error || 'Ошибка') + '</div>';
+        }
+    } catch(e) {
+        st.innerHTML = '<div class="alert alert-danger mt-2">Ошибка: ' + e.message + '</div>';
+    }
+    btn.disabled = false; btn.innerHTML = '<i class="fas fa-save"></i> Сохранить';
+}
+
+loadHierarchy();
+loadCategories();
 </script>
 {% endblock %}

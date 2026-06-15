@@ -264,8 +264,11 @@ class Moderation(commands.Cog):
             )
 
     @commands.command(name="mute")
-    async def mute(self, ctx, member: discord.Member, flag: str = "--chat", *, reason: str = "Причина не указана"):
-        """Мут пользователя. Флаги: --chat (чат), --voice (голос)."""
+    async def mute(self, ctx, member: discord.Member, flag_or_time: str = "--chat", *, reason: str = "Причина не указана"):
+        """Мут пользователя. Флаги: --chat (чат), --voice (голос).
+        Можно указать время: .mute @user 1h --chat спам
+        Формат времени: Xm (минуты), Xh (часы), Xd (дни)
+        Без времени — бессрочно."""
         if not self._check_permission(ctx.author):
             await ctx.send("❌ У вас нет прав для этой команды.", delete_after=10)
             return
@@ -275,28 +278,91 @@ class Moderation(commands.Cog):
         except Exception:
             pass
 
+        # Парсим флаг и время
+        flag = flag_or_time
+        mute_duration = None
+
+        # Если второй аргумент — это время (1h, 30m, 2d)
+        parsed_duration = self._parse_period(flag_or_time)
+        if parsed_duration is not None:
+            # Время указано вместо флага — флаг будет в reason или дефолт --chat
+            mute_duration = parsed_duration
+            # Ищем флаг в строке reason
+            flag = "--chat"
+            if " --chat" in reason or reason.startswith("--chat"):
+                flag = "--chat"
+                reason = reason.replace("--chat", "", 1).strip()
+            elif " --voice" in reason or reason.startswith("--voice"):
+                flag = "--voice"
+                reason = reason.replace("--voice", "", 1).strip()
+
+        # Проверяем, не является ли flag_or_time флагом, а не временем
+        if flag_or_time in ("--chat", "--voice"):
+            flag = flag_or_time
+            # Ищем дополнительное время в начале reason
+            if reason:
+                parts = reason.split(None, 1)
+                if parts:
+                    time_parsed = self._parse_period(parts[0])
+                    if time_parsed is not None:
+                        mute_duration = time_parsed
+                        reason = parts[1] if len(parts) > 1 else "Причина не указана"
+
         muted_role = discord.utils.get(ctx.guild.roles, name=MUTED_ROLE_NAME)
         voice_muted_role = discord.utils.get(ctx.guild.roles, name=VOICE_MUTED_ROLE_NAME)
+        
+        duration_text = ""
+        if mute_duration:
+            total_seconds = int(mute_duration.total_seconds())
+            if total_seconds >= 86400:
+                duration_text = f" на {total_seconds // 86400} дн."
+            elif total_seconds >= 3600:
+                duration_text = f" на {total_seconds // 3600} ч."
+            elif total_seconds >= 60:
+                duration_text = f" на {total_seconds // 60} мин."
 
         if flag == "--chat":
             if not muted_role:
                 muted_role, _ = await self._ensure_mute_roles(ctx.guild)
-            await member.add_roles(muted_role, reason=f"Mute chat: {reason}")
-            await ctx.send(f"✅ {member.mention} заблокирован в чате. Причина: {reason}", delete_after=10)
+            await member.add_roles(muted_role, reason=f"Mute chat{duration_text}: {reason}")
+            await ctx.send(f"✅ {member.mention} заблокирован в чате{duration_text}. Причина: {reason}", delete_after=10)
+            
+            # Авто-размут по таймеру
+            if mute_duration:
+                await self._schedule_unmute(ctx.guild.id, member.id, "chat", mute_duration)
 
         elif flag == "--voice":
             if not voice_muted_role:
                 _, voice_muted_role = await self._ensure_mute_roles(ctx.guild)
-            await member.add_roles(voice_muted_role, reason=f"Mute voice: {reason}")
+            await member.add_roles(voice_muted_role, reason=f"Mute voice{duration_text}: {reason}")
             # Если пользователь в голосовом канале — отключаем микро и звук
             if member.voice and member.voice.channel:
                 try:
                     await member.edit(mute=True, deafen=True)
                 except Exception:
                     pass
-            await ctx.send(f"✅ {member.mention} заблокирован в голосовых каналах. Причина: {reason}", delete_after=10)
+            await ctx.send(f"✅ {member.mention} заблокирован в голосовых каналах{duration_text}. Причина: {reason}", delete_after=10)
+            
+            # Авто-размут по таймеру
+            if mute_duration:
+                await self._schedule_unmute(ctx.guild.id, member.id, "voice", mute_duration)
         else:
-            await ctx.send("❌ Использование: `.mute @user --chat <причина>` или `.mute @user --voice <причина>`", delete_after=10)
+            await ctx.send("❌ Использование: `.mute @user [время] --chat <причина>` или `.mute @user [время] --voice <причина>`", delete_after=10)
+
+    async def _schedule_unmute(self, guild_id: int, user_id: int, mute_type: str, duration: timedelta):
+        """Планирует авто-размут через указанное время, сохраняя в БД."""
+        from datetime import datetime
+        unmute_at = datetime.utcnow() + duration
+        # Сохраняем в БД пользователя
+        user_data = self.db.get_user(str(user_id)) or {}
+        scheduled = user_data.get('scheduled_unmutes', [])
+        scheduled.append({
+            'type': mute_type,
+            'unmute_at': unmute_at.isoformat(),
+            'guild_id': str(guild_id)
+        })
+        self.db.update_user(str(user_id), scheduled_unmutes=scheduled)
+        logging.info(f"[Moderation] Запланирован размут ({mute_type}) для {user_id} в {unmute_at.isoformat()}")
 
     @commands.command(name="unmute")
     async def unmute(self, ctx, member: discord.Member):

@@ -1,0 +1,335 @@
+{% extends 'base.html' %}
+
+{% block title %}Объявления{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <div>
+        <h1><i class="fas fa-bullhorn"></i> Объявления</h1>
+        <p class="text-muted">Просмотр и создание объявлений сервера</p>
+    </div>
+    {% if role in ['admin', 'cofounder', 'founder'] %}
+    <button class="btn btn-outline-primary" onclick="openNewAnnouncement()">
+        <i class="fas fa-plus"></i> Создать объявление
+    </button>
+    {% endif %}
+</div>
+
+<!-- Статистика -->
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body text-center">
+                <h3 class="text-info mb-0" id="stats-total">0</h3>
+                <small class="text-muted">Всего объявлений</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body text-center">
+                <h3 class="text-success mb-0" id="stats-month">0</h3>
+                <small class="text-muted">За последний месяц</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body text-center">
+                <h3 class="text-warning mb-0" id="stats-latest">—</h3>
+                <small class="text-muted">Последнее объявление</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Список объявлений -->
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="fas fa-list"></i> Лента объявлений</h5>
+        <div class="d-flex gap-2">
+            <button class="btn btn-sm btn-outline-secondary" onclick="loadAnnouncements()">
+                <i class="fas fa-sync"></i> Обновить
+            </button>
+        </div>
+    </div>
+    <div class="card-body">
+        <div id="announcements-container">
+            <div class="text-center py-4">
+                <div class="spinner-border text-primary" role="status"></div>
+                <p class="mt-2">Загрузка объявлений...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно: создать объявление -->
+{% if role in ['admin', 'cofounder', 'founder'] %}
+<div class="modal fade" id="newAnnouncementModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content" style="background: #1a1a1a; border: 1px solid #3a3a3a;">
+            <div class="modal-header" style="border-color: #3a3a3a;">
+                <h5 class="modal-title"><i class="fas fa-bullhorn"></i> Создать объявление</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Заголовок</label>
+                    <input type="text" class="form-control" id="ann-title" placeholder="Заголовок объявления" maxlength="100">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Текст объявления</label>
+                    <textarea class="form-control" id="ann-content" rows="8" placeholder="Текст объявления... Можно использовать **жирный**, *курсив*, ~~зачёркнутый~~ текст на Discord-стиле"></textarea>
+                </div>
+                <div class="mb-3 form-check">
+                    <input type="checkbox" class="form-check-input" id="ann-pin" checked>
+                    <label class="form-check-label">Закрепить объявление (пин)</label>
+                </div>
+                <div id="ann-status"></div>
+            </div>
+            <div class="modal-footer" style="border-color: #3a3a3a;">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-primary" onclick="postAnnouncement()" id="ann-post-btn">
+                    <i class="fas fa-paper-plane"></i> Опубликовать
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<style>
+.ann-card {
+    background: #1a1a1a;
+    border: 1px solid #3a3a3a;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 16px;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+.ann-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 20px rgba(233, 30, 99, 0.15);
+}
+.ann-card.pinned {
+    border-left: 4px solid #e91e63;
+    background: linear-gradient(135deg, #1a1a1a 0%, #1e1a1d 100%);
+}
+.ann-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 12px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #3a3a3a;
+}
+.ann-author {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.ann-author img {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+.ann-author-name {
+    color: #e0e0e0;
+    font-weight: 600;
+}
+.ann-date {
+    color: #888;
+    font-size: 0.8rem;
+}
+.ann-content {
+    color: #d0d0d0;
+    line-height: 1.7;
+    white-space: pre-wrap;
+}
+.ann-content strong { color: #fff; }
+.ann-content em { color: #f48fb1; }
+.ann-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #3a3a3a;
+}
+.ann-pin-badge {
+    background: rgba(233,30,99,0.2);
+    color: #e91e63;
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+}
+</style>
+<script>
+let announcements = [];
+
+async function loadAnnouncements() {
+    const container = document.getElementById('announcements-container');
+    container.innerHTML = `
+        <div class="text-center py-4">
+            <div class="spinner-border text-primary" role="status"></div>
+            <p class="mt-2">Загрузка...</p>
+        </div>
+    `;
+    
+    try {
+        const resp = await fetch('/api/announcements');
+        const data = await resp.json();
+        
+        announcements = data.announcements || [];
+        updateStats(announcements);
+        renderAnnouncements(announcements);
+    } catch (e) {
+        container.innerHTML = `
+            <div class="text-center text-muted py-4">
+                <i class="fas fa-exclamation-circle fa-3x mb-3"></i>
+                <h5>Ошибка загрузки</h5>
+                <p>${e.message}</p>
+            </div>
+        `;
+    }
+}
+
+function updateStats(anns) {
+    document.getElementById('stats-total').textContent = anns.length;
+    
+    const monthAgo = new Date();
+    monthAgo.setMonth(monthAgo.getMonth() - 1);
+    const monthCount = anns.filter(a => new Date(a.timestamp) > monthAgo).length;
+    document.getElementById('stats-month').textContent = monthCount;
+    
+    if (anns.length > 0) {
+        const latest = new Date(anns[0].timestamp);
+        document.getElementById('stats-latest').textContent = latest.toLocaleDateString('ru-RU');
+    }
+}
+
+function renderAnnouncements(anns) {
+    const container = document.getElementById('announcements-container');
+    
+    if (anns.length === 0) {
+        container.innerHTML = `
+            <div class="text-center text-muted py-5">
+                <i class="fas fa-bullhorn fa-3x mb-3" style="opacity: 0.3;"></i>
+                <h5>Нет объявлений</h5>
+                <p>Объявления появятся здесь после публикации</p>
+            </div>
+        `;
+        return;
+    }
+    
+    // Sort: pinned first, then by date desc
+    const sorted = [...anns].sort((a, b) => {
+        if (a.pinned && !b.pinned) return -1;
+        if (!a.pinned && b.pinned) return 1;
+        return new Date(b.timestamp) - new Date(a.timestamp);
+    });
+    
+    let html = '';
+    for (const ann of sorted) {
+        const date = new Date(ann.timestamp);
+        const dateStr = date.toLocaleDateString('ru-RU', {
+            day: 'numeric', month: 'long', year: 'numeric',
+            hour: '2-digit', minute: '2-digit'
+        });
+        const avatarUrl = ann.author_avatar 
+            ? `https://cdn.discordapp.com/avatars/${ann.author_id}/${ann.author_avatar}.png`
+            : `https://cdn.discordapp.com/embed/avatars/0.png`;
+        
+        // Format content: Discord-style markdown to HTML
+        let content = (ann.content || '')
+            .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+            .replace(/\*(.+?)\*/g, '<em>$1</em>')
+            .replace(/~~(.+?)~~/g, '<s>$1</s>')
+            .replace(/```(.+?)```/gs, '<pre><code>$1</code></pre>')
+            .replace(/`(.+?)`/g, '<code>$1</code>')
+            .replace(/\n/g, '<br>');
+        
+        html += `
+            <div class="ann-card ${ann.pinned ? 'pinned' : ''}">
+                <div class="ann-header">
+                    <div class="ann-author">
+                        <img src="${avatarUrl}" alt="" onerror="this.src='https://cdn.discordapp.com/embed/avatars/0.png'">
+                        <div>
+                            <div class="ann-author-name">${ann.author_name || 'Unknown'}</div>
+                            <div class="ann-date">${dateStr}</div>
+                        </div>
+                    </div>
+                    ${ann.pinned ? '<span class="ann-pin-badge"><i class="fas fa-thumbtack"></i> Закреплено</span>' : ''}
+                </div>
+                ${ann.title ? `<h5 style="color:#e91e63;margin-bottom:12px;">${ann.title}</h5>` : ''}
+                <div class="ann-content">${content}</div>
+                <div class="ann-footer">
+                    <small class="text-muted">
+                        <i class="fas fa-hashtag"></i> ID: ${ann.message_id || ann.id || '—'}
+                    </small>
+                    <small class="text-muted">
+                        <i class="fas fa-comment"></i> В канале объявлений
+                    </small>
+                </div>
+            </div>
+        `;
+    }
+    
+    container.innerHTML = html;
+}
+
+function openNewAnnouncement() {
+    document.getElementById('ann-title').value = '';
+    document.getElementById('ann-content').value = '';
+    document.getElementById('ann-pin').checked = true;
+    document.getElementById('ann-status').innerHTML = '';
+    new bootstrap.Modal(document.getElementById('newAnnouncementModal')).show();
+}
+
+async function postAnnouncement() {
+    const title = document.getElementById('ann-title').value.trim();
+    const content = document.getElementById('ann-content').value.trim();
+    const pin = document.getElementById('ann-pin').checked;
+    const btn = document.getElementById('ann-post-btn');
+    const status = document.getElementById('ann-status');
+    
+    if (!content) {
+        status.innerHTML = '<div class="alert alert-danger">Введите текст объявления</div>';
+        return;
+    }
+    
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Публикация...';
+    status.innerHTML = '';
+    
+    try {
+        const resp = await fetch('/api/announcements/post', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ title, content, pin })
+        });
+        const data = await resp.json();
+        if (resp.ok) {
+            status.innerHTML = '<div class="alert alert-success"><i class="fas fa-check"></i> Объявление опубликовано!</div>';
+            setTimeout(() => {
+                bootstrap.Modal.getInstance(document.getElementById('newAnnouncementModal')).hide();
+                loadAnnouncements();
+            }, 1500);
+        } else {
+            status.innerHTML = `<div class="alert alert-danger">${data.error || 'Ошибка публикации'}</div>`;
+        }
+    } catch (e) {
+        status.innerHTML = `<div class="alert alert-danger">Ошибка: ${e.message}</div>`;
+    }
+    
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-paper-plane"></i> Опубликовать';
+}
+
+loadAnnouncements();
+</script>
+{% endblock %}

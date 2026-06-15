@@ -85,7 +85,7 @@
                 </thead>
                 <tbody>
                     {% for member in members %}
-                    <tr class="{{ 'table-danger' if member.banned }}" style="cursor: pointer;" onclick="window.location='{{ url_for('member_detail', user_id=member.id) }}'">
+                    <tr class="{{ 'table-danger' if member.banned }}" style="cursor: pointer;" onclick="location.href=this.dataset.href" data-href="{{ url_for('member_detail', user_id=member.id) }}">
                         <td class="text-muted small">{{ loop.index }}</td>
                         <td>
                             <div class="d-flex align-items-center gap-2">

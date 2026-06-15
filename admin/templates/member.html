@@ -11,10 +11,36 @@
 <div class="row">
     <div class="col-md-6">
         <div class="card mb-4">
-            <div class="card-header">
-                <h5><i class="fas fa-info-circle"></i> Основная информация</h5>
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="fas fa-info-circle"></i> Основная информация</h5>
+                {% if role in ['admin', 'cofounder', 'founder'] %}
+                <div class="dropdown">
+                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" title="Действия">
+                        <i class="fas fa-gavel"></i> Действия
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end" style="min-width: 200px;">
+                        <li><h6 class="dropdown-header">Модерация</h6></li>
+                        <li><a class="dropdown-item" href="#" onclick="quickAction('warn')"><i class="fas fa-exclamation-triangle text-warning me-2"></i>Warn</a></li>
+                        <li><a class="dropdown-item" href="#" onclick="quickAction('unwarn')"><i class="fas fa-check text-success me-2"></i>Unwarn</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="#" onclick="quickAction('mute --chat')"><i class="fas fa-comment-slash text-danger me-2"></i>Mute chat</a></li>
+                        <li><a class="dropdown-item" href="#" onclick="quickAction('mute --voice')"><i class="fas fa-microphone-slash text-danger me-2"></i>Mute voice</a></li>
+                        <li><a class="dropdown-item" href="#" onclick="quickAction('unmute')"><i class="fas fa-check text-success me-2"></i>Unmute</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="#" onclick="quickAction('ban')"><i class="fas fa-ban text-danger me-2"></i>Ban</a></li>
+                        <li><a class="dropdown-item" href="#" onclick="quickAction('unban')"><i class="fas fa-check text-success me-2"></i>Unban</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="#" onclick="quickAction('botmsg')"><i class="fas fa-envelope text-info me-2"></i>Отправить ЛС</a></li>
+                    </ul>
+                </div>
+                {% endif %}
             </div>
             <div class="card-body">
+                <div class="text-center mb-3">
+                    <img src="https://cdn.discordapp.com/avatars/{{ member_id }}/{{ member.get('avatar', '0') }}.png?size=128" 
+                         alt="Avatar" class="rounded-circle" width="80" height="80" style="object-fit:cover; border: 3px solid #3a3a3a;"
+                         onerror="this.src='https://cdn.discordapp.com/embed/avatars/0.png'">
+                </div>
                 <table class="table table-dark">
                     <tr>
                         <td>Никнейм</td>
@@ -55,7 +81,7 @@
                         <td>
                             {% set warns = member.get('warns', []) %}
                             {% if warns %}
-                            <span class="badge bg-warning">{{ warns|length }}</span>
+                            <span class="badge bg-warning">{{ warns|length }}</span> / 3
                             {% else %}
                             <span class="text-muted">Нет</span>
                             {% endif %}
@@ -126,16 +152,79 @@
     </div>
 </div>
 
-<div class="mt-3">
+<div class="mt-3 d-flex gap-2 flex-wrap">
     <a href="{{ url_for('members') }}" class="btn btn-outline-secondary">
         <i class="fas fa-arrow-left"></i> Назад к участникам
     </a>
+    {% if role in ['admin', 'cofounder', 'founder'] %}
+    <button class="btn btn-outline-info" onclick="quickAction('botmsg')">
+        <i class="fas fa-envelope"></i> Отправить ЛС
+    </button>
+    {% endif %}
+</div>
+
+<!-- Модальное окно быстрых действий -->
+<div class="modal fade" id="quickActionModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content" style="background: #1a1a1a; border: 1px solid #3a3a3a;">
+            <div class="modal-header" style="border-color: #3a3a3a;">
+                <h5 class="modal-title" id="qaTitle">Действие</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted mb-2">Пользователь: <strong>{{ member.get('nickname', member_id) }}</strong> (<code>{{ member_id }}</code>)</p>
+                <div class="mb-3" id="qaDurationSection" style="display:none;">
+                    <label class="form-label">Время мута</label>
+                    <input type="text" class="form-control" id="qaDuration" placeholder="например: 30m, 1h, 2d">
+                </div>
+                <div class="mb-3" id="qaReasonSection" style="display:none;">
+                    <label class="form-label">Причина / текст</label>
+                    <textarea class="form-control" id="qaReason" rows="3" placeholder="Укажите причину"></textarea>
+                </div>
+                <div id="qaStatus"></div>
+            </div>
+            <div class="modal-footer" style="border-color: #3a3a3a;">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-primary" onclick="executeQuickAction()" id="qaExecBtn">
+                    <i class="fas fa-paper-plane"></i> Выполнить
+                </button>
+            </div>
+        </div>
+    </div>
 </div>
 
 {% endblock %}
 
 {% block scripts %}
+<style>
+.history-card {
+    background: #1a1a1a;
+    border: 1px solid #3a3a3a;
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 8px;
+    transition: background 0.15s;
+}
+.history-card:hover {
+    background: #222;
+}
+.history-action {
+    color: #e91e63;
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+.history-desc {
+    color: #aaa;
+    font-size: 0.85rem;
+}
+.history-date {
+    color: #666;
+    font-size: 0.75rem;
+}
+</style>
 <script>
+let currentAction = null;
+
 async function saveMember(event) {
     event.preventDefault();
     
@@ -180,8 +269,106 @@ async function saveMember(event) {
     btn.disabled = false;
     btn.innerHTML = '<i class="fas fa-save"></i> Сохранить изменения';
     
-    // Скрываем статус через 5 секунд
     setTimeout(() => { status.style.display = 'none'; }, 5000);
+}
+
+// ========== БЫСТРЫЕ ДЕЙСТВИЯ ==========
+const memberId = '{{ member_id }}';
+const memberName = '{{ member.get("nickname", member_id) }}';
+
+function quickAction(action) {
+    currentAction = action;
+    const modal = new bootstrap.Modal(document.getElementById('quickActionModal'));
+    
+    // Название действия
+    const actionNames = {
+        'warn': 'Выдать предупреждение',
+        'unwarn': 'Снять предупреждение',
+        'mute --chat': 'Заблокировать чат',
+        'mute --voice': 'Заблокировать голос',
+        'unmute': 'Снять блокировку',
+        'ban': 'Выдать штрафную роль',
+        'unban': 'Снять штрафную роль',
+        'botmsg': 'Отправить ЛС от бота'
+    };
+    document.getElementById('qaTitle').innerHTML = '<i class="fas fa-terminal"></i> ' + (actionNames[action] || action);
+    
+    // Показываем/скрываем поля
+    const needsReason = ['warn', 'unwarn', 'mute', 'ban', 'botmsg'].some(a => action.startsWith(a));
+    const needsDuration = action.startsWith('mute');
+    
+    document.getElementById('qaReasonSection').style.display = needsReason ? 'block' : 'none';
+    document.getElementById('qaDurationSection').style.display = needsDuration ? 'block' : 'none';
+    
+    if (action === 'botmsg') {
+        document.querySelector('#qaReasonSection label').textContent = 'Текст сообщения';
+    } else {
+        document.querySelector('#qaReasonSection label').textContent = 'Причина';
+    }
+    
+    document.getElementById('qaReason').value = '';
+    document.getElementById('qaDuration').value = '';
+    document.getElementById('qaStatus').innerHTML = '';
+    
+    modal.show();
+}
+
+async function executeQuickAction() {
+    const reason = document.getElementById('qaReason').value.trim();
+    const duration = document.getElementById('qaDuration').value.trim();
+    const status = document.getElementById('qaStatus');
+    const btn = document.getElementById('qaExecBtn');
+    
+    // Проверка
+    if (currentAction.startsWith('warn') || currentAction.startsWith('mute') || currentAction === 'ban') {
+        if (!reason) {
+            status.innerHTML = '<div class="alert alert-danger">Укажите причину!</div>';
+            return;
+        }
+    }
+    if (currentAction === 'botmsg' && !reason) {
+        status.innerHTML = '<div class="alert alert-danger">Введите текст сообщения!</div>';
+        return;
+    }
+    
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Отправка...';
+    status.innerHTML = '';
+    
+    let cmd;
+    if (currentAction === 'botmsg') {
+        cmd = `botmsg <@${memberId}> ${reason}`;
+    } else {
+        cmd = `.${currentAction} <@${memberId}>`;
+        if (duration) {
+            // Вставляем время после команды
+            parts = cmd.split(' ');
+            cmd = `.${currentAction} ${duration} <@${memberId}>`;
+        }
+        if (reason) cmd += ` ${reason}`;
+    }
+    
+    try {
+        const resp = await fetch('/api/execute', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ command: cmd })
+        });
+        const data = await resp.json();
+        if (resp.ok) {
+            status.innerHTML = '<div class="alert alert-success"><i class="fas fa-check"></i> Команда отправлена!</div>';
+            setTimeout(() => {
+                bootstrap.Modal.getInstance(document.getElementById('quickActionModal')).hide();
+            }, 1500);
+        } else {
+            status.innerHTML = `<div class="alert alert-danger">${data.error || 'Ошибка'}</div>`;
+        }
+    } catch (e) {
+        status.innerHTML = `<div class="alert alert-danger">Ошибка: ${e.message}</div>`;
+    }
+    
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-paper-plane"></i> Выполнить';
 }
 </script>
 {% endblock %}

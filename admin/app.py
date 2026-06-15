@@ -402,11 +402,12 @@ def commands_page():
         },
         {
             'name': 'mute',
-            'description': 'Заблокировать пользователя',
+            'description': 'Заблокировать пользователя (можно указать время: 30m, 1h, 2d)',
             'category': 'moderation',
             'requires_user': True,
             'variables': [
                 {'name': 'type', 'label': 'Тип', 'type': 'select', 'options': ['--chat', '--voice'], 'required': True},
+                {'name': 'duration', 'label': 'Время (например 30m, 1h, 2d)', 'type': 'text', 'required': False},
                 {'name': 'reason', 'label': 'Причина', 'type': 'text', 'required': False}
             ]
         },
@@ -528,6 +529,11 @@ def questionnaires():
 def timers():
     return render_template('timers.html', role=session.get('role', 'user'))
 
+@app.route('/announcements')
+@login_required
+def announcements_page():
+    return render_template('announcements.html', role=session.get('role', 'user'))
+
 @app.route('/roles')
 @login_required
 @permission_required('roles_manage')
@@ -566,9 +572,9 @@ def api_hierarchy():
             pass
         return jsonify({'tiers': []})
     
-    # POST
-    if not has_permission(session.get('user_id'), 'rules_edit'):
-        return jsonify({'error': 'Нет прав на редактирование иерархии'}), 403
+    # POST — только founder
+    if session.get('role') != 'founder':
+        return jsonify({'error': 'Только основатель может редактировать иерархию'}), 403
     
     data = request.json
     if not data or 'tiers' not in data:
@@ -643,6 +649,161 @@ def recruiter_rules_page():
     if not has_permission(user_id, 'recruiter_rules_view'):
         abort(403)
     return render_template('recruiter_rules.html', role=session.get('role', 'user'))
+
+# ==================== RULES CATEGORIES API ====================
+
+RULES_CONFIG_FILE = os.path.join(config.DATA_DIR, 'rules_config.json')
+
+def load_rules_config():
+    """Загружает конфигурацию категорий правил"""
+    default = {"categories": [], "category_permissions": {}}
+    try:
+        if os.path.exists(RULES_CONFIG_FILE):
+            with open(RULES_CONFIG_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+    except:
+        pass
+    return default
+
+def save_rules_config(cfg):
+    """Сохраняет конфигурацию категорий правил"""
+    os.makedirs(os.path.dirname(RULES_CONFIG_FILE), exist_ok=True)
+    with open(RULES_CONFIG_FILE, 'w', encoding='utf-8') as f:
+        json.dump(cfg, f, ensure_ascii=False, indent=2)
+
+def has_rules_category_permission(user_id, category_id):
+    """Проверяет, может ли пользователь редактировать указанную категорию правил"""
+    role = get_user_role(user_id)
+    if role == 'founder':
+        return True
+    cfg = load_rules_config()
+    perms = cfg.get('category_permissions', {})
+    allowed = perms.get(role, [])
+    return category_id in allowed
+
+@app.route('/api/rules/categories', methods=['GET', 'POST'])
+@login_required
+def api_rules_categories():
+    """GET: список категорий. POST: сохранить категории + права (только founder)."""
+    if request.method == 'GET':
+        cfg = load_rules_config()
+        # Получаем список категорий, к которым у пользователя есть доступ на чтение
+        user_role = session.get('role', 'user')
+        user_id = session.get('user_id')
+        categories = cfg.get('categories', [])
+        # Для founder показываем все, для остальных — только те, на которые есть права
+        if user_role != 'founder':
+            perms = cfg.get('category_permissions', {}).get(user_role, [])
+            categories = [c for c in categories if c['id'] in perms]
+        return jsonify({
+            'categories': categories,
+            'category_permissions': cfg.get('category_permissions', {}),
+            'all_roles': list(config.ROLE_NAMES.keys()),
+            'role_names': config.ROLE_NAMES,
+        })
+    
+    # POST — только founder
+    if session.get('role') != 'founder':
+        return jsonify({'error': 'Только основатель может управлять категориями правил'}), 403
+    
+    data = request.json
+    categories = data.get('categories', [])
+    category_permissions = data.get('category_permissions', {})
+    
+    cfg = load_rules_config()
+    cfg['categories'] = categories
+    cfg['category_permissions'] = category_permissions
+    save_rules_config(cfg)
+    
+    logs_manager.log_site_action(
+        action='Обновление категорий правил',
+        description=f'Пользователь {session.get("username")} обновил категории правил и права на них',
+        user_id=session.get('user_id', ''),
+        user_name=session.get('username', 'Unknown')
+    )
+    return jsonify({'success': True})
+
+@app.route('/api/rules/<category_id>/content', methods=['GET', 'POST'])
+@login_required
+def api_rules_category_content(category_id):
+    """GET: получить содержимое категории. POST: сохранить (проверка права на категорию)."""
+    rules_file = os.path.join(config.DATA_DIR, f'category_{category_id}.json')
+    
+    if request.method == 'GET':
+        content = ''
+        try:
+            if os.path.exists(rules_file):
+                with open(rules_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    content = data.get('content', '')
+        except:
+            pass
+        return jsonify({'content': content})
+    
+    # POST
+    user_id = session.get('user_id')
+    if not has_rules_category_permission(user_id, category_id):
+        return jsonify({'error': 'Нет прав на редактирование этой категории'}), 403
+    
+    data = request.json
+    content = data.get('content', '')
+    
+    try:
+        with open(rules_file, 'w', encoding='utf-8') as f:
+            json.dump({
+                'content': content,
+                'updated_by': session.get('username', 'Unknown'),
+                'updated_at': datetime.now().isoformat()
+            }, f, ensure_ascii=False, indent=2)
+        
+        logs_manager.log_site_action(
+            action=f'Обновление правил ({category_id})',
+            description=f'Пользователь {session.get("username")} обновил правила категории {category_id}',
+            user_id=session.get('user_id', ''),
+            user_name=session.get('username', 'Unknown')
+        )
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/rules')
+@login_required
+def api_rules_page_data():
+    """Возвращает данные для страницы правил: все доступные категории и их заголовки"""
+    cfg = load_rules_config()
+    user_id = session.get('user_id')
+    user_role = session.get('role', 'user')
+    
+    all_categories = cfg.get('categories', [])
+    perms = cfg.get('category_permissions', {})
+    
+    # Категории, которые пользователь может видеть
+    if user_role == 'founder':
+        visible = all_categories
+    else:
+        allowed = perms.get(user_role, [])
+        visible = [c for c in all_categories if c['id'] in allowed]
+    
+    # Для каждой категории добавляем признак can_edit
+    result = []
+    for cat in visible:
+        can_edit = has_rules_category_permission(user_id, cat['id'])
+        result.append({**cat, 'can_edit': can_edit})
+    
+    # Также прикрепляем категории, которые есть в perms но могут отсутствовать в all_categories
+    all_ids = {c['id'] for c in all_categories}
+    if user_role == 'founder':
+        extra_ids = set()
+    else:
+        extra_ids = set(perms.get(user_role, [])) - all_ids
+    for cid in extra_ids:
+        result.append({'id': cid, 'name': cid, 'slug': cid, 'can_edit': has_rules_category_permission(user_id, cid)})
+    
+    return jsonify({
+        'categories': result,
+        'all_roles': list(config.ROLE_NAMES.keys()),
+        'role_names': config.ROLE_NAMES,
+    })
 
 @app.route('/api/recruiter-rules/content', methods=['GET', 'POST'])
 @login_required
@@ -885,6 +1046,48 @@ def api_permissions_check():
         return jsonify({'has_permission': False}), 400
     result = has_permission(user_id, permission)
     return jsonify({'has_permission': result})
+
+@app.route('/api/roles/delete', methods=['POST'])
+@login_required
+def api_roles_delete():
+    """Удалить роль (только для founder)"""
+    if session.get('role') != 'founder':
+        return jsonify({'error': 'Только основатель может удалять роли'}), 403
+    
+    data = request.json
+    role_name = data.get('role_name', '').strip().lower()
+    
+    if not role_name:
+        return jsonify({'error': 'Role name required'}), 400
+    
+    if role_name not in config.ROLE_PERMISSIONS:
+        return jsonify({'error': 'Role not found'}), 404
+    
+    # Нельзя удалить базовые роли и founder
+    if role_name in ('user', 'founder', 'cofounder', 'admin', 'recruiter'):
+        return jsonify({'error': 'Нельзя удалить базовую роль'}), 400
+    
+    # Удаляем роль
+    del config.ROLE_PERMISSIONS[role_name]
+    del config.ROLE_NAMES[role_name]
+    
+    # Сбрасываем пользователей с этой ролью на 'user'
+    try:
+        db = Database()
+        site_roles = db.get_site_roles()
+        for uid, role in list(site_roles.items()):
+            if role == role_name:
+                db.remove_site_role(uid)
+    except Exception as e:
+        logging.error(f"Не удалось сбросить роли пользователей: {e}")
+    
+    logs_manager.log_site_action(
+        action='Удаление роли',
+        description=f'Пользователь {session.get("username")} удалил роль {role_name}',
+        user_id=session.get('user_id', ''),
+        user_name=session.get('username', 'Unknown')
+    )
+    return jsonify({'success': True})
 
 @app.route('/api/roles/create', methods=['POST'])
 @login_required
@@ -1222,6 +1425,150 @@ def api_leaderboard():
     users.sort(key=lambda x: (x['level'], x['xp']), reverse=True)
     
     return jsonify(users[:100])  # Топ-100
+
+# ==================== ANNOUNCEMENTS API ====================
+
+@app.route('/api/announcements')
+@login_required
+def api_announcements_get():
+    """Загружает объявления из канала объявлений Discord"""
+    try:
+        headers = {'Authorization': f'Bot {config.DISCORD_BOT_TOKEN}'}
+        channel_id = config.ANNOUNCEMENT_CHANNEL_ID
+        
+        # Получаем последние 50 сообщений из канала
+        resp = requests.get(
+            f'https://discord.com/api/channels/{channel_id}/messages',
+            headers=headers,
+            params={'limit': 50},
+            timeout=10
+        )
+        
+        if resp.status_code != 200:
+            return jsonify({'error': 'Не удалось загрузить объявления', 'announcements': []}), 500
+        
+        messages = resp.json()
+        # Получаем pinned messages
+        pinned_resp = requests.get(
+            f'https://discord.com/api/channels/{channel_id}/pins',
+            headers=headers,
+            timeout=10
+        )
+        pinned_ids = set()
+        if pinned_resp.status_code == 200:
+            for pm in pinned_resp.json():
+                pinned_ids.add(pm['id'])
+        
+        announcements = []
+        for msg in messages:
+            author = msg.get('author', {})
+            content = msg.get('content', '')
+            # Пропускаем пустые и embed-only сообщения
+            if not content.strip() and not msg.get('embeds'):
+                continue
+            
+            # Извлекаем заголовок (первая строка с **жирным** или до первого переноса)
+            title = ''
+            text = content
+            lines = content.strip().split('\n', 1)
+            if lines and lines[0].startswith('**') and lines[0].endswith('**'):
+                title = lines[0].strip('*')
+                text = lines[1] if len(lines) > 1 else ''
+            elif lines and '**' in lines[0]:
+                # Первая строка может содержать заголовок без маркдауна
+                title = lines[0].strip()
+                text = lines[1] if len(lines) > 1 else ''
+            
+            announcements.append({
+                'id': msg['id'],
+                'message_id': msg['id'],
+                'title': title,
+                'content': text or content,
+                'author_id': author.get('id', ''),
+                'author_name': author.get('username', 'Unknown'),
+                'author_avatar': author.get('avatar', ''),
+                'timestamp': msg.get('timestamp', ''),
+                'pinned': msg['id'] in pinned_ids,
+                'has_embeds': len(msg.get('embeds', [])) > 0,
+                'embeds': [{'title': e.get('title', ''), 'description': e.get('description', '')} for e in msg.get('embeds', [])[:3]],
+            })
+        
+        return jsonify({'announcements': announcements})
+    except Exception as e:
+        logging.error(f"[Announcements] Ошибка: {e}")
+        return jsonify({'error': str(e), 'announcements': []}), 500
+
+@app.route('/api/announcements/post', methods=['POST'])
+@login_required
+def api_announcements_post():
+    """Публикует объявление в канал объявлений"""
+    # Проверяем права: admin+
+    user_role = session.get('role', 'user')
+    if user_role not in ('admin', 'cofounder', 'founder'):
+        return jsonify({'error': 'Только администрация может публиковать объявления'}), 403
+    
+    data = request.json
+    title = data.get('title', '').strip()
+    content = data.get('content', '').strip()
+    pin = data.get('pin', True)
+    
+    if not content:
+        return jsonify({'error': 'Введите текст объявления'}), 400
+    
+    # Формируем сообщение для Discord
+    message = ''
+    if title:
+        message += f'**{title}**\n\n'
+    message += content
+    
+    # Добавляем подпись
+    username = session.get('username', 'Unknown')
+    message += f'\n\n— {username}'
+    
+    try:
+        headers = {
+            'Authorization': f'Bot {config.DISCORD_BOT_TOKEN}',
+            'Content-Type': 'application/json',
+        }
+        channel_id = config.ANNOUNCEMENT_CHANNEL_ID
+        
+        resp = requests.post(
+            f'https://discord.com/api/channels/{channel_id}/messages',
+            headers=headers,
+            json={'content': message},
+            timeout=10
+        )
+        
+        if resp.status_code != 200:
+            error_data = resp.json()
+            return jsonify({'error': f'Discord API error: {error_data.get("message", resp.text)}'}), 500
+        
+        msg_data = resp.json()
+        message_id = msg_data.get('id')
+        
+        # Если нужно закрепить
+        if pin and message_id:
+            try:
+                requests.put(
+                    f'https://discord.com/api/channels/{channel_id}/pins/{message_id}',
+                    headers=headers,
+                    timeout=5
+                )
+            except Exception as e:
+                logging.warning(f"[Announcements] Не удалось закрепить: {e}")
+        
+        # Логируем
+        logs_manager.log_site_action(
+            action='Публикация объявления',
+            description=f'Пользователь {username} опубликовал объявление' + (f' "{title[:50]}"' if title else ''),
+            user_id=session.get('user_id', ''),
+            user_name=username
+        )
+        
+        return jsonify({'success': True, 'message_id': message_id})
+    except Exception as e:
+        logging.error(f"[Announcements] Ошибка публикации: {e}")
+        return jsonify({'error': str(e)}), 500
 
 # ==================== ERROR HANDLERS ====================
 
