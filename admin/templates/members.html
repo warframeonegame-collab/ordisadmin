@@ -80,7 +80,6 @@
                         <th>Должность</th>
                         <th>Варны</th>
                         <th>Статус</th>
-                        <th style="width: 50px;"></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -89,7 +88,7 @@
                         <td class="text-muted small">{{ loop.index }}</td>
                         <td>
                             <div class="d-flex align-items-center gap-2">
-                                <img src="{{ member.avatar_url if member.avatar_url else 'https://cdn.discordapp.com/embed/avatars/0.png' }}" 
+                                <img src="{{ member.avatar_url }}" 
                                      class="rounded-circle" width="32" height="32" style="object-fit: cover; flex-shrink: 0;"
                                      onerror="this.onerror=null;this.src='https://cdn.discordapp.com/embed/avatars/0.png'">
                                 <div>
@@ -115,25 +114,6 @@
                             <span class="badge bg-success" style="background: #1b5e20;">OK</span>
                             {% endif %}
                         </td>
-                        <td onclick="event.stopPropagation();">
-                            {% if role in ['admin', 'cofounder', 'founder'] %}
-                            <div class="dropdown">
-                                <button class="btn btn-sm btn-outline-secondary dropdown-toggle-no-caret" data-bs-toggle="dropdown" title="Действия" style="border: none; padding: 4px 8px;">
-                                    <i class="fas fa-ellipsis-v"></i>
-                                </button>
-                                <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end" style="min-width: 160px;">
-                                    <li><a class="dropdown-item" href="#" onclick="quickCommand('warn', '{{ member.id }}', '{{ member.nickname or member.id }}')"><i class="fas fa-exclamation-triangle text-warning me-2"></i>Warn</a></li>
-                                    <li><a class="dropdown-item" href="#" onclick="quickCommand('unwarn', '{{ member.id }}', '{{ member.nickname or member.id }}')"><i class="fas fa-check text-success me-2"></i>Unwarn</a></li>
-                                    <li><a class="dropdown-item" href="#" onclick="quickCommand('mute --chat', '{{ member.id }}', '{{ member.nickname or member.id }}')"><i class="fas fa-comment-slash text-danger me-2"></i>Mute chat</a></li>
-                                    <li><a class="dropdown-item" href="#" onclick="quickCommand('mute --voice', '{{ member.id }}', '{{ member.nickname or member.id }}')"><i class="fas fa-microphone-slash text-danger me-2"></i>Mute voice</a></li>
-                                    <li><a class="dropdown-item" href="#" onclick="quickCommand('unmute', '{{ member.id }}', '{{ member.nickname or member.id }}')"><i class="fas fa-check text-success me-2"></i>Unmute</a></li>
-                                    <li><hr class="dropdown-divider"></li>
-                                    <li><a class="dropdown-item" href="#" onclick="quickCommand('ban', '{{ member.id }}', '{{ member.nickname or member.id }}')"><i class="fas fa-ban text-danger me-2"></i>Ban</a></li>
-                                    <li><a class="dropdown-item" href="#" onclick="quickCommand('unban', '{{ member.id }}', '{{ member.nickname or member.id }}')"><i class="fas fa-check text-success me-2"></i>Unban</a></li>
-                                </ul>
-                            </div>
-                            {% endif %}
-                        </td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -148,41 +128,13 @@
     </div>
 </div>
 
-<div class="modal fade" id="quickCmdModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content" style="background: #1a1a1a; border: 1px solid #3a3a3a;">
-            <div class="modal-header" style="border-color: #3a3a3a;">
-                <h5 class="modal-title" id="quickCmdTitle">Команда</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <p class="text-muted mb-2" id="quickCmdTarget"></p>
-                <div class="mb-3" id="quickCmdReasonSection">
-                    <label class="form-label">Причина</label>
-                    <input type="text" class="form-control" id="quickCmdReason" placeholder="Укажите причину">
-                </div>
-                <div id="quickCmdStatus"></div>
-            </div>
-            <div class="modal-footer" style="border-color: #3a3a3a;">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
-                <button type="button" class="btn btn-primary" onclick="executeQuickCmd()" id="quickCmdExecBtn">
-                    <i class="fas fa-paper-plane"></i> Выполнить
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-
 {% endblock %}
 
 {% block scripts %}
 <style>
-.dropdown-toggle-no-caret::after { display: none !important; }
 .table-dark tbody tr { transition: background 0.15s ease; }
 </style>
 <script>
-let quickCmdData = {};
-
 async function addMember() {
     const input = document.getElementById('add-member-id');
     const status = document.getElementById('add-member-status');
@@ -211,57 +163,6 @@ async function addMember() {
     }
     btn.disabled = false;
     btn.innerHTML = '<i class="fas fa-plus"></i> Добавить';
-}
-
-function quickCommand(cmd, userId, nickname) {
-    quickCmdData = {cmd, userId, nickname};
-    const modal = new bootstrap.Modal(document.getElementById('quickCmdModal'));
-    document.getElementById('quickCmdTitle').innerHTML = '<i class="fas fa-terminal"></i> .' + cmd + ' @' + nickname;
-    document.getElementById('quickCmdTarget').innerHTML = 'Пользователь: <strong>' + nickname + '</strong> (' + userId + ')';
-    document.getElementById('quickCmdStatus').innerHTML = '';
-    document.getElementById('quickCmdReason').value = '';
-    const needsReason = cmd.startsWith('warn') || cmd.startsWith('unwarn') || cmd.startsWith('mute') || cmd.startsWith('ban');
-    document.getElementById('quickCmdReasonSection').style.display = needsReason ? 'block' : 'none';
-    modal.show();
-}
-
-async function executeQuickCmd() {
-    const btn = document.getElementById('quickCmdExecBtn');
-    const status = document.getElementById('quickCmdStatus');
-    const reason = document.getElementById('quickCmdReason').value.trim();
-    let cmd;
-    // Для mute флаг (--chat/--voice) должен быть после @user
-    if (quickCmdData.cmd.startsWith('mute ') && quickCmdData.cmd.includes('--')) {
-        const parts = quickCmdData.cmd.split(' ');
-        const flag = parts.pop(); // --chat или --voice
-        cmd = '.mute <@' + quickCmdData.userId + '> ' + flag;
-    } else {
-        cmd = '.' + quickCmdData.cmd + ' <@' + quickCmdData.userId + '>';
-    }
-    const needsReason = quickCmdData.cmd.startsWith('warn') || quickCmdData.cmd.startsWith('unwarn') || quickCmdData.cmd.startsWith('mute') || quickCmdData.cmd.startsWith('ban');
-    if (needsReason && reason) { cmd += ' ' + reason; }
-    else if (needsReason && !reason) { status.innerHTML = '<div class="alert alert-danger">Укажите причину!</div>'; return; }
-    btn.disabled = true;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Отправка...';
-    status.innerHTML = '';
-    try {
-        const resp = await fetch('/api/execute', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({command: cmd})
-        });
-        const data = await resp.json();
-        if (resp.ok) {
-            status.innerHTML = '<div class="alert alert-success"><i class="fas fa-check"></i> Команда отправлена!</div>';
-            setTimeout(() => { bootstrap.Modal.getInstance(document.getElementById('quickCmdModal')).hide(); }, 1500);
-        } else {
-            status.innerHTML = '<div class="alert alert-danger"><i class="fas fa-times"></i> ' + data.error + '</div>';
-        }
-    } catch (e) {
-        status.innerHTML = '<div class="alert alert-danger"><i class="fas fa-times"></i> Ошибка: ' + e.message + '</div>';
-    }
-    btn.disabled = false;
-    btn.innerHTML = '<i class="fas fa-paper-plane"></i> Выполнить';
 }
 </script>
 {% endblock %}

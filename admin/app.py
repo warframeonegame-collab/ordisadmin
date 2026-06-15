@@ -152,6 +152,29 @@ def fetch_discord_members():
         logging.warning(f"Не удалось получить участников Discord: {e}")
     return result
 
+def fetch_discord_members_with_avatars():
+    """Получает участников Discord с никами и аватарками"""
+    result = {}
+    try:
+        headers = {'Authorization': f'Bot {config.DISCORD_BOT_TOKEN}'}
+        members_resp = requests.get(
+            f'https://discord.com/api/guilds/{config.GUILD_ID}/members',
+            headers=headers,
+            params={'limit': 1000},
+            timeout=10
+        )
+        if members_resp.status_code == 200:
+            for dm in members_resp.json():
+                user_id = dm.get('user', {}).get('id')
+                if user_id:
+                    user = dm.get('user', {})
+                    nick = dm.get('nick') or user.get('username', '')
+                    avatar = user.get('avatar', '') or '0'
+                    result[user_id] = {'nickname': nick, 'avatar': avatar}
+    except Exception as e:
+        logging.warning(f"Не удалось получить участников Discord: {e}")
+    return result
+
 def fetch_discord_channels():
     """Получает список каналов Discord и возвращает словарь {id: name}"""
     result = {}
@@ -310,17 +333,17 @@ def members():
     sort_by = request.args.get('sort', 'level')
     order = request.args.get('order', 'desc')
     
-    # Получаем никнеймы из Discord
-    discord_nicks = fetch_discord_members()
+    # Получаем никнеймы и аватарки из Discord
+    discord_data = fetch_discord_members_with_avatars()
     
     members_list = []
     for uid, data in db.items():
         if search and search.lower() not in data.get('nickname', '').lower() and search not in uid:
             continue
         # Используем ник из Discord если в database его нет
-        nickname = data.get('nickname') or discord_nicks.get(uid, '')
-        # Получаем аватарку: Discord CDN не принимает avatar=None, нужен дефолтный хэш
-        avatar_hash = data.get('avatar') or '0'
+        nickname = data.get('nickname') or discord_data.get(uid, {}).get('nickname', '')
+        # Получаем аватарку из Discord API или из БД
+        avatar_hash = discord_data.get(uid, {}).get('avatar') or data.get('avatar') or '0'
         avatar_url = f'https://cdn.discordapp.com/avatars/{uid}/{avatar_hash}.png?size=64' if avatar_hash != '0' else f'https://cdn.discordapp.com/embed/avatars/0.png'
         members_list.append({
             'id': uid,
