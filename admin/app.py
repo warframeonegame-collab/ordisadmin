@@ -31,8 +31,11 @@ app.secret_key = config.SECRET_KEY
 @app.before_request
 def refresh_session_role():
     """Обновляет роль в сессии из БД при каждом запросе, чтобы изменения вступали в силу сразу"""
-    if 'user_id' in session:
-        session['role'] = get_user_role(session['user_id'])
+    try:
+        if 'user_id' in session:
+            session['role'] = get_user_role(session['user_id'])
+    except Exception as e:
+        logging.warning(f"Ошибка при обновлении роли сессии: {e}")
 
 # При запуске мигрируем site_roles из хардкода в БД
 try:
@@ -564,8 +567,10 @@ def roles_page():
     # Читаем site_roles из БД (site_roles.json) а не из хардкода
     db = Database()
     site_roles_data = db.get_site_roles()
+    # Фильтруем: оставляем только записи, где значение — строка (роль)
+    filtered_roles = {k: v for k, v in site_roles_data.items() if isinstance(v, str)}
     return render_template('roles.html', role=session.get('role', 'user'), 
-                         site_roles=site_roles_data, role_names=config.ROLE_NAMES,
+                         site_roles=filtered_roles, role_names=config.ROLE_NAMES,
                          role_permissions=config.ROLE_PERMISSIONS)
 
 @app.route('/settings')
@@ -577,299 +582,330 @@ def settings_page():
 @app.route('/rules')
 @login_required
 def rules_page():
-    return render_template('rules.html', role=session.get('role', 'user'),
-                         has_perm=lambda p: has_permission(session.get('user_id'), p))
+    return render_template('rules.html', role=session.get('role', 'user'))
 
-@app.route('/api/hierarchy', methods=['GET', 'POST'])
+# ==================== HIERARCHY CONNECTIONS API ====================
+
+HIERARCHY_FILE = os.path.join(config.DATA_DIR, 'hierarchy.json')
+CONNECTIONS_FILE = os.path.join(config.DATA_DIR, 'rules_connections.json')
+
+def load_hierarchy():
+    """Загружает иерархию из JSON-файла"""
+    try:
+        if os.path.exists(HIERARCHY_FILE):
+            with open(HIERARCHY_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+    except Exception:
+        pass
+    return {"tiers": [], "extra_lines": []}
+
+def save_hierarchy(data):
+    """Сохраняет иерархию в JSON-файл"""
+    os.makedirs(os.path.dirname(HIERARCHY_FILE), exist_ok=True)
+    with open(HIERARCHY_FILE, 'w', encoding='utf-8') as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+def load_connections():
+    """Загружает связи из JSON-файла"""
+    try:
+        if os.path.exists(CONNECTIONS_FILE):
+            with open(CONNECTIONS_FILE, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                return data.get('connections', [])
+    except Exception:
+        pass
+    return []
+
+def save_connections(connections):
+    """Сохраняет связи в JSON-файл"""
+    os.makedirs(os.path.dirname(CONNECTIONS_FILE), exist_ok=True)
+    with open(CONNECTIONS_FILE, 'w', encoding='utf-8') as f:
+        json.dump({'connections': connections}, f, ensure_ascii=False, indent=2)
+
+@app.route('/api/rules/hierarchy', methods=['GET'])
 @login_required
-def api_hierarchy():
-    """GET: получить структуру иерархии. POST: сохранить (rules_edit)."""
-    hier_file = os.path.join(config.DATA_DIR, 'hierarchy.json')
-    
-    if request.method == 'GET':
-        try:
-            if os.path.exists(hier_file):
-                with open(hier_file, 'r', encoding='utf-8') as f:
-                    return jsonify(json.load(f))
-        except:
-            pass
-        return jsonify({'tiers': []})
-    
-    # POST — только founder
+def api_rules_hierarchy_get():
+    """Получить данные иерархии"""
+    return jsonify(load_hierarchy())
+
+@app.route('/api/rules/hierarchy', methods=['POST'])
+@login_required
+def api_rules_hierarchy_save():
+    """Сохранить данные иерархии (только основатель)"""
     if session.get('role') != 'founder':
         return jsonify({'error': 'Только основатель может редактировать иерархию'}), 403
     
     data = request.json
-    if not data or 'tiers' not in data:
-        return jsonify({'error': 'Неверный формат данных'}), 400
+    if not data:
+        return jsonify({'error': 'Данные обязательны'}), 400
     
-    try:
-        with open(hier_file, 'w', encoding='utf-8') as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-        
-        # Обновляем дефолтный файл если редактировали
-        default_hier = os.path.join(os.path.dirname(__file__), '..', 'data', 'hierarchy.json')
-        if os.path.abspath(hier_file) != os.path.abspath(default_hier):
-            pass  # тот же файл
-        
-        logs_manager.log_site_action(
-            action='Обновление иерархии клана',
-            description=f'Пользователь {session.get("username")} обновил иерархию клана',
-            user_id=session.get('user_id', ''),
-            user_name=session.get('username', 'Unknown')
-        )
-        return jsonify({'success': True})
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+    save_hierarchy(data)
+    
+    logs_manager.log_site_action(
+        action='Обновление иерархии',
+        description='Обновлены названия ролей в иерархии',
+        user_id=session.get('user_id', ''),
+        user_name=session.get('username', 'Unknown')
+    )
+    
+    return jsonify({'success': True})
 
-@app.route('/api/rules/content', methods=['GET', 'POST'])
+@app.route('/api/rules/connections', methods=['GET'])
 @login_required
-def api_rules_content():
-    """GET: получить текст основных правил. POST: сохранить (rules_edit)."""
-    rules_file = os.path.join(config.DATA_DIR, 'main_rules.json')
+def api_rules_connections_get():
+    """Получить связи между ролями"""
+    return jsonify({'connections': load_connections()})
+
+@app.route('/api/rules/connections', methods=['POST'])
+@login_required
+def api_rules_connections_save():
+    """Сохранить связи между ролями (только основатель)"""
+    if session.get('role') != 'founder':
+        return jsonify({'error': 'Только основатель может редактировать связи'}), 403
     
-    if request.method == 'GET':
-        content = ''
-        try:
-            if os.path.exists(rules_file):
-                with open(rules_file, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                    content = data.get('content', '')
-        except:
-            pass
-        return jsonify({'content': content})
+    data = request.json
+    if not data or 'connections' not in data:
+        return jsonify({'error': 'Данные connections обязательны'}), 400
     
-    # POST
+    save_connections(data['connections'])
+    
+    logs_manager.log_site_action(
+        action='Обновление связей иерархии',
+        description=f'Обновлены связи между ролями: {json.dumps(data["connections"], ensure_ascii=False)}',
+        user_id=session.get('user_id', ''),
+        user_name=session.get('username', 'Unknown')
+    )
+    
+    return jsonify({'success': True})
+
+# ==================== LEGEND NAMES API ====================
+
+LEGEND_NAMES_FILE = os.path.join(config.DATA_DIR, 'rules_legend_names.json')
+
+def load_legend_names():
+    """Загружает названия ролей для легенды"""
+    default = ['Вестник Лотос.', 'Наблюдатель.', 'Высшие Тэнно.', 'Хранитель Додзё', 'Рекрутер', 'Архитектор Додзё', 'Вестник Орокин', 'Посвященный Тэнно', 'Отреченный.']
+    try:
+        if os.path.exists(LEGEND_NAMES_FILE):
+            with open(LEGEND_NAMES_FILE, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                if isinstance(data, list) and len(data) >= len(default):
+                    return data
+    except Exception:
+        pass
+    return default
+
+def save_legend_names(names):
+    """Сохраняет названия ролей для легенды"""
+    os.makedirs(os.path.dirname(LEGEND_NAMES_FILE), exist_ok=True)
+    with open(LEGEND_NAMES_FILE, 'w', encoding='utf-8') as f:
+        json.dump(names, f, ensure_ascii=False, indent=2)
+
+@app.route('/api/rules/legend-names', methods=['GET'])
+@login_required
+def api_rules_legend_names_get():
+    """Получить названия ролей для легенды"""
+    return jsonify({'names': load_legend_names()})
+
+@app.route('/api/rules/legend-names', methods=['POST'])
+@login_required
+def api_rules_legend_names_save():
+    """Сохранить названия ролей для легенды (только основатель)"""
+    if session.get('role') != 'founder':
+        return jsonify({'error': 'Только основатель может редактировать названия'}), 403
+    
+    data = request.json
+    if not data or 'names' not in data:
+        return jsonify({'error': 'Данные names обязательны'}), 400
+    
+    save_legend_names(data['names'])
+    
+    logs_manager.log_site_action(
+        action='Обновление названий ролей',
+        description='Обновлены названия ролей в легенде',
+        user_id=session.get('user_id', ''),
+        user_name=session.get('username', 'Unknown')
+    )
+    
+    return jsonify({'success': True})
+
+# ==================== RULES SECTIONS API ====================
+
+RULES_SECTIONS_FILE = os.path.join(config.DATA_DIR, 'rules_sections.json')
+
+def load_rules_sections():
+    """Загружает разделы правил из JSON-файла"""
+    try:
+        if os.path.exists(RULES_SECTIONS_FILE):
+            with open(RULES_SECTIONS_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+    except Exception:
+        pass
+    return []
+
+def save_rules_sections(sections):
+    """Сохраняет разделы правил в JSON-файл"""
+    os.makedirs(os.path.dirname(RULES_SECTIONS_FILE), exist_ok=True)
+    with open(RULES_SECTIONS_FILE, 'w', encoding='utf-8') as f:
+        json.dump(sections, f, ensure_ascii=False, indent=2)
+
+RULES_INACTIVITY_FILE = os.path.join(config.DATA_DIR, 'rules_inactivity.json')
+
+def load_inactivity():
+    """Загружает сроки неактивности"""
+    default = {'outside': 'Отсутствует', 'first': '30 дней', 'second': '20 дней', 'third': '14 дней'}
+    try:
+        if os.path.exists(RULES_INACTIVITY_FILE):
+            with open(RULES_INACTIVITY_FILE, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                return {**default, **data}
+    except Exception:
+        pass
+    return default
+
+def save_inactivity(data):
+    """Сохраняет сроки неактивности"""
+    os.makedirs(os.path.dirname(RULES_INACTIVITY_FILE), exist_ok=True)
+    with open(RULES_INACTIVITY_FILE, 'w', encoding='utf-8') as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+@app.route('/api/rules/inactivity', methods=['GET'])
+@login_required
+def api_rules_inactivity_get():
+    """Получить сроки неактивности"""
+    return jsonify(load_inactivity())
+
+@app.route('/api/rules/inactivity', methods=['POST'])
+@login_required
+def api_rules_inactivity_save():
+    """Сохранить сроки неактивности"""
+    if not has_permission(session.get('user_id'), 'rules_edit'):
+        return jsonify({'error': 'Нет прав на редактирование'}), 403
+    
+    data = request.json
+    if not data:
+        return jsonify({'error': 'Данные обязательны'}), 400
+    
+    save_inactivity(data)
+    
+    logs_manager.log_site_action(
+        action='Обновление сроков неактивности',
+        description=f'Обновлены сроки неактивности: {json.dumps(data, ensure_ascii=False)}',
+        user_id=session.get('user_id', ''),
+        user_name=session.get('username', 'Unknown')
+    )
+    
+    return jsonify({'success': True})
+
+@app.route('/api/rules/sections', methods=['GET'])
+@login_required
+def api_rules_sections_get():
+    """Получить все разделы правил"""
+    sections = load_rules_sections()
+    return jsonify({'sections': sections})
+
+@app.route('/api/rules/sections', methods=['POST'])
+@login_required
+def api_rules_sections_create():
+    """Создать новый раздел правил"""
     if not has_permission(session.get('user_id'), 'rules_edit'):
         return jsonify({'error': 'Нет прав на редактирование правил'}), 403
     
     data = request.json
+    title = data.get('title', '').strip()
     content = data.get('content', '')
     
-    try:
-        with open(rules_file, 'w', encoding='utf-8') as f:
-            json.dump({
-                'content': content,
-                'updated_by': session.get('username', 'Unknown'),
-                'updated_at': datetime.now().isoformat()
-            }, f, ensure_ascii=False, indent=2)
-        
-        logs_manager.log_site_action(
-            action='Обновление основных правил',
-            description=f'Пользователь {session.get("username")} обновил основные правила',
-            user_id=session.get('user_id', ''),
-            user_name=session.get('username', 'Unknown')
-        )
-        return jsonify({'success': True})
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/recruiter-rules')
-@login_required
-def recruiter_rules_page():
-    # Проверяем permission recruiter_rules_view
-    user_id = session.get('user_id')
-    if not has_permission(user_id, 'recruiter_rules_view'):
-        abort(403)
-    return render_template('recruiter_rules.html', role=session.get('role', 'user'))
-
-# ==================== RULES CATEGORIES API ====================
-
-RULES_CONFIG_FILE = os.path.join(config.DATA_DIR, 'rules_config.json')
-
-def load_rules_config():
-    """Загружает конфигурацию категорий правил"""
-    default = {"categories": [], "category_permissions": {}}
-    try:
-        if os.path.exists(RULES_CONFIG_FILE):
-            with open(RULES_CONFIG_FILE, 'r', encoding='utf-8') as f:
-                return json.load(f)
-    except:
-        pass
-    return default
-
-def save_rules_config(cfg):
-    """Сохраняет конфигурацию категорий правил"""
-    os.makedirs(os.path.dirname(RULES_CONFIG_FILE), exist_ok=True)
-    with open(RULES_CONFIG_FILE, 'w', encoding='utf-8') as f:
-        json.dump(cfg, f, ensure_ascii=False, indent=2)
-
-def has_rules_category_permission(user_id, category_id):
-    """Проверяет, может ли пользователь редактировать указанную категорию правил"""
-    role = get_user_role(user_id)
-    if role == 'founder':
-        return True
-    cfg = load_rules_config()
-    perms = cfg.get('category_permissions', {})
-    allowed = perms.get(role, [])
-    return category_id in allowed
-
-@app.route('/api/rules/categories', methods=['GET', 'POST'])
-@login_required
-def api_rules_categories():
-    """GET: список категорий. POST: сохранить категории + права (только founder)."""
-    if request.method == 'GET':
-        cfg = load_rules_config()
-        # Получаем список категорий, к которым у пользователя есть доступ на чтение
-        user_role = session.get('role', 'user')
-        user_id = session.get('user_id')
-        categories = cfg.get('categories', [])
-        # Для founder показываем все, для остальных — только те, на которые есть права
-        if user_role != 'founder':
-            perms = cfg.get('category_permissions', {}).get(user_role, [])
-            categories = [c for c in categories if c['id'] in perms]
-        return jsonify({
-            'categories': categories,
-            'category_permissions': cfg.get('category_permissions', {}),
-            'all_roles': list(config.ROLE_NAMES.keys()),
-            'role_names': config.ROLE_NAMES,
-        })
+    if not title:
+        return jsonify({'error': 'Название раздела обязательно'}), 400
     
-    # POST — только founder
-    if session.get('role') != 'founder':
-        return jsonify({'error': 'Только основатель может управлять категориями правил'}), 403
+    sections = load_rules_sections()
+    section_id = str(len(sections) + 1)
     
-    data = request.json
-    categories = data.get('categories', [])
-    category_permissions = data.get('category_permissions', {})
+    sections.append({
+        'id': section_id,
+        'title': title,
+        'content': content,
+        'created_at': datetime.now().isoformat(),
+        'updated_at': datetime.now().isoformat()
+    })
     
-    cfg = load_rules_config()
-    cfg['categories'] = categories
-    cfg['category_permissions'] = category_permissions
-    save_rules_config(cfg)
+    save_rules_sections(sections)
     
     logs_manager.log_site_action(
-        action='Обновление категорий правил',
-        description=f'Пользователь {session.get("username")} обновил категории правил и права на них',
+        action='Создание раздела правил',
+        description=f'Создан раздел правил: {title}',
         user_id=session.get('user_id', ''),
         user_name=session.get('username', 'Unknown')
     )
-    return jsonify({'success': True})
+    
+    return jsonify({'success': True, 'id': section_id})
 
-@app.route('/api/rules/<category_id>/content', methods=['GET', 'POST'])
+@app.route('/api/rules/sections/<section_id>', methods=['GET'])
 @login_required
-def api_rules_category_content(category_id):
-    """GET: получить содержимое категории. POST: сохранить (проверка права на категорию)."""
-    rules_file = os.path.join(config.DATA_DIR, f'category_{category_id}.json')
-    
-    if request.method == 'GET':
-        content = ''
-        try:
-            if os.path.exists(rules_file):
-                with open(rules_file, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                    content = data.get('content', '')
-        except:
-            pass
-        return jsonify({'content': content})
-    
-    # POST
-    user_id = session.get('user_id')
-    if not has_rules_category_permission(user_id, category_id):
-        return jsonify({'error': 'Нет прав на редактирование этой категории'}), 403
+def api_rules_sections_get_one(section_id):
+    """Получить один раздел правил"""
+    sections = load_rules_sections()
+    for s in sections:
+        if s['id'] == section_id:
+            return jsonify(s)
+    return jsonify({'error': 'Раздел не найден'}), 404
+
+@app.route('/api/rules/sections/<section_id>', methods=['POST'])
+@login_required
+def api_rules_sections_update(section_id):
+    """Обновить раздел правил"""
+    if not has_permission(session.get('user_id'), 'rules_edit'):
+        return jsonify({'error': 'Нет прав на редактирование правил'}), 403
     
     data = request.json
+    title = data.get('title', '').strip()
     content = data.get('content', '')
     
-    try:
-        with open(rules_file, 'w', encoding='utf-8') as f:
-            json.dump({
-                'content': content,
-                'updated_by': session.get('username', 'Unknown'),
-                'updated_at': datetime.now().isoformat()
-            }, f, ensure_ascii=False, indent=2)
-        
-        logs_manager.log_site_action(
-            action=f'Обновление правил ({category_id})',
-            description=f'Пользователь {session.get("username")} обновил правила категории {category_id}',
-            user_id=session.get('user_id', ''),
-            user_name=session.get('username', 'Unknown')
-        )
-        return jsonify({'success': True})
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+    if not title:
+        return jsonify({'error': 'Название раздела обязательно'}), 400
+    
+    sections = load_rules_sections()
+    for s in sections:
+        if s['id'] == section_id:
+            s['title'] = title
+            s['content'] = content
+            s['updated_at'] = datetime.now().isoformat()
+            save_rules_sections(sections)
+            
+            logs_manager.log_site_action(
+                action='Обновление раздела правил',
+                description=f'Обновлён раздел правил: {title}',
+                user_id=session.get('user_id', ''),
+                user_name=session.get('username', 'Unknown')
+            )
+            
+            return jsonify({'success': True})
+    
+    return jsonify({'error': 'Раздел не найден'}), 404
 
-@app.route('/api/rules')
+@app.route('/api/rules/sections/<section_id>', methods=['DELETE'])
 @login_required
-def api_rules_page_data():
-    """Возвращает данные для страницы правил: все доступные категории и их заголовки"""
-    cfg = load_rules_config()
-    user_id = session.get('user_id')
-    user_role = session.get('role', 'user')
+def api_rules_sections_delete(section_id):
+    """Удалить раздел правил"""
+    if not has_permission(session.get('user_id'), 'rules_edit'):
+        return jsonify({'error': 'Нет прав на редактирование правил'}), 403
     
-    all_categories = cfg.get('categories', [])
-    perms = cfg.get('category_permissions', {})
+    sections = load_rules_sections()
+    for i, s in enumerate(sections):
+        if s['id'] == section_id:
+            removed = sections.pop(i)
+            save_rules_sections(sections)
+            
+            logs_manager.log_site_action(
+                action='Удаление раздела правил',
+                description=f'Удалён раздел правил: {removed["title"]}',
+                user_id=session.get('user_id', ''),
+                user_name=session.get('username', 'Unknown')
+            )
+            
+            return jsonify({'success': True})
     
-    # Категории, которые пользователь может видеть
-    if user_role == 'founder':
-        visible = all_categories
-    else:
-        allowed = perms.get(user_role, [])
-        visible = [c for c in all_categories if c['id'] in allowed]
-    
-    # Для каждой категории добавляем признак can_edit
-    result = []
-    for cat in visible:
-        can_edit = has_rules_category_permission(user_id, cat['id'])
-        result.append({**cat, 'can_edit': can_edit})
-    
-    # Также прикрепляем категории, которые есть в perms но могут отсутствовать в all_categories
-    all_ids = {c['id'] for c in all_categories}
-    if user_role == 'founder':
-        extra_ids = set()
-    else:
-        extra_ids = set(perms.get(user_role, [])) - all_ids
-    for cid in extra_ids:
-        result.append({'id': cid, 'name': cid, 'slug': cid, 'can_edit': has_rules_category_permission(user_id, cid)})
-    
-    return jsonify({
-        'categories': result,
-        'all_roles': list(config.ROLE_NAMES.keys()),
-        'role_names': config.ROLE_NAMES,
-    })
-
-@app.route('/api/recruiter-rules/content', methods=['GET', 'POST'])
-@login_required
-def api_recruiter_rules_content():
-    """GET: получить текст правил рекрутеров. POST: сохранить (admin+)."""
-    rules_file = os.path.join(config.DATA_DIR, 'recruiter_rules.json')
-    
-    if request.method == 'GET':
-        content = ''
-        try:
-            if os.path.exists(rules_file):
-                with open(rules_file, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                    content = data.get('content', '')
-        except:
-            pass
-        return jsonify({'content': content})
-    
-    # POST: сохранить
-    user_role = session.get('role', 'user')
-    if user_role not in ('admin', 'cofounder', 'founder'):
-        return jsonify({'error': 'Нет прав на редактирование'}), 403
-    
-    data = request.json
-    content = data.get('content', '')
-    
-    try:
-        with open(rules_file, 'w', encoding='utf-8') as f:
-            json.dump({
-                'content': content,
-                'updated_by': session.get('username', 'Unknown'),
-                'updated_at': datetime.now().isoformat()
-            }, f, ensure_ascii=False, indent=2)
-        
-        logs_manager.log_site_action(
-            action='Обновление правил рекрутеров',
-            description=f'Пользователь {session.get("username")} обновил правила рекрутеров',
-            user_id=session.get('user_id', ''),
-            user_name=session.get('username', 'Unknown')
-        )
-        return jsonify({'success': True})
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+    return jsonify({'error': 'Раздел не найден'}), 404
 
 # ==================== API ROUTES ====================
 
@@ -1142,7 +1178,7 @@ def api_roles_create():
         'roles_manage': permissions.get('roles_manage', False),
         'settings_manage': permissions.get('settings_manage', False),
         'questionnaires_view': permissions.get('questionnaires_view', False),
-        'recruiter_rules_view': permissions.get('recruiter_rules_view', False),
+        'rules_edit': permissions.get('rules_edit', False),
     }
     
     config.ROLE_NAMES[role_name] = role_display
@@ -1602,6 +1638,11 @@ def forbidden(e):
 @app.errorhandler(404)
 def not_found(e):
     return render_template('error.html', code=404, message='Страница не найдена'), 404
+
+@app.errorhandler(500)
+def internal_error(e):
+    logging.error(f"Internal Server Error: {e}")
+    return render_template('error.html', code=500, message='Внутренняя ошибка сервера'), 500
 
 # ==================== MAIN ====================
 

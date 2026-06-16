@@ -50,12 +50,9 @@
     </div>
 </div>
 
-<!-- Кнопка управления категориями правил (только для founder) -->
+<!-- Кнопка удаления роли (только для founder) -->
 {% if role == 'founder' %}
 <div class="mb-3">
-    <button class="btn btn-outline-info" onclick="openCategoryModal()">
-        <i class="fas fa-book"></i> Права на категории правил
-    </button>
     <button class="btn btn-outline-danger" onclick="openDeleteRoleModal()">
         <i class="fas fa-trash-alt"></i> Удалить роль
     </button>
@@ -121,6 +118,7 @@
                     ('roles_manage', 'Управление ролями'),
                     ('settings_manage', 'Настройки сайта'),
                     ('questionnaires_view', 'Просмотр анкет'),
+                    ('rules_edit', 'Редактирование правил'),
                 ] %}
                 <tr>
                     <td>{{ desc }}</td>
@@ -182,7 +180,7 @@
                         ('roles_manage', 'Роли'),
                         ('settings_manage', 'Настройки'),
                         ('questionnaires_view', 'Анкеты'),
-                        ('recruiter_rules_view', 'Правила рекрутеров'),
+                        ('rules_edit', 'Правила'),
                     ] %}
                     <div class="col-md-4">
                         <div class="form-check">
@@ -203,53 +201,6 @@
     </div>
 </div>
 {% endif %}
-
-<!-- Модальное окно: права на категории правил -->
-{% if role == 'founder' %}
-<div class="modal fade" id="categoryPermModal" tabindex="-1">
-    <div class="modal-dialog modal-lg modal-dialog-scrollable">
-        <div class="modal-content" style="background: #1a1a1a; border: 1px solid #3a3a3a;">
-            <div class="modal-header" style="border-color: #3a3a3a;">
-                <h5 class="modal-title"><i class="fas fa-book"></i> Права на категории правил</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <p class="text-muted mb-3">Настройте, какие роли могут редактировать какие категории правил.</p>
-                <div id="categoryPermContainer">
-                    <div class="text-center py-4">
-                        <div class="spinner-border text-primary" role="status"></div>
-                        <p class="mt-2">Загрузка...</p>
-                    </div>
-                </div>
-                <hr class="my-4" style="border-color: #3a3a3a;">
-                <h6><i class="fas fa-plus-circle"></i> Создать новую категорию</h6>
-                <div class="row g-2 mt-2">
-                    <div class="col-md-4">
-                        <label class="form-label">ID категории (лат.)</label>
-                        <input type="text" class="form-control" id="new-cat-id" placeholder="например: rules_voice">
-                    </div>
-                    <div class="col-md-4">
-                        <label class="form-label">Название</label>
-                        <input type="text" class="form-control" id="new-cat-name" placeholder="например: Voice чат">
-                    </div>
-                    <div class="col-md-4 d-flex align-items-end">
-                        <button class="btn btn-outline-success w-100" onclick="createCategory()">
-                            <i class="fas fa-plus"></i> Создать
-                        </button>
-                    </div>
-                </div>
-                <div id="new-cat-status" class="mt-2"></div>
-            </div>
-            <div class="modal-footer" style="border-color: #3a3a3a;">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
-                <button type="button" class="btn btn-primary" onclick="saveCategoryPermissions()">
-                    <i class="fas fa-save"></i> Сохранить
-                </button>
-            </div>
-            <div id="cat-save-status" class="px-3 pb-2"></div>
-        </div>
-    </div>
-</div>
 
 <!-- Модальное окно: удаление роли -->
 <div class="modal fade" id="deleteRoleModal" tabindex="-1">
@@ -282,7 +233,6 @@
         </div>
     </div>
 </div>
-{% endif %}
 
 {% endblock %}
 
@@ -398,7 +348,7 @@ document.getElementById('createRoleForm')?.addEventListener('submit', async (e) 
     const roleDisplay = formData.get('role_display');
     
     const permissions = {};
-    const permKeys = ['dashboard', 'members_view_own', 'members_view_all', 'members_edit', 'logs_view', 'commands_use', 'timers_view', 'roles_manage', 'settings_manage', 'questionnaires_view', 'recruiter_rules_view'];
+    const permKeys = ['dashboard', 'members_view_own', 'members_view_all', 'members_edit', 'logs_view', 'commands_use', 'timers_view', 'roles_manage', 'settings_manage', 'questionnaires_view', 'rules_edit'];
     permKeys.forEach(perm => {
         permissions[perm] = formData.has('perm_' + perm);
     });
@@ -419,161 +369,6 @@ document.getElementById('createRoleForm')?.addEventListener('submit', async (e) 
         alert('Ошибка: ' + e.message);
     }
 });
-
-// ========== КАТЕГОРИИ ПРАВИЛ ==========
-let categoryPermData = null;
-
-async function openCategoryModal() {
-    const modal = new bootstrap.Modal(document.getElementById('categoryPermModal'));
-    document.getElementById('categoryPermContainer').innerHTML = `
-        <div class="text-center py-4">
-            <div class="spinner-border text-primary" role="status"></div>
-            <p class="mt-2">Загрузка...</p>
-        </div>
-    `;
-    document.getElementById('cat-save-status').innerHTML = '';
-    modal.show();
-    
-    try {
-        const resp = await fetch('/api/rules/categories');
-        if (!resp.ok) throw new Error('Ошибка загрузки');
-        const data = await resp.json();
-        categoryPermData = data;
-        renderCategoryPermissions(data);
-    } catch (e) {
-        document.getElementById('categoryPermContainer').innerHTML = `
-            <div class="alert alert-danger">Ошибка загрузки: ${e.message}</div>
-        `;
-    }
-}
-
-function renderCategoryPermissions(data) {
-    const cats = data.categories || [];
-    const perms = data.category_permissions || {};
-    const allRoles = data.all_roles || [];
-    const roleNames = data.role_names || {};
-    
-    let html = '<div class="table-responsive"><table class="table table-dark table-bordered mb-0"><thead><tr><th>Категория</th>';
-    for (const r of allRoles) {
-        if (r !== 'founder') {
-            html += `<th>${roleNames[r] || r}</th>`;
-        }
-    }
-    html += '</tr></thead><tbody>';
-    
-    for (const cat of cats) {
-        html += `<tr><td><strong>${cat.name}</strong><br><small class="text-muted">${cat.id}</small></td>`;
-        for (const r of allRoles) {
-            if (r !== 'founder') continue;
-            // founder always has all permissions
-            html += '<td><i class="fas fa-check text-success"></i></td>';
-        }
-        for (const r of allRoles) {
-            if (r === 'founder') continue;
-            const allowed = perms[r] && perms[r].includes(cat.id);
-            const checked = allowed ? 'checked' : '';
-            html += `<td><input type="checkbox" class="cat-perm-cb" data-role="${r}" data-cat="${cat.id}" ${checked}></td>`;
-        }
-        html += '</tr>';
-    }
-    
-    if (cats.length === 0) {
-        html += '<tr><td colspan="6" class="text-center text-muted py-3">Категории не созданы</td></tr>';
-    }
-    
-    html += '</tbody></table></div>';
-    document.getElementById('categoryPermContainer').innerHTML = html;
-}
-
-async function createCategory() {
-    const id = document.getElementById('new-cat-id').value.trim().toLowerCase();
-    const name = document.getElementById('new-cat-name').value.trim();
-    const status = document.getElementById('new-cat-status');
-    
-    if (!id || !name) {
-        status.innerHTML = '<div class="alert alert-danger">Заполните ID и название</div>';
-        return;
-    }
-    if (!/^[a-z0-9_]+$/.test(id)) {
-        status.innerHTML = '<div class="alert alert-danger">ID должен содержать только латинские буквы, цифры и _</div>';
-        return;
-    }
-    
-    // Check if already exists
-    if (categoryPermData.categories.find(c => c.id === id)) {
-        status.innerHTML = '<div class="alert alert-danger">Категория с таким ID уже существует</div>';
-        return;
-    }
-    
-    status.innerHTML = '<div class="text-success"><i class="fas fa-spinner fa-spin"></i> Создание...</div>';
-    
-    // Add to local data
-    categoryPermData.categories.push({ id, name, slug: id });
-    // Give permissions to founder by default
-    for (const r in categoryPermData.category_permissions) {
-        if (r === 'founder') continue;
-    }
-    if (!categoryPermData.category_permissions['founder']) {
-        categoryPermData.category_permissions['founder'] = [];
-    }
-    if (!categoryPermData.category_permissions['founder'].includes(id)) {
-        categoryPermData.category_permissions['founder'].push(id);
-    }
-    
-    // Save via API
-    await saveCategoryPermissions(true);
-    
-    document.getElementById('new-cat-id').value = '';
-    document.getElementById('new-cat-name').value = '';
-    status.innerHTML = '<div class="alert alert-success">Категория создана! Не забудьте настроить права.</div>';
-    setTimeout(() => status.innerHTML = '', 3000);
-}
-
-async function saveCategoryPermissions(silent) {
-    if (!categoryPermData) return;
-    
-    const checkboxes = document.querySelectorAll('.cat-perm-cb');
-    const perms = {};
-    
-    checkboxes.forEach(cb => {
-        const role = cb.dataset.role;
-        const cat = cb.dataset.cat;
-        if (!perms[role]) perms[role] = [];
-        if (cb.checked && !perms[role].includes(cat)) {
-            perms[role].push(cat);
-        }
-    });
-    
-    // founder always has all
-    const allCatIds = categoryPermData.categories.map(c => c.id);
-    perms['founder'] = [...allCatIds];
-    
-    const statusEl = document.getElementById('cat-save-status');
-    if (!silent) statusEl.innerHTML = '<div class="text-success"><i class="fas fa-spinner fa-spin"></i> Сохранение...</div>';
-    
-    try {
-        const resp = await fetch('/api/rules/categories', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({
-                categories: categoryPermData.categories,
-                category_permissions: perms
-            })
-        });
-        if (resp.ok) {
-            categoryPermData.category_permissions = perms;
-            if (!silent) {
-                statusEl.innerHTML = '<div class="alert alert-success mt-2"><i class="fas fa-check"></i> Сохранено!</div>';
-                setTimeout(() => { bootstrap.Modal.getInstance(document.getElementById('categoryPermModal')).hide(); }, 1500);
-            }
-        } else {
-            const err = await resp.json();
-            if (!silent) statusEl.innerHTML = `<div class="alert alert-danger mt-2">${err.error || 'Ошибка'}</div>`;
-        }
-    } catch (e) {
-        if (!silent) statusEl.innerHTML = `<div class="alert alert-danger mt-2">Ошибка: ${e.message}</div>`;
-    }
-}
 
 // ========== УДАЛЕНИЕ РОЛИ ==========
 function openDeleteRoleModal() {

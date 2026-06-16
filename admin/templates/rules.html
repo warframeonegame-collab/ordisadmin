@@ -3,377 +3,715 @@
 {% block title %}Правила{% endblock %}
 
 {% block content %}
+<div class="page-header">
+    <h1><i class="fas fa-book"></i> Правила клана</h1>
+    <p class="text-muted">Управление правилами и структурой клана</p>
+</div>
 
-<!-- Иерархия -->
+<!-- Иерархия клана -->
 <div class="card mb-4">
     <div class="card-header d-flex justify-content-between align-items-center">
-        <h5 class="mb-0"><i class="fas fa-sitemap"></i> Иерархия клана</h5>
+        <h5><i class="fas fa-sitemap"></i> Иерархия клана</h5>
         {% if role == 'founder' %}
-        <button class="btn btn-outline-primary btn-sm" id="hierEditBtn" onclick="toggleHierEdit()">
-            <i class="fas fa-edit"></i> Изменить
+        <button class="btn btn-sm btn-outline-info" onclick="editHierarchyNames()" id="hierarchy-edit-btn" title="Редактировать названия ролей">
+            <i class="fas fa-pen"></i> Редактировать названия
         </button>
         {% endif %}
     </div>
     <div class="card-body">
-        <div id="hierViewMode">
-            <div class="hierarchy-wrapper">
-                <svg id="hierarchySvg" xmlns="http://www.w3.org/2000/svg"></svg>
+        <div class="hierarchy-chart" id="hierarchy-chart">
+            <svg id="hierarchy-svg" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:1;"></svg>
+            <div class="h-level">
+                <div class="h-box h-outside" data-role="outside">
+                    <span class="h-dot dot-outside"></span>
+                    <strong class="role-name-display" data-tier="0">Outside Tier</strong><br>
+                    <div class="role-names-box" data-tier="0">
+                        <span class="role-subname" data-tier="0" data-idx="0">Основатель</span><br>
+                        <span class="role-subname" data-tier="0" data-idx="1">Со-основатель</span>
+                    </div>
+                </div>
+            </div>
+            <div class="h-level">
+                <div class="h-box h-first" data-role="first">
+                    <span class="h-dot dot-first"></span>
+                    <strong class="role-name-display" data-tier="1">1 Tier</strong><br>
+                    <div class="role-names-box" data-tier="1">
+                        <span class="role-subname" data-tier="1" data-idx="0">Заместитель клана</span>
+                    </div>
+                </div>
+            </div>
+            <div class="h-level h-branch">
+                <div class="h-box h-second" data-role="second-recruiter">
+                    <span class="h-dot dot-second"></span>
+                    <strong class="role-name-display" data-tier="2">1 Tier</strong><br>
+                    <div class="role-names-box" data-tier="2">
+                        <span class="role-subname" data-tier="2" data-idx="0">Руководитель рекрутинга</span>
+                    </div>
+                </div>
+                <div class="h-box h-second" data-role="second-builder">
+                    <span class="h-dot dot-second"></span>
+                    <strong class="role-name-display" data-tier="2">1 Tier</strong><br>
+                    <div class="role-names-box" data-tier="2">
+                        <span class="role-subname" data-tier="2" data-idx="1">Руководитель строителей</span>
+                    </div>
+                </div>
+            </div>
+            <div class="h-level h-branch">
+                <div class="h-box h-third" data-role="third-recruiter">
+                    <span class="h-dot dot-third"></span>
+                    <strong class="role-name-display" data-tier="3">2 Tier</strong><br>
+                    <div class="role-names-box" data-tier="3">
+                        <span class="role-subname" data-tier="3" data-idx="0">Рекрутер</span>
+                    </div>
+                </div>
+                <div class="h-box h-third" data-role="third-builder">
+                    <span class="h-dot dot-third"></span>
+                    <strong class="role-name-display" data-tier="3">2 Tier</strong><br>
+                    <div class="role-names-box" data-tier="3">
+                        <span class="role-subname" data-tier="3" data-idx="1">Строитель</span>
+                    </div>
+                </div>
+            </div>
+            <div class="h-level">
+                <div class="h-box h-combined" data-role="combined">
+                    <div class="h-combined-row">
+                        <span class="h-dot dot-fourth"></span>
+                        <strong class="role-name-display" data-tier="4">3 Tier</strong>
+                    </div>
+                    <div class="role-names-box" data-tier="4">
+                        <span class="role-subname" data-tier="4" data-idx="0">Участник клана</span>
+                    </div>
+                    <div class="h-combined-row">
+                        <span class="h-dot dot-penalty"></span>
+                        <strong class="role-name-display" data-tier="5">4 Tier</strong>
+                    </div>
+                    <div class="role-names-box" data-tier="5">
+                        <span class="role-subname" data-tier="5" data-idx="0">Штрафной ранг</span>
+                    </div>
+                </div>
             </div>
         </div>
-        <div id="hierEditMode" style="display:none;">
-            <textarea id="hierEditor" class="form-control" style="min-height:400px;font-family:monospace;font-size:0.85rem;background:#121212;color:#e0e0e0;border-color:#3a3a3a;" placeholder='{"tiers": [...]}'></textarea>
-            <div class="d-flex gap-2 mt-3">
-                <button class="btn btn-primary" onclick="saveHier()" id="hierSaveBtn"><i class="fas fa-save"></i> Сохранить</button>
-                <button class="btn btn-outline-secondary" onclick="toggleHierEdit()"><i class="fas fa-times"></i> Отмена</button>
+
+        {% if role == 'founder' %}
+        <div class="h-connection-builder mt-3" id="connection-builder">
+            <h6 class="collapse-toggle" onclick="toggleConnections()" style="cursor:pointer;user-select:none;margin-bottom:0;">
+                <i class="fas fa-project-diagram"></i> Связи между ролями <span class="text-muted" style="font-size:0.75rem;">(только основатель)</span>
+                <i class="fas fa-chevron-down ms-2" id="conn-chevron" style="font-size:0.7rem;transition:transform 0.3s;"></i>
+            </h6>
+            <div id="connections-body" style="display:none;margin-top:12px;">
+                <div class="row g-2 align-items-end">
+                    <div class="col-md-4">
+                        <label class="form-label">Откуда</label>
+                        <select id="conn-from" class="form-select form-select-sm" multiple>
+                            <option value="outside">Outside Tier</option>
+                            <option value="first">1 Tier (Заместитель)</option>
+                            <option value="second-recruiter">1 Tier (Руководитель рекрутинга)</option>
+                            <option value="second-builder">1 Tier (Руководитель строителей)</option>
+                            <option value="third-recruiter">2 Tier (Рекрутер)</option>
+                            <option value="third-builder">2 Tier (Строитель)</option>
+                            <option value="combined">3/4 Tier (Участник/Штраф)</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Куда</label>
+                        <select id="conn-to" class="form-select form-select-sm" multiple>
+                            <option value="outside">Outside Tier</option>
+                            <option value="first">1 Tier (Заместитель)</option>
+                            <option value="second-recruiter">1 Tier (Руководитель рекрутинга)</option>
+                            <option value="second-builder">1 Tier (Руководитель строителей)</option>
+                            <option value="third-recruiter">2 Tier (Рекрутер)</option>
+                            <option value="third-builder">2 Tier (Строитель)</option>
+                            <option value="combined">3/4 Tier (Участник/Штраф)</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <button class="btn btn-sm btn-primary" onclick="addConnection()">
+                            <i class="fas fa-plus"></i> Добавить связь
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger ms-1" onclick="clearConnections()">
+                            <i class="fas fa-trash"></i> Очистить
+                        </button>
+                    </div>
+                </div>
+                <div id="connections-list" class="mt-2"></div>
             </div>
-            <div id="hierSaveStatus" class="mt-2"></div>
+        </div>
+        {% endif %}
+
+        <!-- Легенда - независимые названия -->
+        <div class="h-legend mt-4" id="roles-legend">
+            <h6><i class="fas fa-tag"></i> Название ролей: {% if role == 'founder' %}<span class="text-muted" style="font-size:0.75rem;font-weight:normal;">(кликните для редактирования)</span>{% endif %}</h6>
+            <div class="h-legend-grid" id="legend-grid">
+                <div class="h-legend-col">
+                    <div class="h-legend-item"><span class="h-dot dot-outside"></span> <span class="legend-name" data-lidx="0">Вестник Лотос.</span> — Основатель</div>
+                    <div class="h-legend-item"><span class="h-dot dot-outside"></span> <span class="legend-name" data-lidx="1">Наблюдатель.</span> — Со-основатель</div>
+                </div>
+                <div class="h-legend-col">
+                    <div class="h-legend-item"><span class="h-dot dot-first"></span> <span class="legend-name" data-lidx="2">Высшие Тэнно.</span> — Гл. Рекрутер</div>
+                    <div class="h-legend-item"><span class="h-dot dot-third"></span> <span class="legend-name" data-lidx="4">Рекрутер</span></div>
+                </div>
+                <div class="h-legend-col">
+                    <div class="h-legend-item"><span class="h-dot dot-second"></span> <span class="legend-name" data-lidx="3">Хранитель Додзё</span> — Гл. Строитель.</div>
+                    <div class="h-legend-item"><span class="h-dot dot-third"></span> <span class="legend-name" data-lidx="5">Архитектор Додзё</span> — Строитель</div>
+                </div>
+                <div class="h-legend-col">
+                    <div class="h-legend-item"><span class="h-dot dot-fourth"></span> <span class="legend-name" data-lidx="6">Вестник Орокин</span> — Активный участник клана</div>
+                    <div class="h-legend-item"><span class="h-dot dot-fourth"></span> <span class="legend-name" data-lidx="7">Посвященный Тэнно</span> — Новичок клана</div>
+                </div>
+            </div>
+            <div class="h-legend-footer" style="justify-content:center;border-top:1px solid rgba(255,255,255,0.08);padding-top:8px;margin-top:14px;">
+                <span class="h-dot dot-penalty"></span> <span class="legend-name" data-lidx="8">Отреченный. — Штрафной ранг (выдаётся за многочисленные нарушения правил клана)</span>
+            </div>
         </div>
     </div>
 </div>
 
-<!-- Правила отсутствия активности -->
+<!-- Сроки неактивности -->
 <div class="card mb-4">
-    <div class="card-header"><h5 class="mb-0"><i class="fas fa-clock"></i> Правила отсутствия активности</h5></div>
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5><i class="fas fa-clock"></i> Сроки неактивности</h5>
+        {% if role in ['founder', 'cofounder', 'admin'] %}
+        <button class="btn btn-sm btn-outline-primary" onclick="editInactivity()">
+            <i class="fas fa-edit"></i> Редактировать
+        </button>
+        {% endif %}
+    </div>
     <div class="card-body">
-        <table class="table table-dark table-bordered mb-0" style="width:100%;">
-            <thead><tr><th>Тир</th><th>Максимальное отсутствие</th></tr></thead>
-            <tbody>
-                <tr><td><span style="color:#ce93d8;">🟣</span> Outside Tier</td><td>Отсутствует</td></tr>
-                <tr><td><span style="color:#81c784;">🟢</span> First Tier</td><td>30 дней</td></tr>
-                <tr><td><span style="color:#64b5f6;">🔵</span> Second Tier</td><td>20 дней</td></tr>
-                <tr><td><span style="color:#fdd835;">🟡</span> Third Tier</td><td>14 дней</td></tr>
-            </tbody>
-        </table>
-        <p class="text-muted text-center mt-3 mb-0" style="font-size:0.85rem;">Отсутствие актива более указанного времени согласовывается со старшим составом</p>
+        <div id="inactivity-view">
+            <div class="table-responsive">
+                <table class="table table-dark" id="inactivity-table">
+                    <thead>
+                        <tr>
+                            <th style="text-align:center;">
+                                <span class="tier-badge tier-outside">Outside Tier</span>
+                            </th>
+                            <th style="text-align:center;">
+                                <span class="tier-badge tier-first">First Tier</span>
+                            </th>
+                            <th style="text-align:center;">
+                                <span class="tier-badge tier-second">Second Tier</span>
+                            </th>
+                            <th style="text-align:center;">
+                                <span class="tier-badge tier-third">Third Tier</span>
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td id="val-outside" style="text-align:center; color: var(--accent-red); font-weight:600;">Отсутствует</td>
+                            <td id="val-first" style="text-align:center; color: var(--accent-green); font-weight:600;">30 дней</td>
+                            <td id="val-second" style="text-align:center; color: #42a5f5; font-weight:600;">20 дней</td>
+                            <td id="val-third" style="text-align:center; color: var(--accent-pink); font-weight:600;">14 дней</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <p class="text-muted mt-2" style="font-size:0.85rem;">
+                <i class="fas fa-info-circle"></i> Отсутствие активности более указанного времени согласовывается со старшим составом
+            </p>
+        </div>
+        <div id="inactivity-edit" style="display:none;">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label"><span class="h-dot dot-outside"></span> Outside Tier</label>
+                    <input type="text" class="form-control" id="edit-outside" placeholder="Например: Отсутствует">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label"><span class="h-dot dot-first"></span> First Tier</label>
+                    <input type="text" class="form-control" id="edit-first" placeholder="Например: 30 дней">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label"><span class="h-dot dot-second" style="background:#42a5f5;color:#42a5f5;"></span> Second Tier</label>
+                    <input type="text" class="form-control" id="edit-second" placeholder="Например: 20 дней">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label"><span class="h-dot dot-third" style="background:#fdd835;color:#fdd835;"></span> Third Tier</label>
+                    <input type="text" class="form-control" id="edit-third" placeholder="Например: 14 дней">
+                </div>
+            </div>
+            <div class="mt-3">
+                <button class="btn btn-primary btn-sm" onclick="saveInactivity()">
+                    <i class="fas fa-save"></i> Сохранить
+                </button>
+                <button class="btn btn-secondary btn-sm ms-2" onclick="cancelInactivity()">
+                    <i class="fas fa-times"></i> Отмена
+                </button>
+            </div>
+        </div>
     </div>
 </div>
 
-<!-- Категории правил -->
-<div class="card">
-    <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
-        <h5 class="mb-0"><i class="fas fa-book"></i> <span id="rulesCategoryTitle">Правила</span></h5>
-        <div class="d-flex gap-2 align-items-center flex-wrap">
-            <!-- Навигация по категориям -->
-            <div class="btn-group btn-group-sm" id="categoryTabs" role="group"></div>
-            {% if has_perm('rules_edit') %}
-            <button class="btn btn-outline-primary btn-sm" id="editRulesBtn" onclick="toggleRulesEdit()"><i class="fas fa-edit"></i> Редактировать</button>
-            {% endif %}
-        </div>
+<!-- Разделы правил -->
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5><i class="fas fa-list"></i> Разделы правил</h5>
+        {% if role in ['founder', 'cofounder', 'admin'] %}
+        <button class="btn btn-sm btn-outline-primary" onclick="openAddSectionModal()">
+            <i class="fas fa-plus"></i> Добавить раздел
+        </button>
+        {% endif %}
     </div>
     <div class="card-body">
-        <div id="rulesViewMode"><div class="rules-content" id="rulesContent"></div><div class="text-center text-muted py-5" id="emptyRules" style="display:none;"><i class="fas fa-book-open fa-3x mb-3" style="opacity:0.3;"></i><p>Правила пока не заданы.</p></div></div>
-        <div id="rulesEditMode" style="display:none;">
-            <textarea id="rulesEditor" class="form-control" style="min-height:500px;font-family:'Segoe UI',sans-serif;font-size:0.95rem;line-height:1.7;background:#121212;color:#e0e0e0;border-color:#3a3a3a;"></textarea>
-            <div class="d-flex gap-2 mt-3"><button class="btn btn-primary" onclick="saveRules()" id="saveBtn"><i class="fas fa-save"></i> Сохранить</button><button class="btn btn-outline-secondary" onclick="toggleRulesEdit()"><i class="fas fa-times"></i> Отмена</button></div>
-            <div id="saveStatus" class="mt-2"></div>
+        <div id="sections-container">
+            <div class="text-center py-4">
+                <div class="spinner-border text-primary" role="status"></div>
+                <p class="mt-2">Загрузка...</p>
+            </div>
         </div>
     </div>
 </div>
 
+<!-- Модалки -->
+<div class="modal fade" id="addSectionModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content" style="background: #1a1a1a; border: 1px solid #3a3a3a;">
+            <div class="modal-header" style="border-color: #3a3a3a;">
+                <h5 class="modal-title"><i class="fas fa-plus"></i> Добавить раздел правил</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Название раздела</label>
+                    <input type="text" class="form-control" id="section-title" placeholder="Например: Общие правила">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Содержимое</label>
+                    <div id="quill-editor" style="min-height:200px;background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:8px;"></div>
+                </div>
+            </div>
+            <div class="modal-footer" style="border-color:#3a3a3a;">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-primary" onclick="saveSection()"><i class="fas fa-save"></i> Сохранить</button>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="modal fade" id="editSectionModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content" style="background: #1a1a1a; border: 1px solid #3a3a3a;">
+            <div class="modal-header" style="border-color: #3a3a3a;">
+                <h5 class="modal-title"><i class="fas fa-edit"></i> Редактировать раздел</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Название раздела</label>
+                    <input type="text" class="form-control" id="edit-section-title">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Содержимое</label>
+                    <div id="quill-editor-edit" style="min-height:200px;background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:8px;"></div>
+                </div>
+            </div>
+            <div class="modal-footer" style="border-color:#3a3a3a;">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-primary" onclick="updateSection()"><i class="fas fa-save"></i> Сохранить</button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
+<link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
+<script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
 <style>
-.hierarchy-wrapper { text-align:center; padding:1rem 0; }
-#hierarchySvg { max-width:100%; height:auto; display:inline-block; }
-.rules-content { color:#e0e0e0; line-height:1.8; font-size:1rem; text-align:justify; }
-.rules-content h1 { color:#fff; font-size:1.8rem; font-weight:700; margin:2rem 0 1rem 0; padding:0.75rem 1.5rem; background:linear-gradient(135deg, rgba(233,30,99,0.2), rgba(156,39,176,0.2)); border-left:4px solid #e91e63; border-radius:0 8px 8px 0; text-align:left; }
-.rules-content h1:first-child { margin-top:0; }
-.rules-content h2 { color:#f48fb1; font-size:1.4rem; font-weight:600; margin:1.8rem 0 0.8rem 0; padding:0.5rem 1rem; border-left:3px solid #e91e63; background:rgba(233,30,99,0.08); border-radius:0 6px 6px 0; }
-.rules-content h3 { color:#e91e63; font-size:1.15rem; font-weight:600; margin:1.5rem 0 0.6rem 0; padding-left:0.5rem; border-left:2px solid #e91e63; }
-.rules-content h4,.rules-content h5 { color:#e91e63; font-size:1rem; font-weight:600; margin:1.2rem 0 0.5rem 0; opacity:0.85; }
-.rules-content p { margin-bottom:0.8rem; text-align:justify; color:#d0d0d0; }
-.rules-content ul,.rules-content ol { margin:0.8rem 0 1.2rem 0; padding-left:2rem; list-style:none; }
-.rules-content li { margin-bottom:0.5rem; position:relative; color:#d0d0d0; padding-left:1.2rem; }
-.rules-content ul li::before { content:"◆"; color:#e91e63; position:absolute; left:0; font-size:0.55rem; top:0.45rem; }
-.rules-content ol { counter-reset:rule-item; }
-.rules-content ol li::before { content:counter(rule-item)"."; counter-increment:rule-item; color:#e91e63; position:absolute; left:0; font-weight:600; }
-.rules-content a { color:#e91e63; text-decoration:none; border-bottom:1px dashed rgba(233,30,99,0.4); }
-.rules-content a:hover { color:#f48fb1; border-bottom-color:#f48fb1; }
-.rules-content table { width:auto; border-collapse:collapse; margin:1rem auto; border-radius:8px; overflow:hidden; box-shadow:0 4px 20px rgba(0,0,0,0.3); }
-.rules-content th { background:linear-gradient(135deg,#1a1a1a,#252525); color:#e91e63; padding:10px 16px; font-weight:600; text-transform:uppercase; font-size:0.8rem; border-bottom:2px solid #e91e63; }
-.rules-content td { background:#151515; color:#e0e0e0; padding:10px 16px; border-bottom:1px solid #2a2a2a; }
-.rules-content tr:last-child td { border-bottom:none; }
-.rules-content tr:hover td { background:#1a1a1a; }
-.rules-content img { max-width:100%; border-radius:12px; margin:1rem 0; display:block; }
-.rules-content blockquote { background:rgba(233,30,99,0.05); border-left:4px solid #e91e63; padding:1rem 1.5rem; margin:1.2rem 0; color:#bbb; font-style:italic; border-radius:0 8px 8px 0; }
-.rules-content hr { border:none; height:1px; background:linear-gradient(90deg,transparent,#3a3a3a,transparent); margin:2rem 0; }
-.rules-content strong { color:#fff; font-weight:600; }
-.category-tab { cursor:pointer; }
-.category-tab.active { background:#e91e63; border-color:#e91e63; color:white; }
+.tier-badge{display:inline-block;padding:4px 12px;border-radius:6px;font-size:.85rem;font-weight:600}
+.tier-outside{background:rgba(155,89,182,.15);color:#bb86fc;border:1px solid #9b59b6}
+.tier-first{background:rgba(40,167,69,.15);color:#4caf50;border:1px solid #4caf50}
+.tier-second{background:rgba(0,123,255,.15);color:#42a5f5;border:1px solid #42a5f5}
+.tier-third{background:rgba(241,196,15,.15);color:#fdd835;border:1px solid #fdd835}
+.h-dot{display:inline-block;width:12px;height:12px;border-radius:50%;margin-right:4px;vertical-align:middle;box-shadow:0 0 6px currentColor}
+.dot-outside{background:#bb86fc;color:#bb86fc}.dot-first{background:#4caf50;color:#4caf50}
+.dot-second{background:#4caf50;color:#4caf50}.dot-third{background:#42a5f5;color:#42a5f5}
+.dot-fourth{background:#fdd835;color:#fdd835}.dot-penalty{background:#ef5350;color:#ef5350}
+#inactivity-edit .dot-second{background:#42a5f5!important;color:#42a5f5!important}
+#inactivity-edit .dot-third{background:#fdd835!important;color:#fdd835!important}
+.hierarchy-chart{display:flex;flex-direction:column;align-items:center;padding:10px 0;width:100%}
+.h-level{display:flex;gap:1.5rem;justify-content:center;width:100%;max-width:850px;margin-bottom:18px;padding-bottom:10px;border-bottom:1px solid var(--border-color)}
+.h-level:last-child{margin-bottom:0;padding-bottom:0;border-bottom:none}
+.h-branch{gap:3rem}
+.h-box{background:var(--bg-card);border:1px solid var(--border-color);border-radius:12px;padding:14px 24px;text-align:center;min-width:240px;flex:1;max-width:380px;color:var(--text-primary);font-size:.85rem;line-height:1.4;transition:transform .2s,box-shadow .2s;position:relative;backdrop-filter:blur(10px)}
+.h-box:hover{transform:translateY(-3px);box-shadow:0 6px 20px rgba(0,0,0,.2);border-color:var(--accent-pink)}
+.h-box strong{font-size:.95rem;color:var(--text-primary)}.h-box small{color:var(--text-secondary);font-size:.78rem}.h-box .h-dot{vertical-align:middle}
+.h-outside{border-left:4px solid #bb86fc;border-right:4px solid #bb86fc}
+.h-first{border-left:4px solid #4caf50;border-right:4px solid #4caf50}
+.h-second{border-left:4px solid #4caf50;border-right:4px solid #4caf50}
+.h-third{border-left:4px solid #42a5f5;border-right:4px solid #42a5f5}
+.h-fourth{border-left:4px solid #fdd835;border-right:4px solid #fdd835}
+.h-penalty{border-left:4px solid #ef5350;border-right:4px solid #ef5350}
+.h-combined{min-width:350px;max-width:480px;flex:1;background:var(--bg-card);border-left:4px solid #fdd835;border-right:4px solid #fdd835;padding:14px 24px}
+.h-combined-row{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:6px}
+.h-combined-row:first-child{margin-top:0}
+.hierarchy-editing .role-name-display,.hierarchy-editing .role-subname{cursor:pointer}
+.hierarchy-editing .role-name-display:hover,.hierarchy-editing .role-subname:hover{background:rgba(233,30,99,.1);border-radius:3px}
+.h-connection-builder{border:1px solid var(--border-color);border-radius:12px;padding:16px;background:var(--bg-secondary)}
+.h-connection-builder h6{color:var(--text-secondary);margin-bottom:12px}
+.h-connection-builder .form-select{background:var(--bg-secondary);color:var(--text-primary);border:1px solid var(--border-color);font-size:.8rem}
+.h-connection-builder .form-select option{background:var(--bg-secondary);color:var(--text-primary)}
+.h-connection-builder .form-select option:checked{background:rgba(233,30,99,.3);color:#fff}
+.h-connection-builder .form-label{color:var(--text-secondary);font-size:.8rem}
+.conn-tag{display:inline-flex;align-items:center;gap:4px;background:rgba(233,30,99,.15);border:1px solid rgba(233,30,99,.3);border-radius:6px;padding:3px 8px;font-size:.75rem;color:var(--text-primary);margin:2px}
+.conn-tag .conn-arrow{color:#ef5350;font-weight:bold}
+.conn-tag .conn-remove{cursor:pointer;color:#ef5350;margin-left:4px;font-size:.7rem}
+.conn-tag .conn-remove:hover{color:#ff1744}
+.hierarchy-chart{position:relative}
+.hierarchy-chart svg{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:1}
+.hierarchy-chart svg line{stroke:rgba(233,30,99,.5);stroke-width:2;stroke-dasharray:6 3}
+.hierarchy-chart svg line:hover{stroke:rgba(233,30,99,.8);stroke-width:3}
+.hierarchy-chart svg marker path{fill:rgba(233,30,99,.5)}
+.h-legend{border:1px solid var(--border-color);border-radius:12px;padding:16px;background:var(--bg-secondary)}
+.h-legend h6{color:var(--text-secondary);margin-bottom:12px}
+.h-legend-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px 20px}
+.h-legend-col{display:flex;flex-direction:column;gap:8px}
+.h-legend-item{font-size:.85rem;color:var(--text-primary);display:flex;align-items:center;gap:4px;white-space:nowrap}
+.h-legend-footer{margin-top:14px;padding-top:10px;border-top:1px solid var(--border-color);font-size:.85rem;color:var(--text-primary);display:flex;align-items:center;gap:4px}
+.section-card{background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:10px;margin-bottom:1rem;overflow:hidden;transition:box-shadow .2s}
+.section-card-header{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:var(--bg-card);border-bottom:1px solid var(--border-color);cursor:pointer}
+.section-card-header h6{margin:0;font-weight:600;color:var(--text-primary)}
+.section-card-body{padding:16px;color:var(--text-primary);line-height:1.6}
+.section-card-body strong{color:var(--accent-pink)}
+.ql-toolbar.ql-snow{background:var(--bg-card)!important;border:1px solid var(--border-color)!important;border-radius:8px 8px 0 0!important}
+.ql-container.ql-snow{background:var(--bg-secondary)!important;border:1px solid var(--border-color)!important;border-top:none!important;border-radius:0 0 8px 8px!important;color:var(--text-primary)!important}
+.ql-editor{min-height:200px;color:var(--text-primary)!important}
+.ql-editor.ql-blank::before{color:var(--text-muted)!important;font-style:normal!important}
+.ql-snow .ql-stroke{stroke:var(--text-secondary)!important}
+.ql-snow .ql-fill{fill:var(--text-secondary)!important}
+.ql-snow .ql-picker-label{color:var(--text-secondary)!important}
+.ql-snow .ql-picker-options{background:var(--bg-card)!important;border-color:var(--border-color)!important}
+.ql-snow .ql-picker-item{color:var(--text-primary)!important}
+.ql-snow .ql-active .ql-stroke{stroke:var(--accent-pink)!important}
+.ql-snow .ql-active .ql-fill{fill:var(--accent-pink)!important}
+.ql-snow .ql-active{color:var(--accent-pink)!important}
+.ql-snow .ql-tooltip{background:var(--bg-card)!important;border-color:var(--border-color)!important;color:var(--text-primary)!important}
+.ql-snow .ql-tooltip input{background:var(--bg-secondary)!important;border-color:var(--border-color)!important;color:var(--text-primary)!important}
 </style>
 <script>
-// ========== HIERARCHY ==========
-let hierData = null, hierEditing = false;
+const userRole = '{{ role }}';
+let quillEditor = null, quillEditorEdit = null, editingSectionId = null, isEditingNames = false;
 
-async function loadHierarchy() {
+// === Иерархия (независимо) ===
+let hierarchyNamesData = {
+    0: { name: 'Outside Tier', roles: ['Основатель', 'Со-основатель'] },
+    1: { name: '1 Tier', roles: ['Заместитель клана'] },
+    2: { name: '1 Tier', roles: ['Руководитель рекрутинга', 'Руководитель строителей'] },
+    3: { name: '2 Tier', roles: ['Рекрутер', 'Строитель'] },
+    4: { name: '3 Tier', roles: ['Участник клана'] },
+    5: { name: '4 Tier', roles: ['Штрафной ранг'] }
+};
+
+// === Легенда (независимо, по индексам lidx) ===
+let legendNames = ['Вестник Лотос.', 'Наблюдатель.', 'Высшие Тэнно.', 'Хранитель Додзё', 'Рекрутер', 'Архитектор Додзё', 'Вестник Орокин', 'Посвященный Тэнно', 'Отреченный. — Штрафной ранг (выдаётся за многочисленные нарушения правил клана)'];
+
+async function loadLegendNames() {
     try {
-        const r = await fetch('/api/hierarchy');
-        if (r.ok) { hierData = await r.json(); renderHierarchy(); }
-    } catch(e){ console.error(e); }
+        const resp = await fetch('/api/rules/legend-names');
+        const data = await resp.json();
+        if (data && data.names) {
+            data.names.forEach((n, i) => { if (n) legendNames[i] = n; });
+        }
+        renderLegendNames();
+    } catch (e) { /* defaults */ }
 }
 
-function renderHierarchy() {
-    const svg = document.getElementById('hierarchySvg');
-    if (!hierData || !hierData.tiers) return;
-    const T = hierData.tiers;
-    // Увеличиваем ширину для лучшего отображения
-    const R = 16, GAP_X = 220, GAP_Y = 40, ROW_H = 90, LABEL_H = 20;
-    const TIER_X = 60, ROLE_START_X = 180;
-    const NAMES_Y_OFF = R + 20, SUB_Y_OFF = R + 34;
-
-    const layout = [];
-    for (let ti = 0; ti < T.length; ti++) {
-        const t = T[ti];
-        const n = t.roles.length;
-        const span = n === 1 && t.roles[0].span ? t.roles[0].span : n;
-        const rolesX = [];
-        const tierW = Math.max(span * GAP_X, GAP_X);
-        const startX = ROLE_START_X + (span === 2 ? 0 : GAP_X / 2 - (n - 1) * GAP_X / 2);
-        for (let i = 0; i < n; i++) {
-            rolesX.push(startX + i * (span > 1 ? GAP_X * span / n : GAP_X));
-        }
-        layout.push({ ti, n, span, rolesX, tierW, startX });
-    }
-
-    let totalH = 40;
-    for (let ti = 0; ti < T.length; ti++) {
-        totalH += LABEL_H + GAP_Y + R * 2 + NAMES_Y_OFF + SUB_Y_OFF + 10;
-    }
-    totalH = Math.max(totalH, 600);
-    let totalW = ROLE_START_X + Math.max(...layout.map(l => l.startX + l.tierW)) + 40;
-    totalW = Math.max(totalW, 900);
-    svg.setAttribute('viewBox', `0 0 ${totalW} ${totalH}`);
-
-    let html = '';
-    let y = 30;
-    const rolePos = {};
-
-    for (let ti = 0; ti < T.length; ti++) {
-        const t = T[ti];
-        const lay = layout[ti];
-        const color = t.color || '#888';
-        const emoji = t.emoji || '';
-
-        const labelY = y;
-        html += `<text x="${TIER_X}" y="${labelY}" fill="${color}" font-size="12" font-weight="700" font-family="'Segoe UI',sans-serif">${emoji} ${t.name}</text>`;
-        y += LABEL_H + 8;
-
-        const rowY = y;
-        for (let i = 0; i < t.roles.length; i++) {
-            const role = t.roles[i];
-            const rx = lay.rolesX[i];
-            const ry = rowY + R;
-            rolePos[`${ti}-${i}`] = { x: rx, y: ry };
-
-            html += `<circle cx="${rx}" cy="${ry}" r="${R+4}" fill="${color}" opacity="0.18" stroke="${color}" stroke-width="2.5"/>`;
-            html += `<circle cx="${rx}" cy="${ry}" r="${R}" fill="${color}"/>`;
-            html += `<text x="${rx}" y="${ry+5}" text-anchor="middle" fill="#fff" font-size="12">${emoji}</text>`;
-            html += `<text x="${rx}" y="${ry+NAMES_Y_OFF}" text-anchor="middle" fill="#fff" font-size="12" font-weight="600" font-family="'Segoe UI',sans-serif">${role.name||''}</text>`;
-            if (role.subtitle) {
-                html += `<text x="${rx}" y="${ry+SUB_Y_OFF}" text-anchor="middle" fill="#888" font-size="10" font-family="'Segoe UI',sans-serif">${role.subtitle}</text>`;
-            }
-        }
-        y = rowY + R + SUB_Y_OFF + 12;
-    }
-
-    for (let ti = 1; ti < T.length; ti++) {
-        const tcurr = T[ti];
-        const layoutCurr = layout[ti];
-        const tprev = T[ti - 1];
-        const layoutPrev = layout[ti - 1];
-
-        for (let i = 0; i < tcurr.roles.length; i++) {
-            const pidx = (tcurr.parents && tcurr.parents[i] !== undefined) ? tcurr.parents[i] : 0;
-            if (pidx >= tprev.roles.length) continue;
-            const prevPos = rolePos[`${ti-1}-${pidx}`];
-            const currPos = rolePos[`${ti}-${i}`];
-            if (prevPos && currPos) {
-                const color = tcurr.color || '#888';
-                const midY = (prevPos.y + currPos.y) / 2;
-                html += `<line x1="${prevPos.x}" y1="${prevPos.y + R + 4}" x2="${prevPos.x}" y2="${midY}" stroke="${color}" stroke-width="1.5"/>`;
-                html += `<line x1="${prevPos.x}" y1="${midY}" x2="${currPos.x}" y2="${midY}" stroke="${color}" stroke-width="1.5"/>`;
-                html += `<line x1="${currPos.x}" y1="${midY}" x2="${currPos.x}" y2="${currPos.y - R - 4}" stroke="${color}" stroke-width="1.5"/>`;
-            }
-        }
-    }
-
-    if (hierData.extra_lines) {
-        for (const el of hierData.extra_lines) {
-            const fromPos = rolePos[`${el.from_tier}-${el.from_role}`];
-            const toPos = rolePos[`${el.to_tier}-${el.to_role}`];
-            if (!fromPos || !toPos) continue;
-            const color = el.color || '#888';
-            const dash = el.dash ? '8,4' : '';
-            html += `<line x1="${fromPos.x}" y1="${fromPos.y + R + 4}" x2="${toPos.x}" y2="${toPos.y - R - 4}" stroke="${color}" stroke-width="1.2" stroke-dasharray="${dash}" opacity="0.5"/>`;
-            if (el.label) {
-                const mx = (fromPos.x + toPos.x) / 2;
-                const my = (fromPos.y + toPos.y) / 2;
-                html += `<text x="${mx}" y="${my}" text-anchor="middle" fill="${color}" font-size="9" font-family="'Segoe UI',sans-serif" opacity="0.6">${el.label}</text>`;
-            }
-        }
-    }
-
-    svg.innerHTML = html;
-}
-
-function toggleHierEdit() {
-    if (!hierEditing) {
-        document.getElementById('hierEditor').value = JSON.stringify(hierData, null, 2);
-        document.getElementById('hierViewMode').style.display = 'none';
-        document.getElementById('hierEditMode').style.display = '';
-        document.getElementById('hierEditBtn').style.display = 'none';
-    } else {
-        document.getElementById('hierEditMode').style.display = 'none';
-        document.getElementById('hierViewMode').style.display = '';
-        document.getElementById('hierEditBtn').style.display = '';
-        loadHierarchy();
-    }
-    hierEditing = !hierEditing;
-}
-
-async function saveHier() {
-    const btn = document.getElementById('hierSaveBtn');
-    const st = document.getElementById('hierSaveStatus');
-    btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Сохранение...'; st.innerHTML = '';
-    try {
-        const data = JSON.parse(document.getElementById('hierEditor').value);
-        const r = await fetch('/api/hierarchy', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data) });
-        if (r.ok) { st.innerHTML='<div class="alert alert-success mt-2"><i class="fas fa-check"></i> Иерархия сохранена!</div>'; hierData=data; renderHierarchy(); setTimeout(()=>toggleHierEdit(),1000); }
-        else { const e=await r.json(); st.innerHTML='<div class="alert alert-danger mt-2">'+(e.error||'Ошибка')+'</div>'; }
-    } catch(e) { st.innerHTML='<div class="alert alert-danger mt-2">Ошибка JSON: '+e.message+'</div>'; }
-    btn.disabled = false; btn.innerHTML = '<i class="fas fa-save"></i> Сохранить';
-}
-
-// ========== RULES CATEGORIES ==========
-let currentCategoryId = null;
-let categoryData = null;
-let rulesEditing = false;
-
-async function loadCategories() {
-    try {
-        const r = await fetch('/api/rules');
-        if (r.ok) {
-            const data = await r.json();
-            categoryData = data;
-            renderCategoryTabs(data.categories || []);
-            // Auto-select first category
-            if (data.categories && data.categories.length > 0) {
-                selectCategory(data.categories[0].id);
-            } else {
-                document.getElementById('rulesContent').innerHTML = '';
-                document.getElementById('emptyRules').style.display = '';
-                document.getElementById('rulesContent').style.display = 'none';
-            }
-        }
-    } catch(e) {
-        console.error('Failed to load categories:', e);
-    }
-}
-
-function renderCategoryTabs(categories) {
-    const tabs = document.getElementById('categoryTabs');
-    if (!categories.length) {
-        tabs.innerHTML = '';
-        document.getElementById('rulesCategoryTitle').textContent = 'Правила';
-        return;
-    }
-    let html = '';
-    categories.forEach((cat, i) => {
-        const active = cat.id === currentCategoryId ? 'active' : '';
-        html += `<button class="btn btn-outline-secondary btn-sm category-tab ${active}" data-cat-id="${cat.id}" onclick="selectCategory('${cat.id}')">${cat.name}</button>`;
+function renderLegendNames() {
+    document.querySelectorAll('.legend-name').forEach(el => {
+        const lidx = parseInt(el.dataset.lidx);
+        if (legendNames[lidx] !== undefined) el.textContent = legendNames[lidx];
     });
-    tabs.innerHTML = html;
 }
 
-async function selectCategory(catId) {
-    currentCategoryId = catId;
-    document.querySelectorAll('.category-tab').forEach(t => {
-        t.classList.toggle('active', t.dataset.catId === catId);
-    });
-    
-    // Update title
-    const cat = categoryData.categories.find(c => c.id === catId);
-    document.getElementById('rulesCategoryTitle').textContent = cat ? cat.name : 'Правила';
-    
-    // Show/hide edit button based on can_edit
-    const editBtn = document.getElementById('editRulesBtn');
-    if (editBtn) {
-        editBtn.style.display = (cat && cat.can_edit) ? '' : 'none';
-    }
-    
-    // Load content
+async function saveLegendNames() {
     try {
-        const r = await fetch(`/api/rules/${catId}/content`);
-        if (r.ok) {
-            const d = await r.json();
-            const c = d.content || '';
-            if (c.trim()) {
-                document.getElementById('rulesContent').innerHTML = c;
-                document.getElementById('emptyRules').style.display = 'none';
-                document.getElementById('rulesContent').style.display = '';
-            } else {
-                document.getElementById('rulesContent').style.display = 'none';
-                document.getElementById('emptyRules').style.display = '';
-            }
-        }
-    } catch(e) {
-        console.error('Failed to load rules content:', e);
-    }
-}
-
-function toggleRulesEdit() {
-    const editBtn = document.getElementById('editRulesBtn');
-    if (!rulesEditing) {
-        document.getElementById('saveStatus').innerHTML = '';
-        // Convert HTML to plain text for editing: <br> -> \n, strip other tags
-        let html = document.getElementById('rulesContent').innerHTML;
-        html = html.replace(/<br\s*\/?>/gi, '\n');
-        html = html.replace(/<\/?[^>]+(>|$)/g, '');
-        html = html.replace(/&nbsp;/g, ' ');
-        document.getElementById('rulesEditor').value = html;
-        document.getElementById('rulesViewMode').style.display = 'none';
-        document.getElementById('rulesEditMode').style.display = '';
-        if (editBtn) editBtn.style.display = 'none';
-    } else {
-        document.getElementById('rulesEditMode').style.display = 'none';
-        document.getElementById('rulesViewMode').style.display = '';
-        if (editBtn) editBtn.style.display = '';
-        selectCategory(currentCategoryId);
-    }
-    rulesEditing = !rulesEditing;
-}
-
-async function saveRules() {
-    const btn = document.getElementById('saveBtn'), st = document.getElementById('saveStatus');
-    const c = document.getElementById('rulesEditor').value;
-    if (!currentCategoryId) { st.innerHTML = '<div class="alert alert-danger mt-2">Нет выбранной категории</div>'; return; }
-    
-    btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Сохранение...'; st.innerHTML = '';
-    try {
-        const r = await fetch(`/api/rules/${currentCategoryId}/content`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({content: c})
+        await fetch('/api/rules/legend-names', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ names: legendNames })
         });
-        if (r.ok) {
-            st.innerHTML = '<div class="alert alert-success mt-2"><i class="fas fa-check"></i> Правила сохранены!</div>';
-            document.getElementById('rulesContent').innerHTML = c;
-            if (c.trim()) {
-                document.getElementById('emptyRules').style.display = 'none';
-                document.getElementById('rulesContent').style.display = '';
-            }
-            setTimeout(() => toggleRulesEdit(), 1000);
-        } else {
-            const e = await r.json();
-            st.innerHTML = '<div class="alert alert-danger mt-2">' + (e.error || 'Ошибка') + '</div>';
-        }
-    } catch(e) {
-        st.innerHTML = '<div class="alert alert-danger mt-2">Ошибка: ' + e.message + '</div>';
-    }
-    btn.disabled = false; btn.innerHTML = '<i class="fas fa-save"></i> Сохранить';
+    } catch (e) { console.error('Ошибка сохранения легенды:', e); }
 }
 
-loadHierarchy();
-loadCategories();
+async function loadHierarchyNames() {
+    try {
+        const resp = await fetch('/api/rules/hierarchy');
+        const data = await resp.json();
+        if (data && data.tiers) {
+            data.tiers.forEach(tier => {
+                const lvl = tier.level;
+                if (hierarchyNamesData[lvl]) {
+                    hierarchyNamesData[lvl].name = tier.name || hierarchyNamesData[lvl].name;
+                    if (tier.roles) {
+                        hierarchyNamesData[lvl].roles = tier.roles.map(r => r.name || r.subtitle || '');
+                    }
+                }
+            });
+        }
+        renderHierarchyNames();
+    } catch (e) { /* defaults */ }
+}
+
+function renderHierarchyNames() {
+    document.querySelectorAll('.role-name-display').forEach(el => {
+        const tier = parseInt(el.dataset.tier);
+        if (hierarchyNamesData[tier]) el.textContent = hierarchyNamesData[tier].name;
+    });
+    document.querySelectorAll('.role-subname').forEach(el => {
+        const tier = parseInt(el.dataset.tier);
+        const idx = parseInt(el.dataset.idx);
+        if (hierarchyNamesData[tier] && hierarchyNamesData[tier].roles[idx]) el.textContent = hierarchyNamesData[tier].roles[idx];
+    });
+}
+
+function editHierarchyNames() {
+    isEditingNames = !isEditingNames;
+    const chart = document.getElementById('hierarchy-chart');
+    const btn = document.getElementById('hierarchy-edit-btn');
+    if (isEditingNames) {
+        chart.classList.add('hierarchy-editing');
+        btn.innerHTML = '<i class="fas fa-check"></i> Завершить редактирование';
+        btn.classList.replace('btn-outline-info', 'btn-outline-success');
+        document.querySelectorAll('.role-name-display, .role-subname').forEach(el => {
+            el.style.cursor = 'pointer'; el.title = 'Кликните для редактирования';
+            el.addEventListener('click', startInlineEdit);
+        });
+    } else {
+        chart.classList.remove('hierarchy-editing');
+        btn.innerHTML = '<i class="fas fa-pen"></i> Редактировать названия';
+        btn.classList.replace('btn-outline-success', 'btn-outline-info');
+        document.querySelectorAll('.role-name-display, .role-subname').forEach(el => {
+            el.style.cursor = 'default'; el.title = '';
+            el.removeEventListener('click', startInlineEdit);
+            const input = el.querySelector('.inline-edit-input');
+            if (input) finishInlineEdit(input);
+        });
+        saveHierarchyNames();
+    }
+}
+
+function startInlineEdit(e) {
+    if (!isEditingNames) return; e.stopPropagation();
+    const el = e.currentTarget;
+    if (el.querySelector('.inline-edit-input')) return;
+    const currentText = el.textContent.trim();
+    const input = document.createElement('input');
+    input.type = 'text'; input.className = 'inline-edit-input'; input.value = currentText;
+    input.style.cssText = 'background:rgba(30,30,40,0.95);color:#fff;border:1px solid var(--accent-pink);border-radius:4px;padding:2px 6px;font-size:inherit;width:auto;min-width:80px;max-width:160px;outline:none;';
+    el.textContent = ''; el.appendChild(input); input.focus(); input.select();
+    input.addEventListener('blur', function() { finishInlineEdit(this); });
+    input.addEventListener('keydown', function(ev) {
+        if (ev.key === 'Enter') { ev.preventDefault(); this.blur(); }
+        if (ev.key === 'Escape') { ev.preventDefault(); this.value = currentText; this.blur(); }
+    });
+}
+
+function finishInlineEdit(input) {
+    if (!input) return;
+    const newValue = input.value.trim() || '???';
+    const parentEl = input.parentElement;
+    const tier = parseInt(parentEl.dataset.tier);
+    const idx = parentEl.dataset.idx !== undefined ? parseInt(parentEl.dataset.idx) : -1;
+    if (parentEl.classList.contains('role-name-display')) {
+        if (hierarchyNamesData[tier]) hierarchyNamesData[tier].name = newValue;
+    } else if (idx >= 0 && hierarchyNamesData[tier]) {
+        hierarchyNamesData[tier].roles[idx] = newValue;
+    }
+    // Sync only hierarchy elements
+    const selector = parentEl.classList.contains('role-name-display')
+        ? `.role-name-display[data-tier="${tier}"]`
+        : `.role-subname[data-tier="${tier}"][data-idx="${idx}"]`;
+    document.querySelectorAll(selector).forEach(el => {
+        if (el !== parentEl && !el.querySelector('.inline-edit-input')) el.textContent = newValue;
+    });
+    parentEl.textContent = newValue;
+}
+
+async function saveHierarchyNames() {
+    try {
+        const tiers = Object.keys(hierarchyNamesData).map(key => ({
+            level: parseInt(key), name: hierarchyNamesData[key].name,
+            roles: hierarchyNamesData[key].roles.map(name => ({ name, subtitle: '' }))
+        }));
+        await fetch('/api/rules/hierarchy', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ tiers })
+        });
+    } catch (e) { console.error('Ошибка:', e); }
+}
+
+let inactivityData = { outside: 'Отсутствует', first: '30 дней', second: '20 дней', third: '14 дней' };
+async function loadInactivity() {
+    try { const resp = await fetch('/api/rules/inactivity'); const data = await resp.json(); if (data.outside !== undefined) inactivityData = data; renderInactivity(); } catch (e) {}
+}
+function renderInactivity() {
+    document.getElementById('val-outside').textContent = inactivityData.outside;
+    document.getElementById('val-first').textContent = inactivityData.first;
+    document.getElementById('val-second').textContent = inactivityData.second;
+    document.getElementById('val-third').textContent = inactivityData.third;
+}
+function editInactivity() {
+    document.getElementById('edit-outside').value = inactivityData.outside;
+    document.getElementById('edit-first').value = inactivityData.first;
+    document.getElementById('edit-second').value = inactivityData.second;
+    document.getElementById('edit-third').value = inactivityData.third;
+    document.getElementById('inactivity-view').style.display = 'none';
+    document.getElementById('inactivity-edit').style.display = 'block';
+}
+function cancelInactivity() {
+    document.getElementById('inactivity-edit').style.display = 'none';
+    document.getElementById('inactivity-view').style.display = 'block';
+}
+async function saveInactivity() {
+    const data = {
+        outside: document.getElementById('edit-outside').value.trim(),
+        first: document.getElementById('edit-first').value.trim(),
+        second: document.getElementById('edit-second').value.trim(),
+        third: document.getElementById('edit-third').value.trim()
+    };
+    try {
+        const resp = await fetch('/api/rules/inactivity', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
+        if (resp.ok) { inactivityData = data; renderInactivity(); cancelInactivity(); } else { alert('Ошибка при сохранении'); }
+    } catch (e) { alert('Ошибка: ' + e.message); }
+}
+
+function initQuillEditors() {
+    quillEditor = new Quill('#quill-editor', { theme: 'snow', placeholder: 'Напишите правила...', modules: { toolbar: [[{'header':[1,2,3,false]}],['bold','italic','underline','strike'],[{'color':[]},{'background':[]}],[{'list':'ordered'},{'list':'bullet'}],['blockquote'],['link'],['clean']] } });
+    quillEditorEdit = new Quill('#quill-editor-edit', { theme: 'snow', placeholder: 'Напишите правила...', modules: { toolbar: [[{'header':[1,2,3,false]}],['bold','italic','underline','strike'],[{'color':[]},{'background':[]}],[{'list':'ordered'},{'list':'bullet'}],['blockquote'],['link'],['clean']] } });
+}
+async function loadSections() {
+    try { const resp = await fetch('/api/rules/sections'); const data = await resp.json(); renderSections(data.sections || []); } catch (e) { document.getElementById('sections-container').innerHTML = '<div class="alert alert-danger">Ошибка загрузки: ' + e.message + '</div>'; }
+}
+function renderSections(sections) {
+    const container = document.getElementById('sections-container');
+    if (sections.length === 0) { container.innerHTML = '<div class="text-center py-4 text-muted"><i class="fas fa-book-open fa-3x mb-3" style="opacity:0.3;"></i><p>Разделы правил ещё не созданы</p></div>'; return; }
+    let html = '';
+    sections.forEach(s => {
+        html += '<div class="section-card" id="section-' + s.id + '"><div class="section-card-header" onclick="toggleSection(\'' + s.id + '\')"><h6><i class="fas fa-file-alt" style="color: var(--accent-pink); margin-right: 8px;"></i> ' + s.title + '</h6><div>';
+        if (['founder','cofounder','admin'].includes(userRole)) {
+            html += '<button class="btn btn-sm btn-outline-warning me-1" onclick="event.stopPropagation(); editSection(\'' + s.id + '\',\'' + s.title.replace(/'/g,"\\'") + '\')"><i class="fas fa-edit"></i></button>';
+            html += '<button class="btn btn-sm btn-outline-danger" onclick="event.stopPropagation(); deleteSection(\'' + s.id + '\')"><i class="fas fa-trash"></i></button>';
+        }
+        html += '<i class="fas fa-chevron-down ms-2" id="chevron-' + s.id + '" style="color: var(--text-muted); transition: transform 0.3s;"></i></div></div>';
+        html += '<div class="section-card-body" id="body-' + s.id + '" style="display: none;">' + s.content + '</div></div>';
+    });
+    container.innerHTML = html;
+}
+function toggleSection(id) {
+    const body = document.getElementById('body-' + id);
+    const chevron = document.getElementById('chevron-' + id);
+    if (body.style.display === 'none') { body.style.display = 'block'; chevron.style.transform = 'rotate(180deg)'; } else { body.style.display = 'none'; chevron.style.transform = 'rotate(0deg)'; }
+}
+function openAddSectionModal() { editingSectionId = null; document.getElementById('section-title').value = ''; quillEditor.setContents([]); new bootstrap.Modal(document.getElementById('addSectionModal')).show(); }
+async function saveSection() {
+    const title = document.getElementById('section-title').value.trim();
+    const content = quillEditor.root.innerHTML;
+    if (!title) { alert('Введите название раздела'); return; }
+    try { const resp = await fetch('/api/rules/sections', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({title, content}) }); if (resp.ok) { bootstrap.Modal.getInstance(document.getElementById('addSectionModal')).hide(); loadSections(); } else { const d = await resp.json(); alert('Ошибка: ' + (d.error || '')); } } catch (e) { alert('Ошибка: ' + e.message); }
+}
+async function editSection(id, title) {
+    editingSectionId = id; document.getElementById('edit-section-title').value = title;
+    try { const resp = await fetch('/api/rules/sections/' + id); const data = await resp.json(); quillEditorEdit.root.innerHTML = data.content || ''; } catch (e) { quillEditorEdit.root.innerHTML = ''; }
+    new bootstrap.Modal(document.getElementById('editSectionModal')).show();
+}
+async function updateSection() {
+    const title = document.getElementById('edit-section-title').value.trim();
+    const content = quillEditorEdit.root.innerHTML;
+    if (!title) { alert('Введите название раздела'); return; }
+    try { const resp = await fetch('/api/rules/sections/' + editingSectionId, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({title, content}) }); if (resp.ok) { bootstrap.Modal.getInstance(document.getElementById('editSectionModal')).hide(); loadSections(); } else { alert('Ошибка'); } } catch (e) { alert('Ошибка: ' + e.message); }
+}
+async function deleteSection(id) {
+    if (!confirm('Удалить этот раздел?')) return;
+    try { const resp = await fetch('/api/rules/sections/' + id, { method: 'DELETE' }); if (resp.ok) loadSections(); } catch (e) { alert('Ошибка: ' + e.message); }
+}
+
+function toggleConnections() {
+    const body = document.getElementById('connections-body');
+    const chevron = document.getElementById('conn-chevron');
+    if (body.style.display === 'none') {
+        body.style.display = 'block';
+        chevron.style.transform = 'rotate(180deg)';
+    } else {
+        body.style.display = 'none';
+        chevron.style.transform = 'rotate(0deg)';
+    }
+    setTimeout(drawSVGConnections, 50);
+}
+
+// === CONNECTIONS ===
+let connections = [];
+const ROLE_LABELS = { 'outside': 'Outside Tier', 'first': '1 Tier (Заместитель)', 'second-recruiter': '1 Tier (Руководитель рекрутинга)', 'second-builder': '1 Tier (Руководитель строителей)', 'third-recruiter': '2 Tier (Рекрутер)', 'third-builder': '2 Tier (Строитель)', 'combined': '3/4 Tier (Участник/Штраф)' };
+async function loadConnections() { try { const resp = await fetch('/api/rules/connections'); const data = await resp.json(); connections = data.connections || []; renderConnections(); } catch (e) {} }
+async function saveConnections() { try { await fetch('/api/rules/connections', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ connections }) }); } catch (e) {} }
+function addConnection() {
+    const fromSelect = document.getElementById('conn-from'), toSelect = document.getElementById('conn-to');
+    const fromValues = Array.from(fromSelect.selectedOptions).map(o => o.value), toValues = Array.from(toSelect.selectedOptions).map(o => o.value);
+    if (!fromValues.length || !toValues.length) { alert('Выберите хотя бы одну роль в каждом поле'); return; }
+    for (const from of fromValues) { for (const to of toValues) { if (!connections.some(c => c.from === from && c.to === to) && from !== to) connections.push({ from, to }); } }
+    saveConnections(); renderConnections(); fromSelect.selectedIndex = -1; toSelect.selectedIndex = -1;
+}
+function removeConnection(index) { connections.splice(index, 1); saveConnections(); renderConnections(); }
+function clearConnections() { if (!confirm('Удалить все связи?')) return; connections = []; saveConnections(); renderConnections(); }
+function renderConnections() {
+    const list = document.getElementById('connections-list');
+    if (!list) return;
+    if (connections.length === 0) { list.innerHTML = '<div class="text-muted" style="font-size:0.8rem;">Связи не добавлены.</div>'; }
+    else { list.innerHTML = connections.map((c, i) => '<span class="conn-tag">' + ROLE_LABELS[c.from] + ' <span class="conn-arrow">→</span> ' + ROLE_LABELS[c.to] + '<span class="conn-remove" onclick="removeConnection(' + i + ')"><i class="fas fa-times"></i></span></span>').join(' '); }
+    drawSVGConnections();
+}
+function drawSVGConnections() {
+    const svg = document.getElementById('hierarchy-svg'), chart = document.getElementById('hierarchy-chart');
+    if (!svg || !chart) return;
+    svg.innerHTML = '<defs><marker id="arrowhead" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="rgba(233,30,99,0.6)"/></marker></defs>';
+    const chartRect = chart.getBoundingClientRect();
+    for (const conn of connections) {
+        const fromEl = chart.querySelector('[data-role="' + conn.from + '"]'), toEl = chart.querySelector('[data-role="' + conn.to + '"]');
+        if (!fromEl || !toEl) continue;
+        const fR = fromEl.getBoundingClientRect(), tR = toEl.getBoundingClientRect();
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        line.setAttribute('x1', fR.left + fR.width / 2 - chartRect.left); line.setAttribute('y1', fR.bottom - chartRect.top);
+        line.setAttribute('x2', tR.left + tR.width / 2 - chartRect.left); line.setAttribute('y2', tR.top - chartRect.top);
+        line.setAttribute('marker-end', 'url(#arrowhead)');
+        line.style.stroke = 'rgba(233, 30, 99, 0.5)'; line.style.strokeWidth = '2'; line.style.strokeDasharray = '6 3';
+        svg.appendChild(line);
+    }
+}
+window.addEventListener('resize', drawSVGConnections);
+
+// === INIT ===
+document.addEventListener('DOMContentLoaded', function() {
+    initQuillEditors();
+    loadInactivity();
+    loadSections();
+    loadConnections();
+    loadHierarchyNames();
+    loadLegendNames();
+    // Легенда: кликабельна для founder
+    if (userRole === 'founder') {
+        document.querySelectorAll('.legend-name').forEach(el => {
+            el.style.cursor = 'pointer';
+            el.title = 'Кликните для редактирования';
+            el.addEventListener('click', function(e) {
+                e.stopPropagation();
+                if (el.querySelector('.inline-edit-input')) return;
+                const currentText = el.textContent.trim();
+                const input = document.createElement('input');
+                input.type = 'text'; input.className = 'inline-edit-input'; input.value = currentText;
+                input.style.cssText = 'background:rgba(30,30,40,0.95);color:#fff;border:1px solid var(--accent-pink);border-radius:4px;padding:2px 6px;font-size:inherit;width:auto;min-width:80px;max-width:360px;outline:none;';
+                el.textContent = ''; el.appendChild(input); input.focus(); input.select();
+                input.addEventListener('blur', function() { finishLegendEdit(this, el); });
+                input.addEventListener('keydown', function(ev) {
+                    if (ev.key === 'Enter') { ev.preventDefault(); this.blur(); }
+                    if (ev.key === 'Escape') { ev.preventDefault(); this.value = currentText; this.blur(); }
+                });
+            });
+        });
+    }
+    function finishLegendEdit(input, el) {
+        if (!input) return;
+        const newValue = input.value.trim() || '???';
+        const lidx = parseInt(el.dataset.lidx);
+        if (lidx >= 0) legendNames[lidx] = newValue;
+        el.textContent = newValue;
+        saveLegendNames();
+    }
+});
 </script>
+{% endblock %}
