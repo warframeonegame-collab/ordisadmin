@@ -1,147 +1,117 @@
 {% extends 'base.html' %}
 
-{% block title %}Профиль участника{% endblock %}
+{% block title %}Профиль: {{ member.get('nickname', member_id) }}{% endblock %}
 
 {% block content %}
-<div class="page-header">
-    <h1><i class="fas fa-user"></i> Профиль участника</h1>
-    <p class="text-muted">ID: <code>{{ member_id }}</code></p>
+<div class="d-flex align-items-center gap-3 mb-4">
+    <a href="{{ url_for('members') }}" class="btn btn-sm btn-outline-secondary">
+        <i class="fas fa-arrow-left"></i>
+    </a>
+    <h4 class="mb-0">Профиль участника</h4>
 </div>
 
 <div class="row">
-    <div class="col-md-6">
+    <!-- Карточка участника -->
+    <div class="col-lg-4">
         <div class="card mb-4">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h5 class="mb-0"><i class="fas fa-info-circle"></i> Основная информация</h5>
-                {% if role in ['admin', 'cofounder', 'founder'] %}
-                <div class="dropdown">
-                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" title="Действия">
-                        <i class="fas fa-gavel"></i> Действия
-                    </button>
-                    <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end" style="min-width: 200px;">
-                        <li><h6 class="dropdown-header">Модерация</h6></li>
-                        <li><a class="dropdown-item" href="#" onclick="quickAction('warn')"><i class="fas fa-exclamation-triangle text-warning me-2"></i>Warn</a></li>
-                        <li><a class="dropdown-item" href="#" onclick="quickAction('unwarn')"><i class="fas fa-check text-success me-2"></i>Unwarn</a></li>
-                        <li><hr class="dropdown-divider"></li>
-                        <li><a class="dropdown-item" href="#" onclick="quickAction('mute --chat')"><i class="fas fa-comment-slash text-danger me-2"></i>Mute chat</a></li>
-                        <li><a class="dropdown-item" href="#" onclick="quickAction('mute --voice')"><i class="fas fa-microphone-slash text-danger me-2"></i>Mute voice</a></li>
-                        <li><a class="dropdown-item" href="#" onclick="quickAction('unmute')"><i class="fas fa-check text-success me-2"></i>Unmute</a></li>
-                        <li><hr class="dropdown-divider"></li>
-                        <li><a class="dropdown-item" href="#" onclick="quickAction('ban')"><i class="fas fa-ban text-danger me-2"></i>Ban</a></li>
-                        <li><a class="dropdown-item" href="#" onclick="quickAction('unban')"><i class="fas fa-check text-success me-2"></i>Unban</a></li>
-                        <li><hr class="dropdown-divider"></li>
-                        <li><a class="dropdown-item" href="#" onclick="quickAction('botmsg')"><i class="fas fa-envelope text-info me-2"></i>Отправить ЛС</a></li>
-                    </ul>
-                </div>
-                {% endif %}
-            </div>
-            <div class="card-body">
-                <div class="text-center mb-3">
+            <div class="card-body text-center">
+                <!-- Крупная аватарка -->
+                <div class="mb-3">
                     <img src="https://cdn.discordapp.com/avatars/{{ member_id }}/{{ member.get('avatar', '0') }}.png?size=128" 
-                         alt="Avatar" class="rounded-circle" width="80" height="80" style="object-fit:cover; border: 3px solid #3a3a3a;"
+                         alt="Avatar" class="rounded-circle" width="120" height="120" 
+                         style="object-fit:cover; border: 4px solid var(--accent-pink); box-shadow: 0 0 20px rgba(233,30,99,0.3);"
                          onerror="this.src='https://cdn.discordapp.com/embed/avatars/0.png'">
                 </div>
-                <table class="table table-dark">
-                    <tr>
-                        <td>Никнейм</td>
-                        <td><strong>{{ member.get('nickname', '—') }}</strong></td>
-                    </tr>
-                    <tr>
-                        <td>Discord ID</td>
-                        <td><code>{{ member_id }}</code></td>
-                    </tr>
-                    <tr>
-                        <td>Уровень</td>
-                        <td><span class="badge bg-primary">{{ member.get('level', 1) }}</span></td>
-                    </tr>
-                    <tr>
-                        <td>Опыт (XP)</td>
-                        <td>{{ "{:,}".format(member.get('xp', 0) | int) }}</td>
-                    </tr>
-                    <tr>
-                        <td>Должность</td>
-                        <td>{{ member.get('position', '—') }}</td>
-                    </tr>
-                    <tr>
-                        <td>Подразделение</td>
-                        <td>{{ member.get('subdivision', '—') }}</td>
-                    </tr>
-                    <tr>
-                        <td>Статус</td>
-                        <td>
-                            {% if member.get('banned') %}
-                            <span class="badge bg-danger">Забанен</span>
-                            {% else %}
-                            <span class="badge bg-success">Активен</span>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    <tr>
-                        <td>Предупреждения</td>
-                        <td>
+                
+                <!-- Ник и ID -->
+                <h5 class="mb-1">{{ member.get('nickname', '—') }}</h5>
+                <code class="text-muted" style="font-size:0.8rem;">{{ member_id }}</code>
+                
+                <!-- Badges -->
+                <div class="mt-3 d-flex justify-content-center gap-2 flex-wrap">
+                    <span class="badge bg-primary" style="font-size:0.85rem;">
+                        <i class="fas fa-level-up-alt me-1"></i>Ур. {{ member.get('level', 1) }}
+                    </span>
+                    <span class="badge bg-info" style="font-size:0.85rem;">
+                        <i class="fas fa-star me-1"></i>{{ "{:,}".format(member.get('xp', 0) | int) }} XP
+                    </span>
+                    {% if member.get('position') %}
+                    <span class="badge bg-warning text-dark" style="font-size:0.85rem;">
+                        <i class="fas fa-briefcase me-1"></i>{{ member.get('position') }}
+                    </span>
+                    {% endif %}
+                    {% if member.get('subdivision') %}
+                    <span class="badge bg-success" style="font-size:0.85rem;">
+                        <i class="fas fa-users me-1"></i>{{ member.get('subdivision') }}
+                    </span>
+                    {% endif %}
+                </div>
+                
+                <!-- Статус -->
+                <div class="mt-3">
+                    {% if member.get('banned') %}
+                    <span class="badge bg-danger fs-6"><i class="fas fa-ban me-1"></i>Забанен</span>
+                    {% else %}
+                    <span class="badge bg-success fs-6"><i class="fas fa-check-circle me-1"></i>Активен</span>
+                    {% endif %}
+                </div>
+                
+                <!-- Мета-инфо -->
+                <div class="mt-3 text-start" style="font-size:0.85rem;">
+                    <div class="d-flex justify-content-between py-1 border-bottom border-secondary">
+                        <span class="text-muted"><i class="fas fa-calendar me-2"></i>В клане с</span>
+                        <span>{{ member.get('joined_at', '—') }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between py-1 border-bottom border-secondary">
+                        <span class="text-muted"><i class="fas fa-exclamation-triangle me-2"></i>Предупреждения</span>
+                        <span>
                             {% set warns = member.get('warns', []) %}
                             {% if warns %}
-                            <span class="badge bg-warning">{{ warns|length }}</span> / 3
+                            <span class="badge bg-warning text-dark">{{ warns|length }}/3</span>
                             {% else %}
                             <span class="text-muted">Нет</span>
                             {% endif %}
-                        </td>
-                    </tr>
-                </table>
-            </div>
-        </div>
-    </div>
-    
-    <div class="col-md-6">
-        <div class="card mb-4">
-            <div class="card-header">
-                <h5><i class="fas fa-edit"></i> Редактирование</h5>
-            </div>
-            <div class="card-body">
-                <form id="edit-form" onsubmit="saveMember(event)">
-                    <div class="mb-3">
-                        <label class="form-label">Никнейм (на сервере Discord)</label>
-                        <input type="text" class="form-control" id="edit-nickname" 
-                               value="{{ member.get('nickname', '') }}" placeholder="Никнейм на сервере" maxlength="32">
-                        <small class="text-muted">Максимум 32 символа. Изменяется на сервере Discord.</small>
+                        </span>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label">Должность</label>
-                        <input type="text" class="form-control" id="edit-position" 
-                               value="{{ member.get('position', '') }}" placeholder="Должность">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Подразделение</label>
-                        <input type="text" class="form-control" id="edit-subdivision" 
-                               value="{{ member.get('subdivision', '') }}" placeholder="Подразделение">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Уровень</label>
-                        <input type="number" class="form-control" id="edit-level" 
-                               value="{{ member.get('level', 1) }}" min="1">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Опыт (XP)</label>
-                        <input type="number" class="form-control" id="edit-xp" 
-                               value="{{ member.get('xp', 0) }}" min="0">
-                    </div>
-                    <button type="submit" class="btn btn-primary" id="save-btn">
-                        <i class="fas fa-save"></i> Сохранить изменения
+                </div>
+                
+                <!-- Быстрые действия -->
+                <div class="mt-3 d-flex gap-2 flex-wrap justify-content-center">
+                    {% if role in ['admin', 'cofounder', 'founder'] %}
+                    <button class="btn btn-sm btn-outline-warning" onclick="quickAction('warn')">
+                        <i class="fas fa-exclamation-triangle"></i>
                     </button>
-                    <div id="save-status" class="mt-2" style="display:none;"></div>
-                </form>
+                    <button class="btn btn-sm btn-outline-danger" onclick="quickAction('ban')">
+                        <i class="fas fa-ban"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-info" onclick="quickAction('botmsg')">
+                        <i class="fas fa-envelope"></i>
+                    </button>
+                    <div class="dropdown">
+                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
+                            <i class="fas fa-gavel"></i>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-dark">
+                            <li><a class="dropdown-item" href="#" onclick="quickAction('unwarn')"><i class="fas fa-check text-success me-2"></i>Unwarn</a></li>
+                            <li><a class="dropdown-item" href="#" onclick="quickAction('mute --chat')"><i class="fas fa-comment-slash text-danger me-2"></i>Mute chat</a></li>
+                            <li><a class="dropdown-item" href="#" onclick="quickAction('mute --voice')"><i class="fas fa-microphone-slash text-danger me-2"></i>Mute voice</a></li>
+                            <li><a class="dropdown-item" href="#" onclick="quickAction('unmute')"><i class="fas fa-check text-success me-2"></i>Unmute</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="#" onclick="quickAction('unban')"><i class="fas fa-check text-success me-2"></i>Unban</a></li>
+                        </ul>
+                    </div>
+                    {% endif %}
+                </div>
             </div>
         </div>
         
         {% set warns = member.get('warns', []) %}
         {% if warns %}
-        <div class="card">
-            <div class="card-header">
-                <h5><i class="fas fa-exclamation-triangle"></i> Предупреждения ({{ warns|length }})</h5>
-            </div>
+        <div class="card mb-4">
+            <div class="card-header"><h5 class="mb-0"><i class="fas fa-exclamation-triangle"></i> Предупреждения ({{ warns|length }})</h5></div>
             <div class="card-body">
                 {% for warn in warns %}
-                <div class="alert alert-warning mb-2">
+                <div class="alert alert-warning mb-2 py-2">
                     <strong>#{{ loop.index }}</strong> — {{ warn.get('reason', 'Причина не указана') }}
                     <br><small class="text-muted">{{ warn.get('date', '') }}</small>
                 </div>
@@ -150,24 +120,68 @@
         </div>
         {% endif %}
     </div>
-</div>
-
-<div class="mt-3 d-flex gap-2 flex-wrap">
-    <a href="{{ url_for('members') }}" class="btn btn-outline-secondary">
-        <i class="fas fa-arrow-left"></i> Назад к участникам
-    </a>
-    {% if role in ['admin', 'cofounder', 'founder'] %}
-    <button class="btn btn-outline-info" onclick="quickAction('botmsg')">
-        <i class="fas fa-envelope"></i> Отправить ЛС
-    </button>
-    {% endif %}
+    
+    <!-- Правая колонка: редактирование + активность -->
+    <div class="col-lg-8">
+        <!-- Редактирование -->
+        {% if role in ['admin', 'cofounder', 'founder'] %}
+        <div class="card mb-4">
+            <div class="card-header"><h5 class="mb-0"><i class="fas fa-edit"></i> Редактирование</h5></div>
+            <div class="card-body">
+                <form id="edit-form" onsubmit="saveMember(event)">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Никнейм</label>
+                            <input type="text" class="form-control" id="edit-nickname" value="{{ member.get('nickname', '') }}" maxlength="32">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Должность</label>
+                            <input type="text" class="form-control" id="edit-position" value="{{ member.get('position', '') }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Подразделение</label>
+                            <input type="text" class="form-control" id="edit-subdivision" value="{{ member.get('subdivision', '') }}">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Уровень</label>
+                            <input type="number" class="form-control" id="edit-level" value="{{ member.get('level', 1) }}" min="1">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">XP</label>
+                            <input type="number" class="form-control" id="edit-xp" value="{{ member.get('xp', 0) }}" min="0">
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary mt-3" id="save-btn">
+                        <i class="fas fa-save"></i> Сохранить
+                    </button>
+                    <div id="save-status" class="mt-2" style="display:none;"></div>
+                </form>
+            </div>
+        </div>
+        {% endif %}
+        
+        <!-- История действий -->
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="fas fa-history"></i> История действий</h5>
+                <button class="btn btn-sm btn-outline-secondary" onclick="loadActivity()">
+                    <i class="fas fa-sync-alt"></i>
+                </button>
+            </div>
+            <div class="card-body" id="activityContainer" style="max-height: 400px; overflow-y: auto;">
+                <div class="text-center py-3">
+                    <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- Модальное окно быстрых действий -->
 <div class="modal fade" id="quickActionModal" tabindex="-1">
     <div class="modal-dialog">
-        <div class="modal-content" style="background: #1a1a1a; border: 1px solid #3a3a3a;">
-            <div class="modal-header" style="border-color: #3a3a3a;">
+        <div class="modal-content bg-dark border-secondary">
+            <div class="modal-header border-secondary">
                 <h5 class="modal-title" id="qaTitle">Действие</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
@@ -183,7 +197,7 @@
                 </div>
                 <div id="qaStatus"></div>
             </div>
-            <div class="modal-footer" style="border-color: #3a3a3a;">
+            <div class="modal-footer border-secondary">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
                 <button type="button" class="btn btn-primary" onclick="executeQuickAction()" id="qaExecBtn">
                     <i class="fas fa-paper-plane"></i> Выполнить
@@ -192,51 +206,22 @@
         </div>
     </div>
 </div>
-
 {% endblock %}
 
 {% block scripts %}
-<style>
-.history-card {
-    background: #1a1a1a;
-    border: 1px solid #3a3a3a;
-    border-radius: 8px;
-    padding: 12px;
-    margin-bottom: 8px;
-    transition: background 0.15s;
-}
-.history-card:hover {
-    background: #222;
-}
-.history-action {
-    color: #e91e63;
-    font-weight: 600;
-    font-size: 0.9rem;
-}
-.history-desc {
-    color: #aaa;
-    font-size: 0.85rem;
-}
-.history-date {
-    color: #666;
-    font-size: 0.75rem;
-}
-</style>
 <script>
 let currentAction = null;
+const memberId = '{{ member_id }}';
 
 async function saveMember(event) {
     event.preventDefault();
-    
     const btn = document.getElementById('save-btn');
     const status = document.getElementById('save-status');
-    
     btn.disabled = true;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Сохранение...';
-    status.style.display = 'none';
     
     const data = {
-        user_id: '{{ member_id }}',
+        user_id: memberId,
         nickname: document.getElementById('edit-nickname').value.trim(),
         position: document.getElementById('edit-position').value,
         subdivision: document.getElementById('edit-subdivision').value,
@@ -250,66 +235,84 @@ async function saveMember(event) {
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify(data)
         });
-        
         const result = await resp.json();
-        
         if (resp.ok) {
-            status.className = 'alert alert-success mt-2';
-            status.innerHTML = '<i class="fas fa-check"></i> Изменения сохранены!';
+            status.className = 'alert alert-success mt-2 py-1';
+            status.innerHTML = '<i class="fas fa-check"></i> Сохранено!';
+            showToast('Изменения сохранены', 'success');
         } else {
-            status.className = 'alert alert-danger mt-2';
-            status.innerHTML = '<i class="fas fa-times"></i> Ошибка: ' + (result.error || 'Неизвестная ошибка');
+            status.className = 'alert alert-danger mt-2 py-1';
+            status.innerHTML = '<i class="fas fa-times"></i> ' + (result.error || 'Ошибка');
         }
     } catch (e) {
-        status.className = 'alert alert-danger mt-2';
-        status.innerHTML = '<i class="fas fa-times"></i> Ошибка: ' + e.message;
+        status.className = 'alert alert-danger mt-2 py-1';
+        status.innerHTML = '<i class="fas fa-times"></i> ' + e.message;
     }
-    
     status.style.display = 'block';
     btn.disabled = false;
-    btn.innerHTML = '<i class="fas fa-save"></i> Сохранить изменения';
-    
-    setTimeout(() => { status.style.display = 'none'; }, 5000);
+    btn.innerHTML = '<i class="fas fa-save"></i> Сохранить';
+    setTimeout(() => { status.style.display = 'none'; }, 3000);
+}
+
+// ========== ИСТОРИЯ ДЕЙСТВИЙ ==========
+async function loadActivity() {
+    const container = document.getElementById('activityContainer');
+    try {
+        const resp = await fetch(`/api/member/${memberId}/activity`);
+        const data = await resp.json();
+        const logs = data.activity || [];
+        
+        if (logs.length === 0) {
+            container.innerHTML = '<div class="text-center text-muted py-3">Нет записей</div>';
+            return;
+        }
+        
+        let html = '';
+        for (const log of logs.slice(0, 30)) {
+            const date = log.timestamp ? new Date(log.timestamp).toLocaleString('ru-RU') : '';
+            const action = log.action || '';
+            const desc = log.description || '';
+            
+            let color = '#9b59b6';
+            if (action.toLowerCase().includes('предупрежд') || action.toLowerCase().includes('warn')) color = '#f1c40f';
+            else if (action.toLowerCase().includes('бан') || action.toLowerCase().includes('ban')) color = '#dc3545';
+            else if (action.toLowerCase().includes('вход') || action.toLowerCase().includes('авториз')) color = '#28a745';
+            else if (action.toLowerCase().includes('рол')) color = '#17a2b8';
+            
+            html += `
+            <div class="d-flex gap-2 mb-2 py-1 border-bottom border-secondary" style="font-size:0.85rem;">
+                <div style="width:4px;border-radius:2px;background:${color};flex-shrink:0;"></div>
+                <div class="flex-grow-1">
+                    <strong style="color:${color};">${escapeHtml(action)}</strong>
+                    <div class="text-muted">${escapeHtml(desc.substring(0, 120))}</div>
+                </div>
+                <small class="text-muted text-nowrap">${date}</small>
+            </div>`;
+        }
+        container.innerHTML = html;
+    } catch (e) {
+        container.innerHTML = '<div class="text-center text-muted py-3">Ошибка загрузки</div>';
+    }
 }
 
 // ========== БЫСТРЫЕ ДЕЙСТВИЯ ==========
-const memberId = '{{ member_id }}';
-const memberName = '{{ member.get("nickname", member_id) }}';
-
 function quickAction(action) {
     currentAction = action;
     const modal = new bootstrap.Modal(document.getElementById('quickActionModal'));
-    
-    // Название действия
-    const actionNames = {
-        'warn': 'Выдать предупреждение',
-        'unwarn': 'Снять предупреждение',
-        'mute --chat': 'Заблокировать чат',
-        'mute --voice': 'Заблокировать голос',
-        'unmute': 'Снять блокировку',
-        'ban': 'Выдать штрафную роль',
-        'unban': 'Снять штрафную роль',
-        'botmsg': 'Отправить ЛС от бота'
+    const names = {
+        'warn': 'Выдать предупреждение', 'unwarn': 'Снять предупреждение',
+        'mute --chat': 'Мут чат', 'mute --voice': 'Мут голос', 'unmute': 'Размут',
+        'ban': 'Штрафная роль', 'unban': 'Снять штрафную', 'botmsg': 'Отправить ЛС'
     };
-    document.getElementById('qaTitle').innerHTML = '<i class="fas fa-terminal"></i> ' + (actionNames[action] || action);
+    document.getElementById('qaTitle').innerHTML = '<i class="fas fa-terminal"></i> ' + (names[action] || action);
     
-    // Показываем/скрываем поля
     const needsReason = ['warn', 'unwarn', 'mute', 'ban', 'botmsg'].some(a => action.startsWith(a));
     const needsDuration = action.startsWith('mute');
-    
     document.getElementById('qaReasonSection').style.display = needsReason ? 'block' : 'none';
     document.getElementById('qaDurationSection').style.display = needsDuration ? 'block' : 'none';
-    
-    if (action === 'botmsg') {
-        document.querySelector('#qaReasonSection label').textContent = 'Текст сообщения';
-    } else {
-        document.querySelector('#qaReasonSection label').textContent = 'Причина';
-    }
-    
     document.getElementById('qaReason').value = '';
     document.getElementById('qaDuration').value = '';
     document.getElementById('qaStatus').innerHTML = '';
-    
     modal.show();
 }
 
@@ -319,32 +322,26 @@ async function executeQuickAction() {
     const status = document.getElementById('qaStatus');
     const btn = document.getElementById('qaExecBtn');
     
-    // Проверка
-    if (currentAction.startsWith('warn') || currentAction.startsWith('mute') || currentAction === 'ban') {
-        if (!reason) {
-            status.innerHTML = '<div class="alert alert-danger">Укажите причину!</div>';
+    if (currentAction !== 'unmute' && currentAction !== 'unban' && currentAction !== 'unwarn' && !reason && currentAction !== 'botmsg' && currentAction !== 'botmsg') {
+        if (['warn', 'mute', 'ban'].some(a => currentAction.startsWith(a))) {
+            status.innerHTML = '<div class="alert alert-danger py-1">Укажите причину!</div>';
             return;
         }
     }
     if (currentAction === 'botmsg' && !reason) {
-        status.innerHTML = '<div class="alert alert-danger">Введите текст сообщения!</div>';
+        status.innerHTML = '<div class="alert alert-danger py-1">Введите текст!</div>';
         return;
     }
     
     btn.disabled = true;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Отправка...';
-    status.innerHTML = '';
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
     
     let cmd;
     if (currentAction === 'botmsg') {
         cmd = `botmsg <@${memberId}> ${reason}`;
     } else {
         cmd = `.${currentAction} <@${memberId}>`;
-        if (duration) {
-            // Вставляем время после команды
-            parts = cmd.split(' ');
-            cmd = `.${currentAction} ${duration} <@${memberId}>`;
-        }
+        if (duration) cmd = `.${currentAction} ${duration} <@${memberId}>`;
         if (reason) cmd += ` ${reason}`;
     }
     
@@ -356,19 +353,25 @@ async function executeQuickAction() {
         });
         const data = await resp.json();
         if (resp.ok) {
-            status.innerHTML = '<div class="alert alert-success"><i class="fas fa-check"></i> Команда отправлена!</div>';
-            setTimeout(() => {
-                bootstrap.Modal.getInstance(document.getElementById('quickActionModal')).hide();
-            }, 1500);
+            status.innerHTML = '<div class="alert alert-success py-1"><i class="fas fa-check"></i> Отправлено!</div>';
+            showToast('Команда отправлена', 'success');
+            setTimeout(() => bootstrap.Modal.getInstance(document.getElementById('quickActionModal')).hide(), 1000);
         } else {
-            status.innerHTML = `<div class="alert alert-danger">${data.error || 'Ошибка'}</div>`;
+            status.innerHTML = `<div class="alert alert-danger py-1">${data.error || 'Ошибка'}</div>`;
         }
     } catch (e) {
-        status.innerHTML = `<div class="alert alert-danger">Ошибка: ${e.message}</div>`;
+        status.innerHTML = `<div class="alert alert-danger py-1">${e.message}</div>`;
     }
-    
     btn.disabled = false;
     btn.innerHTML = '<i class="fas fa-paper-plane"></i> Выполнить';
 }
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text || '';
+    return div.innerHTML;
+}
+
+loadActivity();
 </script>
 {% endblock %}

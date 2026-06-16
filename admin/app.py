@@ -44,6 +44,52 @@ try:
 except Exception as e:
     logging.warning(f"Не удалось мигрировать site_roles в БД: {e}")
 
+# ==================== SESSIONS ====================
+
+SESSIONS_FILE = os.path.join(config.DATA_DIR, 'sessions.json')
+
+def _load_sessions():
+    try:
+        if os.path.exists(SESSIONS_FILE):
+            with open(SESSIONS_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+    except Exception:
+        pass
+    return []
+
+def _save_sessions(sessions):
+    os.makedirs(os.path.dirname(SESSIONS_FILE), exist_ok=True)
+    with open(SESSIONS_FILE, 'w', encoding='utf-8') as f:
+        json.dump(sessions, f, ensure_ascii=False, indent=2)
+
+def _track_session(user_id, username):
+    """Сохраняет/обновляет сессию пользователя."""
+    sessions = _load_sessions()
+    now = datetime.now().isoformat()
+    
+    # Ищем существующую сессию
+    for s in sessions:
+        if s.get('user_id') == str(user_id):
+            s['last_active'] = now
+            s['username'] = username
+            _save_sessions(sessions)
+            return
+    
+    # Новая сессия
+    sessions.append({
+        'user_id': str(user_id),
+        'username': username,
+        'login_time': now,
+        'last_active': now,
+    })
+    _save_sessions(sessions)
+
+def _remove_session(user_id):
+    """Удаляет сессию при logout."""
+    sessions = _load_sessions()
+    sessions = [s for s in sessions if s.get('user_id') != str(user_id)]
+    _save_sessions(sessions)
+
 # ==================== HELPERS ====================
 
 def get_user_entries(db):
@@ -288,10 +334,14 @@ def callback():
         user_name=user_info['username']
     )
     
+    # Трекаем сессию
+    _track_session(user_id, user_info['username'])
+    
     return redirect(url_for('dashboard'))
 
 @app.route('/logout')
 def logout():
+    _remove_session(session.get('user_id', ''))
     session.clear()
     return redirect(url_for('login'))
 
@@ -583,6 +633,97 @@ def settings_page():
 @login_required
 def rules_page():
     return render_template('rules.html', role=session.get('role', 'user'))
+
+@app.route('/sessions')
+@login_required
+@permission_required('settings_manage')
+def sessions_page():
+    """Список активных сессий (только для основателя)"""
+    return render_template('sessions.html', role=session.get('role', 'user'))
+
+@app.route('/api/sessions')
+@login_required
+@permission_required('settings_manage')
+def api_sessions():
+    """Получить список сессий"""
+    return jsonify({'sessions': _load_sessions()})
+
+@app.route('/api/sessions/terminate', methods=['POST'])
+@login_required
+@permission_required('settings_manage')
+def api_sessions_terminate():
+    """Завершить сессию"""
+    data = request.json
+    user_id = data.get('user_id')
+    if not user_id:
+        return jsonify({'error': 'user_id required'}), 400
+    _remove_session(user_id)
+    return jsonify({'success': True})
+
+@app.route('/api/stats/inactive')
+@login_required
+@permission_required('members_view_all')
+def api_stats_inactive():
+    """Неактивные участники (не заходили >N дней)"""
+    db = load_database()
+    discord_nicks = fetch_discord_members()
+    sessions = _load_sessions()
+    
+    # Маппинг: user_id → last_active из сессий
+    session_map = {s['user_id']: s.get('last_active') for s in sessions}
+    
+    now = datetime.now()
+    inactive_days = 14  # по умолчанию
+    inactive = []
+    
+    for uid, data in db.items():
+        if uid.startswith('_'):
+            continue
+        last_active = session_map.get(uid)
+        if last_active:
+            try:
+                la = datetime.fromisoformat(last_active)
+                days_ago = (now - la).days
+                if days_ago >= inactive_days:
+                    nickname = data.get('nickname') or discord_nicks.get(uid, uid[:8])
+                    inactive.append({
+                        'user_id': uid,
+                        'nickname': nickname,
+                        'last_active': last_active,
+                        'days_ago': days_ago,
+                    })
+            except Exception:
+                pass
+        else:
+            # Нет записи в сессиях — считаем неактивным
+            nickname = data.get('nickname') or discord_nicks.get(uid, uid[:8])
+            inactive.append({
+                'user_id': uid,
+                'nickname': nickname,
+                'last_active': None,
+                'days_ago': None,
+            })
+    
+    inactive.sort(key=lambda x: x.get('days_ago') or 999, reverse=True)
+    return jsonify({'inactive': inactive[:20], 'threshold': inactive_days})
+
+@app.route('/api/member/<user_id>/activity')
+@login_required
+@permission_required('members_view_all')
+def api_member_activity(user_id):
+    """История действий участника (из логов)"""
+    try:
+        result = logs_manager.get_logs(
+            page=1,
+            per_page=100,
+            log_type='all',
+            user_filter=str(user_id),
+            date_from='',
+            date_to=''
+        )
+        return jsonify({'activity': result.get('logs', [])})
+    except Exception as e:
+        return jsonify({'activity': [], 'error': str(e)}), 500
 
 # ==================== HIERARCHY CONNECTIONS API ====================
 
@@ -944,6 +1085,56 @@ def api_stats():
         'total_xp': sum(int(u.get('xp', 0)) if u.get('xp') is not None else 0 for u in db.values()),
         'total_warns': sum(len(u.get('warns', [])) for u in db.values()),
         'banned_count': sum(1 for u in db.values() if u.get('banned', False)),
+    })
+
+@app.route('/api/stats/charts')
+@login_required
+def api_stats_charts():
+    """Данные для графиков на Dashboard"""
+    db = load_database()
+    discord_nicks = fetch_discord_members()
+    
+    # Топ участников по XP
+    members = []
+    for uid, data in db.items():
+        if uid.startswith('_'):
+            continue
+        nickname = data.get('nickname') or discord_nicks.get(uid, uid[:8])
+        members.append({
+            'nickname': nickname,
+            'level': int(data.get('level', 1)) if data.get('level') is not None else 1,
+            'xp': int(data.get('xp', 0)) if data.get('xp') is not None else 0,
+        })
+    members.sort(key=lambda x: (x['level'], x['xp']), reverse=True)
+    
+    # Распределение по тирам
+    tiers = {}
+    tier_names = {
+        'outside': 'Outside Tier',
+        '1 tier': '1 Tier',
+        '2 tier': '2 Tier',
+        '3 tier': '3 Tier',
+        '4 tier': '4 Tier',
+    }
+    for uid, data in db.items():
+        if uid.startswith('_'):
+            continue
+        position = (data.get('position') or '').strip().lower()
+        if position:
+            matched = False
+            for key, name in tier_names.items():
+                if key in position:
+                    tiers[name] = tiers.get(name, 0) + 1
+                    matched = True
+                    break
+            if not matched:
+                tiers['Другое'] = tiers.get('Другое', 0) + 1
+        else:
+            tiers['Без тира'] = tiers.get('Без тира', 0) + 1
+    
+    return jsonify({
+        'members': members[:50],
+        'tiers': tiers,
     })
 
 @app.route('/api/server/stats')
@@ -1628,6 +1819,57 @@ def api_announcements_post():
     except Exception as e:
         logging.error(f"[Announcements] Ошибка публикации: {e}")
         return jsonify({'error': str(e)}), 500
+
+# ==================== GLOBAL SEARCH API ====================
+
+@app.route('/api/search')
+@login_required
+def api_search():
+    """Глобальный поиск по участникам, логам и анкетам"""
+    query = request.args.get('q', '').strip().lower()
+    if len(query) < 2:
+        return jsonify({'results': []})
+    
+    results = []
+    
+    # Поиск по участникам
+    try:
+        db = load_database()
+        discord_nicks = fetch_discord_members()
+        
+        for uid, data in db.items():
+            if uid.startswith('_'):
+                continue
+            nickname = data.get('nickname') or discord_nicks.get(uid, '')
+            if query in nickname.lower() or query in uid:
+                results.append({
+                    'type': 'member',
+                    'title': nickname or uid,
+                    'subtitle': f'Уровень {data.get("level", 1)} • {uid}',
+                    'url': f'/member/{uid}'
+                })
+    except Exception:
+        pass
+    
+    # Поиск по логам
+    try:
+        logs_result = logs_manager.get_logs(page=1, per_page=100)
+        for log in logs_result.get('logs', []):
+            desc = log.get('description', '').lower()
+            author = log.get('author_name', '').lower()
+            action = log.get('action', '').lower()
+            if query in desc or query in author or query in action:
+                results.append({
+                    'type': 'log',
+                    'title': log.get('action', 'Действие'),
+                    'subtitle': log.get('description', '')[:80],
+                    'url': '/logs'
+                })
+    except Exception:
+        pass
+    
+    # Ограничиваем результаты
+    return jsonify({'results': results[:15]})
 
 # ==================== ANTILEAK PAGE ====================
 
