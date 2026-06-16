@@ -1629,6 +1629,124 @@ def api_announcements_post():
         logging.error(f"[Announcements] Ошибка публикации: {e}")
         return jsonify({'error': str(e)}), 500
 
+# ==================== ANTILEAK PAGE ====================
+
+@app.route('/antileak')
+@login_required
+@permission_required('antileak_view')
+def antileak_page():
+    return render_template('antileak.html', role=session.get('role', 'user'))
+
+@app.route('/api/antileak/alerts')
+@login_required
+@permission_required('antileak_view')
+def api_antileak_alerts():
+    """Получить все алерты антилива"""
+    try:
+        alerts_file = os.path.join(config.DATA_DIR, 'antileak_alerts.json')
+        if os.path.exists(alerts_file):
+            with open(alerts_file, 'r', encoding='utf-8') as f:
+                alerts = json.load(f)
+        else:
+            alerts = []
+        
+        # Обогащаем данные — подтягиваем ники из Discord
+        discord_nicks = fetch_discord_members()
+        for alert in alerts:
+            uid = alert.get('user_id', '')
+            if uid in discord_nicks:
+                alert['username'] = discord_nicks[uid]
+        
+        return jsonify({'alerts': alerts})
+    except Exception as e:
+        logging.error(f"Ошибка загрузки алертов антилива: {e}")
+        return jsonify({'alerts': [], 'error': str(e)}), 500
+
+@app.route('/api/antileak/resolve', methods=['POST'])
+@login_required
+@permission_required('antileak_view')
+def api_antileak_resolve():
+    """Подтвердить или отклонить алерт антилива (восстановить роли)"""
+    data = request.json
+    alert_id = data.get('alert_id')
+    action = data.get('action')  # 'confirm' или 'reject'
+    
+    if not alert_id or action not in ('confirm', 'reject'):
+        return jsonify({'error': 'Неверные параметры'}), 400
+    
+    alerts_file = os.path.join(config.DATA_DIR, 'antileak_alerts.json')
+    try:
+        with open(alerts_file, 'r', encoding='utf-8') as f:
+            alerts = json.load(f)
+        
+        target_alert = None
+        for a in alerts:
+            if a['id'] == alert_id:
+                target_alert = a
+                break
+        
+        if not target_alert:
+            return jsonify({'error': 'Алерт не найден'}), 404
+        
+        if target_alert['status'] != 'pending':
+            return jsonify({'error': 'Алерт уже обработан'}), 400
+        
+        # Обновляем статус
+        target_alert['status'] = 'confirmed' if action == 'confirm' else 'rejected'
+        target_alert['resolved_by'] = session.get('username', 'Unknown')
+        target_alert['resolved_at'] = datetime.now().isoformat()
+        
+        with open(alerts_file, 'w', encoding='utf-8') as f:
+            json.dump(alerts, f, ensure_ascii=False, indent=2)
+        
+        # Если отклонено — восстанавливаем роли через Discord API
+        if action == 'reject':
+            user_id = target_alert.get('user_id')
+            saved_roles = target_alert.get('saved_roles', [])
+            guild_id = config.GUILD_ID
+            
+            if user_id and saved_roles:
+                try:
+                    headers = {
+                        'Authorization': f'Bot {config.DISCORD_BOT_TOKEN}',
+                        'Content-Type': 'application/json'
+                    }
+                    # Добавляем роли обратно
+                    resp = requests.put(
+                        f'https://discord.com/api/guilds/{guild_id}/members/{user_id}/roles',
+                        headers=headers,
+                        json={'roles': [str(r) for r in saved_roles]},
+                        timeout=10
+                    )
+                    if resp.status_code in (200, 204):
+                        logging.info(f"[AntiLeak] Роли восстановлены для {user_id} (отклонено основателем)")
+                    else:
+                        logging.warning(f"[AntiLeak] Ошибка восстановления ролей для {user_id}: {resp.status_code}")
+                except Exception as e:
+                    logging.error(f"[AntiLeak] Ошибка восстановления ролей: {e}")
+        
+        # Логируем
+        logs_manager.log_site_action(
+            action='🛡️ Антилив — Решение',
+            description=(
+                f'Основатель {session.get("username")} '
+                f'{"подтвердил" if action == "confirm" else "отклонил"} '
+                f'алерт #{alert_id} (пользователь {target_alert.get("username")})'
+            ),
+            user_id=session.get('user_id', ''),
+            user_name=session.get('username', 'Unknown')
+        )
+        
+        return jsonify({
+            'success': True,
+            'status': target_alert['status'],
+            'message': 'Алерт подтверждён' if action == 'confirm' else 'Алерт отклонён, роли восстановлены'
+        })
+        
+    except Exception as e:
+        logging.error(f"Ошибка resolve антилив: {e}")
+        return jsonify({'error': str(e)}), 500
+
 # ==================== ERROR HANDLERS ====================
 
 @app.errorhandler(403)

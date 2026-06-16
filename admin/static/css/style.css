@@ -836,3 +836,19 @@ body * {
         display: none;
     }
 }
+
+/* ==================== ANTILEAK NAV ==================== */
+.antileak-nav {
+    color: var(--accent-red) !important;
+}
+
+.antileak-nav:hover {
+    color: #ff4757 !important;
+    background: rgba(220, 53, 69, 0.1);
+}
+
+.antileak-nav.active {
+    color: #ff4757 !important;
+    background: rgba(220, 53, 69, 0.15);
+    border-left: 3px solid #ff4757;
+}

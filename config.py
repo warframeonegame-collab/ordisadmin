@@ -53,3 +53,15 @@ EMOJIS = {
     "ERROR": "❌",
     "INFO": "🔍"
 }
+
+# 🛡️ Антилив — пороги срабатывания
+ANTILEAK_WINDOW = 60                    # Окно времени в секундах
+ANTILEAK_BAN_THRESHOLD = 3              # Банов за окно → триггер
+ANTILEAK_KICK_THRESHOLD = 3             # Киков за окно → триггер
+ANTILEAK_CHANNEL_DELETE_THRESHOLD = 2   # Удалений каналов за окно → триггер
+ANTILEAK_CHANNEL_CREATE_THRESHOLD = 5   # Созданий каналов за окно → триггер
+ANTILEAK_PERMISSION_THRESHOLD = 5       # Изменений прав каналов за окно → триггер
+ANTILEAK_ROLE_THRESHOLD = 5             # Изменений ролей за окно → триггер
+ANTILEAK_GUILD_CHANGE_THRESHOLD = 1     # Изменений сервера (название/иконка) → триггер
+ANTILEAK_OWNER_TRANSFER = 1             # Передача владельца → триггер
+ANTILEAK_BOT_ADD = 1                    # Подключение бота → триггер

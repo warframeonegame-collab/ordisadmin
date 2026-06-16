@@ -80,6 +80,11 @@
                 {% endif %}
                 {% if role == 'founder' %}
                 <li class="nav-item">
+                    <a class="nav-link antileak-nav {% if request.endpoint == 'antileak_page' %}active{% endif %}" href="{{ url_for('antileak_page') }}">
+                        <i class="fas fa-shield-alt"></i><span>Антислив</span>
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a class="nav-link {% if request.endpoint == 'settings_page' %}active{% endif %}" href="{{ url_for('settings_page') }}">
                         <i class="fas fa-cog"></i><span>Настройки</span>
                     </a>

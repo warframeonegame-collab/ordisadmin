@@ -1,0 +1,342 @@
+{% extends "base.html" %}
+{% block title %}Антилив{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0"><i class="fas fa-shield-alt me-2 text-danger"></i>Антилив — Мониторинг безопасности</h4>
+    <button class="btn btn-sm btn-outline-secondary" onclick="loadAlerts()">
+        <i class="fas fa-sync-alt me-1"></i>Обновить
+    </button>
+</div>
+
+<!-- Статистика -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card bg-dark border-secondary">
+            <div class="card-body text-center">
+                <h3 class="text-danger mb-0" id="pendingCount">0</h3>
+                <small class="text-muted">Ожидают</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-dark border-secondary">
+            <div class="card-body text-center">
+                <h3 class="text-success mb-0" id="confirmedCount">0</h3>
+                <small class="text-muted">Подтверждено</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-dark border-secondary">
+            <div class="card-body text-center">
+                <h3 class="text-warning mb-0" id="rejectedCount">0</h3>
+                <small class="text-muted">Отклонено</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-dark border-secondary">
+            <div class="card-body text-center">
+                <h3 class="text-secondary mb-0" id="totalCount">0</h3>
+                <small class="text-muted">Всего алертов</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Фильтр -->
+<div class="mb-3">
+    <div class="btn-group" role="group">
+        <button type="button" class="btn btn-sm btn-outline-danger active" data-filter="all" onclick="filterAlerts('all', this)">Все</button>
+        <button type="button" class="btn btn-sm btn-outline-warning" data-filter="pending" onclick="filterAlerts('pending', this)">⏳ Ожидают</button>
+        <button type="button" class="btn btn-sm btn-outline-success" data-filter="confirmed" onclick="filterAlerts('confirmed', this)">✅ Подтверждено</button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-filter="rejected" onclick="filterAlerts('rejected', this)">❌ Отклонено</button>
+    </div>
+</div>
+
+<!-- Список алертов -->
+<div id="alertsContainer">
+    <div class="text-center py-5">
+        <div class="spinner-border text-danger" role="status"></div>
+        <p class="text-muted mt-2">Загрузка...</p>
+    </div>
+</div>
+
+<!-- Модальное окно деталей -->
+<div class="modal fade" id="alertModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content bg-dark border-secondary">
+            <div class="modal-header border-secondary">
+                <h5 class="modal-title"><i class="fas fa-shield-alt me-2 text-danger"></i>Детали алерта</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="alertModalBody">
+            </div>
+            <div class="modal-footer border-secondary" id="alertModalFooter">
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let allAlerts = [];
+let currentFilter = 'all';
+
+const ACTION_LABELS = {
+    'member_ban_add': '🚫 Массовый бан',
+    'member_kick': '👢 Массовый кик',
+    'channel_delete': '🗑️ Удаление каналов',
+    'channel_create': '📝 Создание каналов',
+    'channel_overwrite_update': '🔓 Изменение прав каналов',
+    'member_role_update': '👥 Изменение ролей',
+    'guild_update': '⚙️ Изменение сервера',
+    'owner_transfer': '👑 Передача владельца',
+    'bot_add': '🤖 Подключение бота',
+};
+
+const STATUS_LABELS = {
+    'pending': '<span class="badge bg-warning text-dark">⏳ Ожидает</span>',
+    'confirmed': '<span class="badge bg-success">✅ Подтверждено</span>',
+    'rejected': '<span class="badge bg-secondary">❌ Отклонено</span>',
+};
+
+function loadAlerts() {
+    fetch('/api/antileak/alerts')
+        .then(r => r.json())
+        .then(data => {
+            allAlerts = data.alerts || [];
+            renderAlerts();
+            updateStats();
+        })
+        .catch(err => {
+            document.getElementById('alertsContainer').innerHTML = 
+                '<div class="alert alert-danger">Ошибка загрузки: ' + err.message + '</div>';
+        });
+}
+
+function updateStats() {
+    const pending = allAlerts.filter(a => a.status === 'pending').length;
+    const confirmed = allAlerts.filter(a => a.status === 'confirmed').length;
+    const rejected = allAlerts.filter(a => a.status === 'rejected').length;
+    
+    document.getElementById('pendingCount').textContent = pending;
+    document.getElementById('confirmedCount').textContent = confirmed;
+    document.getElementById('rejectedCount').textContent = rejected;
+    document.getElementById('totalCount').textContent = allAlerts.length;
+}
+
+function filterAlerts(filter, btn) {
+    currentFilter = filter;
+    // Обновляем активную кнопку
+    document.querySelectorAll('.btn-group .btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    renderAlerts();
+}
+
+function renderAlerts() {
+    const container = document.getElementById('alertsContainer');
+    let filtered = allAlerts;
+    
+    if (currentFilter !== 'all') {
+        filtered = allAlerts.filter(a => a.status === currentFilter);
+    }
+    
+    if (filtered.length === 0) {
+        container.innerHTML = `
+            <div class="text-center py-5">
+                <i class="fas fa-shield-alt fa-3x text-muted mb-3"></i>
+                <p class="text-muted">Нет алертов${currentFilter !== 'all' ? ' с фильтром "' + currentFilter + '"' : ''}</p>
+            </div>`;
+        return;
+    }
+    
+    let html = '';
+    for (const alert of filtered) {
+        const actionLabel = ACTION_LABELS[alert.action_type] || alert.action_type;
+        const statusHtml = STATUS_LABELS[alert.status] || alert.status;
+        const date = alert.timestamp ? new Date(alert.timestamp).toLocaleString('ru-RU') : 'Н/Д';
+        const avatarUrl = alert.user_avatar || `https://cdn.discordapp.com/embed/avatars/0.png`;
+        
+        html += `
+        <div class="card bg-dark border-secondary mb-3">
+            <div class="card-body">
+                <div class="d-flex align-items-start">
+                    <img src="${avatarUrl}" class="rounded-circle me-3" width="48" height="48" 
+                         onerror="this.src='https://cdn.discordapp.com/embed/avatars/0.png'">
+                    <div class="flex-grow-1">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <h6 class="mb-1">${escapeHtml(alert.username || 'Unknown')} 
+                                    <small class="text-muted">(${alert.user_id})</small>
+                                </h6>
+                                <span class="me-2">${actionLabel}</span>
+                                <small class="text-muted">×${alert.action_count || 1}</small>
+                            </div>
+                            <div class="text-end">
+                                ${statusHtml}
+                                <br><small class="text-muted">${date}</small>
+                            </div>
+                        </div>
+                        <div class="mt-2">
+                            <button class="btn btn-sm btn-outline-info" onclick="showDetails('${alert.id}')">
+                                <i class="fas fa-info-circle me-1"></i>Подробнее
+                            </button>
+                            ${alert.status === 'pending' ? `
+                            <button class="btn btn-sm btn-outline-success ms-1" onclick="resolveAlert('${alert.id}', 'confirm')">
+                                <i class="fas fa-check me-1"></i>Подтвердить
+                            </button>
+                            <button class="btn btn-sm btn-outline-warning ms-1" onclick="resolveAlert('${alert.id}', 'reject')">
+                                <i class="fas fa-undo me-1"></i>Отклонить (восстановить роли)
+                            </button>
+                            ` : ''}
+                            ${alert.resolved_by ? `<br><small class="text-muted">Решил: ${escapeHtml(alert.resolved_by)}</small>` : ''}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+    }
+    
+    container.innerHTML = html;
+}
+
+function showDetails(alertId) {
+    const alert = allAlerts.find(a => a.id === alertId);
+    if (!alert) return;
+    
+    const actionLabel = ACTION_LABELS[alert.action_type] || alert.action_type;
+    const date = alert.timestamp ? new Date(alert.timestamp).toLocaleString('ru-RU') : 'Н/Д';
+    const details = alert.details || {};
+    
+    let detailsHtml = `
+        <div class="row">
+            <div class="col-md-6">
+                <p><strong>Пользователь:</strong> ${escapeHtml(alert.username)} (${alert.user_id})</p>
+                <p><strong>Действие:</strong> ${actionLabel}</p>
+                <p><strong>Количество:</strong> ${alert.action_count || 1} (порог: ${alert.threshold || '?'})</p>
+                <p><strong>Время:</strong> ${date}</p>
+            </div>
+            <div class="col-md-6">
+                <p><strong>Статус:</strong> ${STATUS_LABELS[alert.status] || alert.status}</p>
+                ${alert.resolved_by ? `<p><strong>Решил:</strong> ${escapeHtml(alert.resolved_by)}</p>` : ''}
+                ${alert.resolved_at ? `<p><strong>Время решения:</strong> ${new Date(alert.resolved_at).toLocaleString('ru-RU')}</p>` : ''}
+            </div>
+        </div>
+        <hr class="border-secondary">`;
+    
+    // Дополнительные детали по типу
+    if (alert.action_type === 'member_ban_add' || alert.action_type === 'member_kick') {
+        const victimIds = alert.victim_ids || [];
+        detailsHtml += `<p><strong>Пострадавшие (${victimIds.length}):</strong></p>`;
+        if (victimIds.length > 0) {
+            detailsHtml += `<div class="bg-black p-2 rounded"><code>${victimIds.join('\n')}</code></div>`;
+        }
+    } else if (alert.action_type === 'channel_delete') {
+        detailsHtml += `<p><strong>Удалённый канал:</strong> ${escapeHtml(details.channel_name || 'Н/Д')} (${details.channel_id || ''})</p>`;
+    } else if (alert.action_type === 'channel_create') {
+        detailsHtml += `<p><strong>Созданный канал:</strong> ${escapeHtml(details.channel_name || 'Н/Д')} (${details.channel_id || ''})</p>`;
+    } else if (alert.action_type === 'guild_update' || alert.action_type === 'owner_transfer') {
+        const changes = details.guild_changes || {};
+        if (Object.keys(changes).length > 0) {
+            detailsHtml += `<p><strong>Изменения сервера:</strong></p><div class="bg-black p-2 rounded"><pre class="mb-0">${JSON.stringify(changes, null, 2)}</pre></div>`;
+        }
+    } else if (alert.action_type === 'bot_add') {
+        detailsHtml += `<p><strong>Добавлен бот:</strong> ${escapeHtml(details.bot_name || 'Н/Д')} (${details.bot_id || ''})</p>`;
+    }
+    
+    // Сохранённые роли
+    const savedRoles = alert.saved_roles || [];
+    if (savedRoles.length > 0) {
+        detailsHtml += `<p class="mt-3"><strong>Сохранённые роли (${savedRoles.length}):</strong></p>`;
+        detailsHtml += `<div class="bg-black p-2 rounded"><code>${savedRoles.join(', ')}</code></div>`;
+        detailsHtml += `<small class="text-muted">Эти роли будут восстановлены при отклонении алерта</small>`;
+    }
+    
+    document.getElementById('alertModalBody').innerHTML = detailsHtml;
+    
+    // Кнопки в футере
+    let footerHtml = `<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>`;
+    if (alert.status === 'pending') {
+        footerHtml = `
+            <button type="button" class="btn btn-warning" onclick="resolveAlert('${alert.id}', 'reject'); bootstrap.Modal.getInstance(document.getElementById('alertModal')).hide();">
+                <i class="fas fa-undo me-1"></i>Отклонить
+            </button>
+            <button type="button" class="btn btn-success" onclick="resolveAlert('${alert.id}', 'confirm'); bootstrap.Modal.getInstance(document.getElementById('alertModal')).hide();">
+                <i class="fas fa-check me-1"></i>Подтвердить
+            </button>` + footerHtml;
+    }
+    document.getElementById('alertModalFooter').innerHTML = footerHtml;
+    
+    new bootstrap.Modal(document.getElementById('alertModal')).show();
+}
+
+function resolveAlert(alertId, action) {
+    const actionText = action === 'confirm' ? 'подтвердить' : 'отклонить (роли будут восстановлены)';
+    if (!confirm(`Вы уверены, что хотите ${actionText} этот алерт?`)) return;
+    
+    fetch('/api/antileak/resolve', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({alert_id: alertId, action: action})
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            // Обновляем локальный массив
+            const alert = allAlerts.find(a => a.id === alertId);
+            if (alert) {
+                alert.status = data.status || (action === 'confirm' ? 'confirmed' : 'rejected');
+                alert.resolved_by = '{{ session.get("username", "Unknown") }}';
+                alert.resolved_at = new Date().toISOString();
+            }
+            renderAlerts();
+            updateStats();
+            
+            // Показываем уведомление
+            showToast(data.message || 'Готово', 'success');
+        } else {
+            showToast(data.error || 'Ошибка', 'danger');
+        }
+    })
+    .catch(err => {
+        showToast('Ошибка: ' + err.message, 'danger');
+    });
+}
+
+function showToast(message, type) {
+    const toast = document.createElement('div');
+    toast.className = `alert alert-${type} position-fixed`;
+    toast.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px; animation: fadeIn 0.3s';
+    toast.innerHTML = message;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text || '';
+    return div.innerHTML;
+}
+
+// Загружаем при старте
+loadAlerts();
+// Автообновление каждые 30 секунд
+setInterval(loadAlerts, 30000);
+</script>
+
+<style>
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+.card {
+    transition: border-color 0.2s;
+}
+.card:hover {
+    border-color: var(--accent-purple) !important;
+}
+</style>
+{% endblock %}

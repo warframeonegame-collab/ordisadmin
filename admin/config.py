@@ -103,6 +103,7 @@ ROLE_PERMISSIONS = {
         'settings_manage': True,
         'questionnaires_view': True,
         'rules_edit': True,
+        'antileak_view': True,
     },
 }
 
