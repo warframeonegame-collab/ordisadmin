@@ -123,7 +123,6 @@
     
     <!-- Правая колонка: редактирование + активность -->
     <div class="col-lg-8">
-        <!-- Редактирование -->
         {% if role in ['admin', 'cofounder', 'founder'] %}
         <div class="card mb-4">
             <div class="card-header"><h5 class="mb-0"><i class="fas fa-edit"></i> Редактирование</h5></div>
@@ -160,7 +159,6 @@
         </div>
         {% endif %}
         
-        <!-- История действий -->
         <div class="card mb-4">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h5 class="mb-0"><i class="fas fa-history"></i> История действий</h5>
@@ -178,10 +176,10 @@
 </div>
 
 <!-- Модальное окно быстрых действий -->
-<div class="modal fade" id="quickActionModal" tabindex="-1">
+<div class="modal fade" id="quickActionModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
     <div class="modal-dialog">
-        <div class="modal-content bg-dark border-secondary">
-            <div class="modal-header border-secondary">
+        <div class="modal-content">
+            <div class="modal-header">
                 <h5 class="modal-title" id="qaTitle">Действие</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
@@ -197,9 +195,9 @@
                 </div>
                 <div id="qaStatus"></div>
             </div>
-            <div class="modal-footer border-secondary">
+            <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
-                <button type="submit" class="btn btn-primary" id="qaExecBtn">
+                <button type="button" class="btn btn-primary" onclick="executeQuickAction()" id="qaExecBtn">
                     <i class="fas fa-paper-plane"></i> Выполнить
                 </button>
             </div>
@@ -209,9 +207,31 @@
 {% endblock %}
 
 {% block scripts %}
+<style>
+#quickActionModal .modal-content {
+  background: var(--bg-surface) !important;
+  border: 1px solid var(--border-glass) !important;
+  color: var(--text-primary) !important;
+  backdrop-filter: none !important;
+}
+#quickActionModal .modal-header {
+  border-bottom-color: var(--border-glass);
+}
+#quickActionModal .modal-footer {
+  border-top-color: var(--border-glass);
+}
+#quickActionModal .form-control {
+  background: var(--bg-glass);
+  border: 1px solid var(--border-glass);
+  color: var(--text-primary);
+}
+#quickActionModal .form-control:focus {
+  border-color: var(--cyan);
+  box-shadow: 0 0 0 3px var(--cyan-glow);
+}
+</style>
 <script>
 let currentAction = null;
-let quickModalInstance = null;
 const memberId = '{{ member_id }}';
 
 async function saveMember(event) {
@@ -300,28 +320,6 @@ async function loadActivity() {
 function quickAction(action) {
     currentAction = action;
     
-    // Закрываем открытый дропдаун если он есть
-    const openDropdown = document.querySelector('.dropdown-menu.show');
-    if (openDropdown) {
-        openDropdown.closest('.dropdown')?.querySelector('[data-bs-toggle="dropdown"]')?.click();
-    }
-    
-    // Если уже есть открытый экземпляр модалки — удаляем его backdrop
-    if (quickModalInstance) {
-        quickModalInstance.dispose();
-        // Удаляем лишние бэкдропы
-        document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
-    }
-    
-    quickModalInstance = new bootstrap.Modal(document.getElementById('quickActionModal'), {
-        backdrop: true,
-        keyboard: true
-    });
-    // При закрытии — очищаем body от modal-open
-    document.getElementById('quickActionModal').addEventListener('hidden.bs.modal', function() {
-        document.body.classList.remove('modal-open');
-        document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
-    }, { once: true });
     const names = {
         'warn': 'Выдать предупреждение', 'unwarn': 'Снять предупреждение',
         'mute --chat': 'Мут чат', 'mute --voice': 'Мут голос', 'unmute': 'Размут',
@@ -336,14 +334,19 @@ function quickAction(action) {
     document.getElementById('qaReason').value = '';
     document.getElementById('qaDuration').value = '';
     document.getElementById('qaStatus').innerHTML = '';
-    quickModalInstance.show();
+    
+    // Используем Bootstrap 5 API напрямую без создания экземпляров
+    const modalEl = document.getElementById('quickActionModal');
+    
+    // Если модалка уже была открыта — сначала корректно закрываем
+    if (modalEl.classList.contains('show')) {
+        const existing = bootstrap.Modal.getInstance(modalEl);
+        if (existing) existing.hide();
+    }
+    
+    const modal = new bootstrap.Modal(modalEl, { backdrop: 'static', keyboard: false });
+    modal.show();
 }
-
-// Обработка отправки формы модального окна
-document.getElementById('quickActionModal')?.addEventListener('submit', async function(e) {
-    e.preventDefault();
-    await executeQuickAction();
-});
 
 async function executeQuickAction() {
     const reason = document.getElementById('qaReason').value.trim();
@@ -351,7 +354,7 @@ async function executeQuickAction() {
     const status = document.getElementById('qaStatus');
     const btn = document.getElementById('qaExecBtn');
     
-    if (currentAction !== 'unmute' && currentAction !== 'unban' && currentAction !== 'unwarn' && !reason && currentAction !== 'botmsg' && currentAction !== 'botmsg') {
+    if (currentAction !== 'unmute' && currentAction !== 'unban' && currentAction !== 'unwarn' && !reason) {
         if (['warn', 'mute', 'ban'].some(a => currentAction.startsWith(a))) {
             status.innerHTML = '<div class="alert alert-danger py-1">Укажите причину!</div>';
             return;
@@ -385,7 +388,9 @@ async function executeQuickAction() {
             status.innerHTML = '<div class="alert alert-success py-1"><i class="fas fa-check"></i> Отправлено!</div>';
             showToast('Команда отправлена', 'success');
             setTimeout(() => {
-                if (quickModalInstance) quickModalInstance.hide();
+                const modalEl = document.getElementById('quickActionModal');
+                const modal = bootstrap.Modal.getInstance(modalEl);
+                if (modal) modal.hide();
             }, 1000);
         } else {
             status.innerHTML = `<div class="alert alert-danger py-1">${data.error || 'Ошибка'}</div>`;
