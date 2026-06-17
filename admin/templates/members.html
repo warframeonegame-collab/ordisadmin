@@ -15,13 +15,45 @@
     {% endif %}
 </div>
 
+<!-- Краткая статистика -->
+<div class="row mb-4 g-3">
+    <div class="col-md-3 col-6">
+        <div class="stat-card text-center p-3">
+            <div class="stat-icon"><i class="fas fa-users"></i></div>
+            <div class="stat-number" id="stat-total">{{ members|length }}</div>
+            <div class="stat-label">Всего</div>
+        </div>
+    </div>
+    <div class="col-md-3 col-6">
+        <div class="stat-card text-center p-3">
+            <div class="stat-icon" style="color: var(--green);"><i class="fas fa-check-circle"></i></div>
+            <div class="stat-number" id="stat-active">{{ members|selectattr('banned', 'equalto', false)|list|length }}</div>
+            <div class="stat-label">Активны</div>
+        </div>
+    </div>
+    <div class="col-md-3 col-6">
+        <div class="stat-card text-center p-3">
+            <div class="stat-icon" style="color: var(--gold);"><i class="fas fa-star"></i></div>
+            <div class="stat-number" id="stat-senior">{{ members|selectattr('position', 'ne', '')|list|length }}</div>
+            <div class="stat-label">С должностью</div>
+        </div>
+    </div>
+    <div class="col-md-3 col-6">
+        <div class="stat-card text-center p-3">
+            <div class="stat-icon" style="color: var(--rose);"><i class="fas fa-ban"></i></div>
+            <div class="stat-number" id="stat-banned">{{ members|selectattr('banned', 'equalto', true)|list|length }}</div>
+            <div class="stat-label">Заблокированы</div>
+        </div>
+    </div>
+</div>
+
 {% if role in ['founder', 'cofounder'] %}
 <div class="modal fade" id="addMemberModal" tabindex="-1">
     <div class="modal-dialog">
-        <div class="modal-content" style="background: #1a1a1a; border: 1px solid #3a3a3a;">
-            <div class="modal-header" style="border-color: #3a3a3a;">
+        <div class="modal-content">
+            <div class="modal-header">
                 <h5 class="modal-title"><i class="fas fa-user-plus"></i> Добавить участника по ID</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
                 <p class="text-muted mb-3">Введите Discord ID участника.</p>
@@ -31,7 +63,7 @@
                 </div>
                 <div id="add-member-status"></div>
             </div>
-            <div class="modal-footer" style="border-color: #3a3a3a;">
+            <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
                 <button type="button" class="btn btn-primary" onclick="addMember()" id="add-member-btn">
                     <i class="fas fa-plus"></i> Добавить

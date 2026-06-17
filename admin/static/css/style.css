@@ -153,7 +153,33 @@ body {
   margin-left: 210px;
   padding: 2rem;
   min-height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
+
+.content > .container-fluid {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.content > .container-fluid > *:last-child {
+  flex: 1;
+}
+
+/* Декоративный элемент — тонкая сетка на фоне */
+.content::after {
+  content: '';
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-image: 
+    linear-gradient(rgba(0,212,255,0.015) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,212,255,0.015) 1px, transparent 1px);
+  background-size: 60px 60px;
+  pointer-events: none;
+  z-index: 0;
+}
+.content > * { position: relative; z-index: 1; }
 
 .page-header { margin-bottom: 1.5rem; }
 .page-header h1 {
@@ -167,7 +193,6 @@ body {
 .page-header h1 i { -webkit-text-fill-color: initial; color: var(--cyan); margin-right: 0.4rem; }
 .page-header p { color: var(--text-secondary); font-size: 0.82rem; }
 
-/* ===== GLASS CARDS ===== */
 .card {
   background: var(--bg-card-glass);
   backdrop-filter: blur(16px);
@@ -176,6 +201,9 @@ body {
   box-shadow: var(--shadow);
   animation: cardIn 0.35s ease;
 }
+
+.card:last-child { margin-bottom: 0; }
+
 .card-header {
   background: transparent;
   border-bottom: 1px solid var(--border-glass);
