@@ -211,6 +211,7 @@
 {% block scripts %}
 <script>
 let currentAction = null;
+let quickModalInstance = null;
 const memberId = '{{ member_id }}';
 
 async function saveMember(event) {
@@ -298,7 +299,29 @@ async function loadActivity() {
 // ========== БЫСТРЫЕ ДЕЙСТВИЯ ==========
 function quickAction(action) {
     currentAction = action;
-    const modal = new bootstrap.Modal(document.getElementById('quickActionModal'));
+    
+    // Закрываем открытый дропдаун если он есть
+    const openDropdown = document.querySelector('.dropdown-menu.show');
+    if (openDropdown) {
+        openDropdown.closest('.dropdown')?.querySelector('[data-bs-toggle="dropdown"]')?.click();
+    }
+    
+    // Если уже есть открытый экземпляр модалки — удаляем его backdrop
+    if (quickModalInstance) {
+        quickModalInstance.dispose();
+        // Удаляем лишние бэкдропы
+        document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
+    }
+    
+    quickModalInstance = new bootstrap.Modal(document.getElementById('quickActionModal'), {
+        backdrop: true,
+        keyboard: true
+    });
+    // При закрытии — очищаем body от modal-open
+    document.getElementById('quickActionModal').addEventListener('hidden.bs.modal', function() {
+        document.body.classList.remove('modal-open');
+        document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
+    }, { once: true });
     const names = {
         'warn': 'Выдать предупреждение', 'unwarn': 'Снять предупреждение',
         'mute --chat': 'Мут чат', 'mute --voice': 'Мут голос', 'unmute': 'Размут',
@@ -313,7 +336,7 @@ function quickAction(action) {
     document.getElementById('qaReason').value = '';
     document.getElementById('qaDuration').value = '';
     document.getElementById('qaStatus').innerHTML = '';
-    modal.show();
+    quickModalInstance.show();
 }
 
 // Обработка отправки формы модального окна
@@ -361,7 +384,9 @@ async function executeQuickAction() {
         if (resp.ok) {
             status.innerHTML = '<div class="alert alert-success py-1"><i class="fas fa-check"></i> Отправлено!</div>';
             showToast('Команда отправлена', 'success');
-            setTimeout(() => bootstrap.Modal.getInstance(document.getElementById('quickActionModal')).hide(), 1000);
+            setTimeout(() => {
+                if (quickModalInstance) quickModalInstance.hide();
+            }, 1000);
         } else {
             status.innerHTML = `<div class="alert alert-danger py-1">${data.error || 'Ошибка'}</div>`;
         }
