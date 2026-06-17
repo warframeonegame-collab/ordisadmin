@@ -28,8 +28,36 @@
     </div>
 </div>
 
+<!-- Статистика -->
+<div class="row mb-4 g-3">
+    <div class="col-md-4 col-6">
+        <div class="stat-card text-center p-3">
+            <div class="stat-icon" style="color: var(--violet);"><i class="fas fa-file-alt"></i></div>
+            <div class="stat-number" id="stat-total">0</div>
+            <div class="stat-label">Всего анкет</div>
+        </div>
+    </div>
+    <div class="col-md-4 col-6">
+        <div class="stat-card text-center p-3">
+            <div class="stat-icon" style="color: var(--cyan);"><i class="fas fa-users"></i></div>
+            <div class="stat-number" id="stat-on-page">0</div>
+            <div class="stat-label">На странице</div>
+        </div>
+    </div>
+    <div class="col-md-4 col-6">
+        <div class="stat-card text-center p-3">
+            <div class="stat-icon" style="color: var(--gold);"><i class="fas fa-calendar-alt"></i></div>
+            <div class="stat-number" id="stat-latest" style="font-size:0.9rem;">—</div>
+            <div class="stat-label">Последняя анкета</div>
+        </div>
+    </div>
+</div>
+
 <!-- Список анкет -->
 <div class="card">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="fas fa-list"></i> Список анкет</h5>
+    </div>
     <div class="card-body">
         <div id="q-container">
             <div class="text-center py-4">
@@ -46,19 +74,96 @@
 
 {% block scripts %}
 <style>
-.q-card { background: #1a1a1a; border: 1px solid #3a3a3a; border-radius: 12px; padding: 20px; margin-bottom: 16px; transition: transform 0.2s; }
-.q-card:hover { transform: translateY(-2px); box-shadow: 0 5px 20px rgba(233, 30, 99, 0.15); }
-.q-field { margin-bottom: 12px; }
-.q-field-label { color: #888; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px; }
-.q-field-value { color: #e0e0e0; font-size: 0.95rem; margin-top: 2px; }
-.q-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #3a3a3a; }
-.q-name { color: #e91e63; font-weight: 700; font-size: 1.1rem; }
-.q-date { color: #888; font-size: 0.8rem; }
-.pagination { display: flex; gap: 4px; justify-content: center; margin-top: 20px; }
-.pagination button { background: #2a2a2a; border: 1px solid #3a3a3a; color: #e0e0e0; padding: 6px 12px; border-radius: 6px; cursor: pointer; transition: all 0.2s; }
-.pagination button:hover { background: #3a3a3a; }
-.pagination button.active { background: #e91e63; border-color: #e91e63; color: white; }
-.pagination button:disabled { opacity: 0.4; cursor: not-allowed; }
+.q-card-glass {
+  background: var(--bg-card-glass);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-lg);
+  margin-bottom: 16px;
+  transition: all 0.25s;
+  position: relative;
+  overflow: hidden;
+}
+.q-card-glass::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--violet), var(--cyan));
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.q-card-glass:hover {
+  transform: translateY(-3px);
+  border-color: var(--border-glass-hover);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+}
+.q-card-glass:hover::before { opacity: 1; }
+.q-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px 12px;
+  border-bottom: 1px solid var(--border-glass);
+}
+.q-card-body {
+  padding: 16px 20px 20px;
+}
+.q-name {
+  color: var(--cyan);
+  font-weight: 700;
+  font-size: 1rem;
+}
+.q-field {
+  margin-bottom: 12px;
+}
+.q-field-label {
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  font-weight: 600;
+}
+.q-field-value {
+  color: var(--text-primary);
+  font-size: 0.88rem;
+  margin-top: 3px;
+  line-height: 1.5;
+}
+.q-date {
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+}
+.q-pagination {
+  display: flex;
+  gap: 4px;
+  justify-content: center;
+  margin-top: 20px;
+}
+.q-pagination button {
+  background: var(--bg-glass);
+  border: 1px solid var(--border-glass);
+  color: var(--text-secondary);
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 0.82rem;
+}
+.q-pagination button:hover {
+  background: var(--bg-glass-hover);
+  border-color: var(--border-glass-hover);
+  color: var(--text-primary);
+}
+.q-pagination button.active {
+  background: rgba(0, 212, 255, 0.15);
+  border-color: var(--cyan);
+  color: var(--cyan);
+}
+.q-pagination button:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
 </style>
 <script>
 let currentPage = 1;
@@ -92,44 +197,63 @@ async function loadQuestionnaires(page) {
             );
         }
         
+        // Статистика
+        document.getElementById('stat-total').textContent = total;
+        document.getElementById('stat-on-page').textContent = qList.length;
+        if (qList.length > 0) {
+            const lastDate = qList[0].filled_at || '—';
+            document.getElementById('stat-latest').textContent = lastDate.substring(0, 10);
+        }
+        
         if (qList.length === 0) {
             container.innerHTML = `
-                <div class="text-center text-muted py-4">
-                    <i class="fas fa-clipboard fa-3x mb-3"></i>
-                    <h5>Анкет пока нет</h5>
-                    <p>Анкеты появятся здесь после заполнения новичками</p>
+                <div class="text-center text-muted py-5">
+                    <i class="fas fa-clipboard fa-3x mb-3" style="opacity:0.3;"></i>
+                    <p>Анкет пока нет</p>
                 </div>
             `;
             return;
         }
         
-        let html = `<div class="mb-3 text-muted small">Всего анкет: <strong>${total}</strong> | Страница ${page} из ${totalPages}</div>`;
+        let html = `<div class="mb-3 text-muted small"><i class="fas fa-database me-1"></i>Всего анкет: <strong>${total}</strong> · Страница ${page} из ${totalPages}</div>`;
         
         for (const q of qList) {
             html += `
-                <div class="q-card">
-                    <div class="q-header">
+                <div class="q-card-glass">
+                    <div class="q-card-header">
                         <div>
-                            <span class="q-name">${q.name || 'Не указано'}</span>
-                            <span class="text-muted ms-2" style="font-size: 0.85rem;">(${q.nickname || q.username || ''})</span>
+                            <span class="q-name"><i class="fas fa-user-circle me-1"></i>${escapeHtml(q.name || 'Не указано')}</span>
+                            <span class="text-muted ms-2" style="font-size:0.82rem;">(${escapeHtml(q.nickname || q.username || '')})</span>
                         </div>
-                        <span class="q-date"><i class="far fa-clock"></i> ${q.filled_at || 'N/A'}</span>
+                        <span class="q-date"><i class="far fa-clock me-1"></i>${q.filled_at || 'N/A'}</span>
                     </div>
-                    <div class="q-field">
-                        <div class="q-field-label">🎂 Возраст</div>
-                        <div class="q-field-value">${q.age || 'Не указано'}</div>
-                    </div>
-                    <div class="q-field">
-                        <div class="q-field-label">🏗️ Интерес к подразделениям</div>
-                        <div class="q-field-value">${q.subdivision_interest || 'Не указано'}</div>
-                    </div>
-                    <div class="q-field">
-                        <div class="q-field-label">🤔 Ожидания от клана</div>
-                        <div class="q-field-value">${q.expectations || 'Не указано'}</div>
-                    </div>
-                    <div class="q-field">
-                        <div class="q-field-label">💪 Что может дать клану</div>
-                        <div class="q-field-value">${q.contribution || 'Не указано'}</div>
+                    <div class="q-card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="q-field">
+                                    <div class="q-field-label"><i class="fas fa-birthday-cake me-1" style="color:var(--rose);"></i>Возраст</div>
+                                    <div class="q-field-value">${escapeHtml(q.age || 'Не указано')}</div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="q-field">
+                                    <div class="q-field-label"><i class="fas fa-sitemap me-1" style="color:var(--gold);"></i>Интерес к подразделениям</div>
+                                    <div class="q-field-value">${escapeHtml(q.subdivision_interest || 'Не указано')}</div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="q-field">
+                                    <div class="q-field-label"><i class="fas fa-eye me-1" style="color:var(--cyan);"></i>Ожидания от клана</div>
+                                    <div class="q-field-value">${escapeHtml(q.expectations || 'Не указано')}</div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="q-field">
+                                    <div class="q-field-label"><i class="fas fa-hand-peace me-1" style="color:var(--green);"></i>Что может дать клану</div>
+                                    <div class="q-field-value">${escapeHtml(q.contribution || 'Не указано')}</div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             `;
@@ -137,7 +261,7 @@ async function loadQuestionnaires(page) {
         
         // Пагинация
         if (totalPages > 1) {
-            html += '<div class="pagination">';
+            html += '<div class="q-pagination">';
             html += `<button ${page <= 1 ? 'disabled' : ''} onclick="loadQuestionnaires(${page - 1})"><i class="fas fa-chevron-left"></i></button>`;
             
             for (let i = 1; i <= totalPages; i++) {
@@ -155,7 +279,6 @@ async function loadQuestionnaires(page) {
         container.innerHTML = html;
         
     } catch (e) {
-        console.error('Failed to load questionnaires:', e);
         container.innerHTML = `
             <div class="text-center text-muted py-4">
                 <i class="fas fa-exclamation-circle fa-3x mb-3"></i>
@@ -166,7 +289,11 @@ async function loadQuestionnaires(page) {
     }
 }
 
-
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text || '';
+    return div.innerHTML;
+}
 
 loadQuestionnaires(1);
 </script>

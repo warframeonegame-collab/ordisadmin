@@ -433,10 +433,13 @@ def member_detail(user_id):
     if not has_permission(session['user_id'], 'members_view_all') and str(session['user_id']) != str(user_id):
         abort(403)
     
-    # Получаем ник из Discord если его нет в базе
-    discord_nicks = fetch_discord_members()
-    nickname = user_data.get('nickname') or discord_nicks.get(str(user_id), '')
+    # Получаем ник и аватарку из Discord если их нет в базе
+    discord_data = fetch_discord_members_with_avatars()
+    discord_info = discord_data.get(str(user_id), {})
+    nickname = user_data.get('nickname') or discord_info.get('nickname', '')
+    avatar = user_data.get('avatar') or discord_info.get('avatar', '0')
     user_data['nickname'] = nickname
+    user_data['avatar'] = avatar
     
     return render_template('member.html', member_id=user_id, member=user_data, 
                          role=session.get('role', 'user'))
