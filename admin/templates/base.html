@@ -11,12 +11,10 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
 <body data-bs-theme="dark">
-    <!-- Кнопка переключения темы -->
     <button id="themeToggle" class="btn btn-sm position-fixed" style="bottom:20px;right:20px;z-index:9999;border-radius:50%;width:44px;height:44px;" onclick="toggleTheme()" title="Сменить тему">
         <i id="themeIcon" class="fas fa-moon"></i>
     </button>
     {% if session.get('user_id') %}
-    <!-- Мобильная шапка -->
     <div class="mobile-header d-lg-none">
         <button class="btn btn-sm" id="sidebarToggle" onclick="toggleSidebar()">
             <i class="fas fa-bars"></i>
@@ -27,53 +25,19 @@
         <span class="text-muted" style="font-size:0.85rem;">{{ session.get('username', 'User') }}</span>
     </div>
     
-    <!-- Затемнение для мобильного меню -->
     <div class="sidebar-overlay d-lg-none" id="sidebarOverlay" onclick="toggleSidebar()"></div>
     
     <nav class="navbar navbar-dark sidebar" id="sidebar">
-        <div class="d-flex flex-column align-items-center w-100">
-            <a href="{{ url_for('dashboard') }}" class="navbar-brand mb-4">
+        <div class="d-flex flex-column w-100">
+            <a href="{{ url_for('dashboard') }}" class="navbar-brand mb-3">
                 <img src="{{ url_for('static', filename='img/logo.png') }}" alt="AP" class="logo-small">
             </a>
             
-            <ul class="nav flex-column w-100">
+            <ul class="nav flex-column w-100 sidebar-scroll">
+                <li class="nav-section-title">Основное</li>
                 <li class="nav-item">
                     <a class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}" href="{{ url_for('dashboard') }}">
                         <i class="fas fa-home"></i><span>Главная</span>
-                    </a>
-                </li>
-                {% if role in ['admin', 'cofounder', 'founder'] %}
-                <li class="nav-item">
-                    <a class="nav-link {% if request.endpoint == 'members' %}active{% endif %}" href="{{ url_for('members') }}">
-                        <i class="fas fa-users"></i><span>Участники</span>
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link {% if request.endpoint == 'logs' %}active{% endif %}" href="{{ url_for('logs') }}">
-                        <i class="fas fa-list-alt"></i><span>Логи</span>
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link {% if request.endpoint == 'commands_page' %}active{% endif %}" href="{{ url_for('commands_page') }}">
-                        <i class="fas fa-terminal"></i><span>Команды</span>
-                    </a>
-                </li>
-                {% endif %}
-                {% if role in ['recruiter', 'admin', 'cofounder', 'founder'] %}
-                <li class="nav-item">
-                    <a class="nav-link {% if request.endpoint == 'questionnaires' %}active{% endif %}" href="{{ url_for('questionnaires') }}">
-                        <i class="fas fa-clipboard-list"></i><span>Анкеты</span>
-                    </a>
-                </li>
-                {% endif %}
-                <li class="nav-item">
-                    <a class="nav-link {% if request.endpoint == 'rules_page' %}active{% endif %}" href="{{ url_for('rules_page') }}">
-                        <i class="fas fa-book"></i><span>Правила</span>
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link {% if request.endpoint == 'timers' %}active{% endif %}" href="{{ url_for('timers') }}">
-                        <i class="fas fa-clock"></i><span>Таймеры</span>
                     </a>
                 </li>
                 <li class="nav-item">
@@ -82,10 +46,53 @@
                     </a>
                 </li>
                 <li class="nav-item">
+                    <a class="nav-link {% if request.endpoint == 'rules_page' %}active{% endif %}" href="{{ url_for('rules_page') }}">
+                        <i class="fas fa-book"></i><span>Правила</span>
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a class="nav-link {% if request.endpoint == 'announcements_page' %}active{% endif %}" href="{{ url_for('announcements_page') }}">
                         <i class="fas fa-bullhorn"></i><span>Объявления</span>
                     </a>
                 </li>
+                
+                <li class="nav-divider"></li>
+                
+                <li class="nav-section-title">Сообщество</li>
+                {% if role in ['recruiter', 'admin', 'cofounder', 'founder'] %}
+                <li class="nav-item">
+                    <a class="nav-link {% if request.endpoint == 'members' %}active{% endif %}" href="{{ url_for('members') }}">
+                        <i class="fas fa-users"></i><span>Участники</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if request.endpoint == 'questionnaires' %}active{% endif %}" href="{{ url_for('questionnaires') }}">
+                        <i class="fas fa-clipboard-list"></i><span>Анкеты</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if request.endpoint == 'logs' %}active{% endif %}" href="{{ url_for('logs') }}">
+                        <i class="fas fa-list-alt"></i><span>Логи</span>
+                    </a>
+                </li>
+                {% endif %}
+                
+                <li class="nav-item">
+                    <a class="nav-link {% if request.endpoint == 'timers' %}active{% endif %}" href="{{ url_for('timers') }}">
+                        <i class="fas fa-clock"></i><span>Таймеры</span>
+                    </a>
+                </li>
+                
+                <li class="nav-divider"></li>
+                
+                {% if role in ['admin', 'cofounder', 'founder'] %}
+                <li class="nav-section-title">Управление</li>
+                <li class="nav-item">
+                    <a class="nav-link {% if request.endpoint == 'commands_page' %}active{% endif %}" href="{{ url_for('commands_page') }}">
+                        <i class="fas fa-terminal"></i><span>Команды</span>
+                    </a>
+                </li>
+                {% endif %}
                 {% if role in ['cofounder', 'founder'] %}
                 <li class="nav-item">
                     <a class="nav-link {% if request.endpoint == 'roles_page' %}active{% endif %}" href="{{ url_for('roles_page') }}">
@@ -95,16 +102,6 @@
                 {% endif %}
                 {% if role == 'founder' %}
                 <li class="nav-item">
-                    <a class="nav-link antileak-nav {% if request.endpoint == 'antileak_page' %}active{% endif %}" href="{{ url_for('antileak_page') }}">
-                        <i class="fas fa-shield-alt"></i><span>Антислив</span>
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link {% if request.endpoint == 'sessions_page' %}active{% endif %}" href="{{ url_for('sessions_page') }}">
-                        <i class="fas fa-desktop"></i><span>Сессии</span>
-                    </a>
-                </li>
-                <li class="nav-item">
                     <a class="nav-link {% if request.endpoint == 'settings_page' %}active{% endif %}" href="{{ url_for('settings_page') }}">
                         <i class="fas fa-cog"></i><span>Настройки</span>
                     </a>
@@ -112,15 +109,15 @@
                 {% endif %}
             </ul>
             
-            <div class="mt-auto w-100">
+            <div class="mt-auto w-100 sidebar-footer">
                 <div class="user-info px-3 py-2">
                     <div class="d-flex align-items-center">
                         {% if session.get('avatar') %}
                         <img src="https://cdn.discordapp.com/avatars/{{ session['user_id'] }}/{{ session['avatar'] }}.png" 
-                             alt="Avatar" class="rounded-circle me-2" width="32" height="32">
+                             alt="Avatar" class="rounded-circle me-2" width="28" height="28">
                         {% else %}
-                        <div class="avatar-placeholder rounded-circle me-2">
-                            <i class="fas fa-user"></i>
+                        <div class="avatar-placeholder rounded-circle me-2" style="width:28px;height:28px;background:var(--border);display:flex;align-items:center;justify-content:center;border-radius:50%;">
+                            <i class="fas fa-user" style="font-size:0.7rem;"></i>
                         </div>
                         {% endif %}
                         <div class="flex-grow-1">
@@ -144,7 +141,6 @@
     
     <main class="content">
         <div class="container-fluid">
-            <!-- Глобальный поиск -->
             {% if session.get('user_id') %}
             <div class="global-search-wrapper mb-3">
                 <div class="position-relative">
@@ -177,183 +173,75 @@
     </main>
     {% endif %}
     
-    <!-- Toast Container -->
     <div id="toastContainer" class="position-fixed" style="top:20px;right:20px;z-index:9999;display:flex;flex-direction:column;gap:10px;"></div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-     // ========== TOAST УВЕДОМЛЕНИЯ ==========
      function showToast(message, type = 'info', duration = 3000) {
          const container = document.getElementById('toastContainer');
          if (!container) return;
-         
-         const icons = {
-             success: 'fas fa-check-circle',
-             danger: 'fas fa-exclamation-circle',
-             warning: 'fas fa-exclamation-triangle',
-             info: 'fas fa-info-circle',
-             primary: 'fas fa-bell'
-         };
-         
-         const colors = {
-             success: '#28a745',
-             danger: '#dc3545',
-             warning: '#f1c40f',
-             info: '#17a2b8',
-             primary: '#9b59b6'
-         };
-         
+         const icons = { success: 'fas fa-check-circle', danger: 'fas fa-exclamation-circle', warning: 'fas fa-exclamation-triangle', info: 'fas fa-info-circle', primary: 'fas fa-bell' };
+         const colors = { success: '#28a745', danger: '#dc3545', warning: '#f1c40f', info: '#17a2b8', primary: '#9b59b6' };
          const toast = document.createElement('div');
          toast.className = 'toast-notification';
-         toast.style.cssText = `
-             background: var(--bg-card, #252525);
-             border-left: 4px solid ${colors[type] || colors.info};
-             border-radius: 8px;
-             padding: 12px 16px;
-             display: flex;
-             align-items: center;
-             gap: 10px;
-             box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-             min-width: 300px;
-             max-width: 400px;
-             animation: toastSlideIn 0.3s ease;
-             cursor: pointer;
-             color: var(--text-primary, #fff);
-         `;
-         toast.innerHTML = `
-             <i class="${icons[type] || icons.info}" style="color:${colors[type] || colors.info};font-size:1.1rem;"></i>
-             <span style="flex:1;font-size:0.9rem;">${message}</span>
-             <i class="fas fa-times" style="opacity:0.5;font-size:0.8rem;"></i>
-         `;
-         
-         toast.onclick = () => {
-             toast.style.animation = 'toastSlideOut 0.3s ease forwards';
-             setTimeout(() => toast.remove(), 300);
-         };
-         
+         toast.style.cssText = `background:var(--bg-card,#1e1e1e);border-left:3px solid ${colors[type]||colors.info};border-radius:8px;padding:10px 14px;display:flex;align-items:center;gap:10px;box-shadow:0 2px 12px rgba(0,0,0,0.3);min-width:280px;max-width:360px;animation:toastSlideIn .2s ease;cursor:pointer;color:var(--text-primary,#e8e8e8)`;
+         toast.innerHTML = `<i class="${icons[type]||icons.info}" style="color:${colors[type]||colors.info};font-size:1.1rem;"></i><span style="flex:1;font-size:0.85rem;">${message}</span><i class="fas fa-times" style="opacity:0.5;font-size:0.75rem;"></i>`;
+         toast.onclick = () => { toast.style.animation = 'toastSlideOut .2s ease forwards'; setTimeout(() => toast.remove(), 200); };
          container.appendChild(toast);
-         
-         setTimeout(() => {
-             if (toast.parentNode) {
-                 toast.style.animation = 'toastSlideOut 0.3s ease forwards';
-                 setTimeout(() => toast.remove(), 300);
-             }
-         }, duration);
+         setTimeout(() => { if (toast.parentNode) { toast.style.animation = 'toastSlideOut .2s ease forwards'; setTimeout(() => toast.remove(), 200); } }, duration);
      }
 
-     // ========== ГЛОБАЛЬНЫЙ ПОИСК ==========
      function initGlobalSearch() {
-         const searchInput = document.getElementById('globalSearch');
-         const searchResults = document.getElementById('searchResults');
+         const searchInput = document.getElementById('globalSearch'), searchResults = document.getElementById('searchResults');
          if (!searchInput || !searchResults) return;
-         
          let debounceTimer;
-         
          searchInput.addEventListener('input', function() {
              clearTimeout(debounceTimer);
              const query = this.value.trim();
-             
-             if (query.length < 2) {
-                 searchResults.style.display = 'none';
-                 return;
-             }
-             
+             if (query.length < 2) { searchResults.style.display = 'none'; return; }
              debounceTimer = setTimeout(() => {
-                 fetch(`/api/search?q=${encodeURIComponent(query)}`)
-                     .then(r => r.json())
-                     .then(data => {
-                         renderSearchResults(data.results || []);
-                     })
-                     .catch(() => {
-                         searchResults.style.display = 'none';
-                     });
+                 fetch(`/api/search?q=${encodeURIComponent(query)}`).then(r=>r.json()).then(data=>renderSearchResults(data.results||[])).catch(()=>searchResults.style.display='none');
              }, 300);
          });
-         
-         searchInput.addEventListener('focus', function() {
-             if (this.value.trim().length >= 2) {
-                 searchResults.style.display = 'block';
-             }
-         });
-         
-         document.addEventListener('click', function(e) {
-             if (!searchInput.contains(e.target) && !searchResults.contains(e.target)) {
-                 searchResults.style.display = 'none';
-             }
-         });
+         searchInput.addEventListener('focus', function() { if (this.value.trim().length >= 2) searchResults.style.display = 'block'; });
+         document.addEventListener('click', function(e) { if (!searchInput.contains(e.target) && !searchResults.contains(e.target)) searchResults.style.display = 'none'; });
      }
      
      function renderSearchResults(results) {
          const container = document.getElementById('searchResults');
          if (!container) return;
-         
-         if (results.length === 0) {
-             container.innerHTML = '<div class="search-empty">Ничего не найдено</div>';
-             container.style.display = 'block';
-             return;
-         }
-         
-         const typeIcons = {
-             member: 'fas fa-user',
-             log: 'fas fa-list-alt',
-             questionnaire: 'fas fa-clipboard-list'
-         };
-         const typeColors = {
-             member: '#e91e63',
-             log: '#9b59b6',
-             questionnaire: '#28a745'
-         };
-         
+         if (results.length === 0) { container.innerHTML = '<div class="search-empty">Ничего не найдено</div>'; container.style.display = 'block'; return; }
+         const icons = { member: 'fas fa-user', log: 'fas fa-list-alt', questionnaire: 'fas fa-clipboard-list' };
+         const colors = { member: '#e91e63', log: '#9b59b6', questionnaire: '#28a745' };
          let html = '';
          for (const r of results.slice(0, 8)) {
-             html += `
-             <a href="${r.url}" class="search-item">
-                 <i class="${typeIcons[r.type] || 'fas fa-search'}" style="color:${typeColors[r.type] || '#888'}"></i>
-                 <div>
-                     <div class="search-item-title">${escapeHtml(r.title)}</div>
-                     <div class="search-item-sub">${escapeHtml(r.subtitle || '')}</div>
-                 </div>
-             </a>`;
+             html += `<a href="${r.url}" class="search-item"><i class="${icons[r.type]||'fas fa-search'}" style="color:${colors[r.type]||'#888'}"></i><div><div class="search-item-title">${escapeHtml(r.title)}</div><div class="search-item-sub">${escapeHtml(r.subtitle||'')}</div></div></a>`;
          }
-         
-         container.innerHTML = html;
-         container.style.display = 'block';
+         container.innerHTML = html; container.style.display = 'block';
      }
 
-     function escapeHtml(text) {
-         const div = document.createElement('div');
-         div.textContent = text || '';
-         return div.innerHTML;
-     }
+     function escapeHtml(text) { const div = document.createElement('div'); div.textContent = text || ''; return div.innerHTML; }
 
-     // ========== ТЕМНАЯ/СВЕТЛАЯ ТЕМА ==========
-    (function() {
-        // Применяем тему при загрузке
-        const savedTheme = localStorage.getItem('theme') || 'dark';
-        document.body.setAttribute('data-bs-theme', savedTheme);
-        const icon = document.getElementById('themeIcon');
-        if (icon) icon.className = savedTheme === 'dark' ? 'fas fa-moon' : 'fas fa-sun';
-    })();
-    
+     (function() {
+         const savedTheme = localStorage.getItem('theme') || 'dark';
+         document.body.setAttribute('data-bs-theme', savedTheme);
+         const icon = document.getElementById('themeIcon');
+         if (icon) icon.className = savedTheme === 'dark' ? 'fas fa-moon' : 'fas fa-sun';
+     })();
+     
      function toggleTheme() {
-         const body = document.body;
-         const current = body.getAttribute('data-bs-theme') || 'dark';
-         const next = current === 'dark' ? 'light' : 'dark';
+         const body = document.body, current = body.getAttribute('data-bs-theme')||'dark', next = current==='dark'?'light':'dark';
          localStorage.setItem('theme', next);
          body.setAttribute('data-bs-theme', next);
          const icon = document.getElementById('themeIcon');
          if (icon) icon.className = next === 'dark' ? 'fas fa-moon' : 'fas fa-sun';
      }
 
-     // ========== МОБИЛЬНОЕ МЕНЮ ==========
      function toggleSidebar() {
-         const sidebar = document.getElementById('sidebar');
-         const overlay = document.getElementById('sidebarOverlay');
-         if (sidebar) sidebar.classList.toggle('sidebar-open');
-         if (overlay) overlay.classList.toggle('active');
+         document.getElementById('sidebar')?.classList.toggle('sidebar-open');
+         document.getElementById('sidebarOverlay')?.classList.toggle('active');
      }
 
-     // Инициализация поиска
      document.addEventListener('DOMContentLoaded', initGlobalSearch);
      </script>
     {% block scripts %}{% endblock %}

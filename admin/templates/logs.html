@@ -95,14 +95,37 @@
      data-date-to="{{ date_to | default('') }}"
      style="display:none;"></div>
 <style>
-.log-entry { border-left: 4px solid #9b59b6; background: #1a1a1a; border-radius: 8px; padding: 12px 16px; margin-bottom: 12px; transition: transform 0.2s; }
-.log-entry:hover { transform: translateX(3px); }
+.log-entry {
+  border-left: 3px solid var(--violet);
+  background: var(--bg-card-glass);
+  backdrop-filter: blur(12px);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  margin-bottom: 12px;
+  transition: all 0.2s;
+  border: 1px solid var(--border-glass);
+}
+.log-entry:hover { border-color: var(--border-glass-hover); }
 .log-entry .source-badge { font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; }
 .source-discord { background: #5865F2; color: #fff; }
-.source-site { background: #9b59b6; color: #fff; }
-.page-link { background: #252525; border-color: #3a3a3a; color: #b0b0b0; }
-.page-link:hover { background: #e91e63; border-color: #e91e63; color: #fff; }
-.page-item.disabled .page-link { background: #1a1a1a; border-color: #3a3a3a; color: #666; }
+.source-site { background: var(--violet); color: #fff; }
+.page-link {
+  background: var(--bg-glass);
+  border-color: var(--border-glass);
+  color: var(--text-secondary);
+  border-radius: 8px !important;
+  margin: 0 2px;
+}
+.page-link:hover {
+  background: var(--cyan);
+  border-color: var(--cyan);
+  color: #000;
+}
+.page-item.disabled .page-link {
+  background: transparent;
+  border-color: var(--border-glass);
+  color: var(--text-muted);
+}
 </style>
 <script>
 let initData = document.getElementById('initial-data').dataset;
@@ -263,7 +286,7 @@ async function loadLogs() {
                         <div>
                             <span class="badge bg-secondary me-2" style="font-size: 0.75rem;">${typeLabel}</span>
                             ${sourceBadge}
-                            <strong style="color: #e91e63; font-size: 1.05rem;">${displayName}</strong>
+                            <strong style="color: var(--cyan); font-size: 1.05rem;">${displayName}</strong>
                             <span class="text-muted ms-2" style="font-size: 0.8rem;">
                                 <code>${log.author_id || ''}</code>
                             </span>
@@ -271,14 +294,14 @@ async function loadLogs() {
                         <small class="text-muted"><i class="far fa-clock"></i> ${dateStr}</small>
                     </div>
                     
-                    <div class="fw-bold mb-1" style="color: #fff; font-size: 1rem;">${log.title || ''}</div>
+                    <div class="fw-bold mb-1" style="color: var(--text-primary); font-size: 1rem;">${log.title || ''}</div>
                     
-                    <div class="mb-1" style="color: #b0b0b0; white-space: pre-wrap; font-size: 0.9rem; line-height: 1.5;">${log.description || ''}</div>
+                    <div class="mb-1" style="color: var(--text-secondary); white-space: pre-wrap; font-size: 0.9rem; line-height: 1.5;">${log.description || ''}</div>
                     
                     ${log.fields && log.fields.length > 0 ? log.fields.map(f => `
                         <div class="mb-1" style="font-size: 0.85rem;">
-                            <span style="color: #888;">${f.name || f.key || ''}:</span> 
-                            <span style="color: #ccc;">${f.value || ''}</span>
+                            <span style="color: var(--text-muted);">${f.name || f.key || ''}:</span> 
+                            <span style="color: var(--text-secondary);">${f.value || ''}</span>
                         </div>
                     `).join('') : ''}
                     

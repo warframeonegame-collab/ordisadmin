@@ -148,7 +148,7 @@
     <div class="col-12">
         <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
-                <h5><i class="fas fa-user-clock"></i> Неактивные участники (>30 дней)</h5>
+                <h5><i class="fas fa-user-clock"></i> Неактивные участники (>14 дней)</h5>
                 <button class="btn btn-sm btn-outline-secondary" onclick="loadInactive()">
                     <i class="fas fa-sync-alt"></i>
                 </button>
@@ -353,12 +353,19 @@ async function loadInactive() {
         html += '<div class="table-responsive"><table class="table table-dark table-sm"><thead><tr><th>Участник</th><th>Последняя активность</th><th>Дней</th></tr></thead><tbody>';
         
         for (const m of inactive) {
-            const la = m.last_active ? new Date(m.last_active).toLocaleString('ru-RU') : 'Никогда';
-            const days = m.days_ago !== null ? m.days_ago : '—';
+            const la = m.last_active ? new Date(m.last_active).toLocaleString('ru-RU') : 'Нет данных';
+            let days = m.days_ago !== null ? m.days_ago : null;
+            let badgeHtml = '';
+            if (days === null) {
+                badgeHtml = '<span class="badge bg-secondary">Нет данных</span>';
+            } else {
+                const badgeClass = days > 60 ? 'danger' : 'warning';
+                badgeHtml = `<span class="badge bg-${badgeClass}">${days} дн.</span>`;
+            }
             html += `<tr>
                 <td><a href="/member/${m.user_id}" style="color:var(--accent-pink)">${escapeHtml(m.nickname)}</a> <small class="text-muted">${m.user_id}</small></td>
                 <td><small>${la}</small></td>
-                <td><span class="badge bg-${days > 60 ? 'danger' : 'warning'}">${days}</span></td>
+                <td>${badgeHtml}</td>
             </tr>`;
         }
         

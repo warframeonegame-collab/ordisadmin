@@ -669,33 +669,68 @@ def api_stats_inactive():
     discord_nicks = fetch_discord_members()
     sessions = _load_sessions()
     
-    # Маппинг: user_id → last_active из сессий
+    # Маппинг: user_id → last_active из сессий сайта
     session_map = {s['user_id']: s.get('last_active') for s in sessions}
     
+    # Загружаем presence_cache из бота (активность в Discord)
+    presence_cache_file = os.path.join(config.DATA_DIR, 'presence_cache.json')
+    presence_cache = {}
+    try:
+        if os.path.exists(presence_cache_file):
+            with open(presence_cache_file, 'r', encoding='utf-8') as f:
+                presence_cache = json.load(f)
+    except Exception as e:
+        logging.warning(f"Не удалось загрузить presence_cache: {e}")
+    
     now = datetime.now()
-    inactive_days = 14  # по умолчанию
+    inactive_days = 14  # по умолчанию 14 дней
     inactive = []
     
     for uid, data in db.items():
         if uid.startswith('_'):
             continue
-        last_active = session_map.get(uid)
-        if last_active:
+        
+        # 1. Проверяем последнюю активность на сайте (сессии)
+        last_active_str = session_map.get(uid)
+        last_active_dt = None
+        
+        if last_active_str:
             try:
-                la = datetime.fromisoformat(last_active)
-                days_ago = (now - la).days
-                if days_ago >= inactive_days:
-                    nickname = data.get('nickname') or discord_nicks.get(uid, uid[:8])
-                    inactive.append({
-                        'user_id': uid,
-                        'nickname': nickname,
-                        'last_active': last_active,
-                        'days_ago': days_ago,
-                    })
+                last_active_dt = datetime.fromisoformat(last_active_str)
             except Exception:
                 pass
+        
+        # 2. Проверяем presence_cache — если участник онлайн или был недавно в Discord
+        presence_data = presence_cache.get(uid, {})
+        presence_status = presence_data.get('status', 'offline')
+        presence_last_seen = presence_data.get('last_seen')
+        
+        # Если участник онлайн/idle/dnd — он точно активен
+        if presence_status in ('online', 'idle', 'dnd'):
+            continue  # Активен — пропускаем
+        
+        # Если есть last_seen из presence_cache и он свежее, чем из сессий
+        if presence_last_seen:
+            try:
+                presence_dt = datetime.fromisoformat(presence_last_seen)
+                if last_active_dt is None or presence_dt > last_active_dt:
+                    last_active_dt = presence_dt
+                    last_active_str = presence_last_seen
+            except Exception:
+                pass
+        
+        if last_active_dt:
+            days_ago = (now - last_active_dt).days
+            if days_ago >= inactive_days:
+                nickname = data.get('nickname') or discord_nicks.get(uid, uid[:8])
+                inactive.append({
+                    'user_id': uid,
+                    'nickname': nickname,
+                    'last_active': last_active_str,
+                    'days_ago': days_ago,
+                })
         else:
-            # Нет записи в сессиях — считаем неактивным
+            # Нет данных об активности нигде — считаем неактивным
             nickname = data.get('nickname') or discord_nicks.get(uid, uid[:8])
             inactive.append({
                 'user_id': uid,
@@ -1107,26 +1142,45 @@ def api_stats_charts():
         })
     members.sort(key=lambda x: (x['level'], x['xp']), reverse=True)
     
-    # Распределение по тирам
+    # Распределение по тирам (учитываем TIER_ROLES из config.py)
     tiers = {}
-    tier_names = {
-        'outside': 'Outside Tier',
+    # Маппинг ключевых слов -> отображаемое название тира на основе TIER_ROLES
+    tier_keywords = {
+        'outside tier': 'Outside Tier',
         '1 tier': '1 Tier',
         '2 tier': '2 Tier',
         '3 tier': '3 Tier',
         '4 tier': '4 Tier',
     }
+    # Также строим обратный маппинг из значений TIER_ROLES (с эмодзи)
+    tier_value_to_name = {}
+    for role_id, role_value in config.TIER_ROLES.items():
+        # role_value выглядит как "🚫 Outside Tier", "🏅 1 Tier" и т.д.
+        lower_val = role_value.lower().strip()
+        for kw, name in tier_keywords.items():
+            if kw in lower_val:
+                tier_value_to_name[role_value] = name
+                break
+    
     for uid, data in db.items():
         if uid.startswith('_'):
             continue
-        position = (data.get('position') or '').strip().lower()
+        position = (data.get('position') or '').strip()
         if position:
             matched = False
-            for key, name in tier_names.items():
-                if key in position:
-                    tiers[name] = tiers.get(name, 0) + 1
-                    matched = True
-                    break
+            # Сначала пробуем точное совпадение со значениями TIER_ROLES (с эмодзи)
+            if position in tier_value_to_name:
+                name = tier_value_to_name[position]
+                tiers[name] = tiers.get(name, 0) + 1
+                matched = True
+            # Затем пробуем поиск по ключевым словам в lower-case
+            if not matched:
+                lower_pos = position.lower()
+                for kw, name in tier_keywords.items():
+                    if kw in lower_pos:
+                        tiers[name] = tiers.get(name, 0) + 1
+                        matched = True
+                        break
             if not matched:
                 tiers['Другое'] = tiers.get('Другое', 0) + 1
         else:

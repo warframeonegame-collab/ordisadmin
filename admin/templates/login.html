@@ -1,13 +1,15 @@
 {% extends 'base.html' %}
 
+{% block title %}Вход{% endblock %}
+
 {% block login_content %}
-<div class="login-container">
-    <div class="login-card">
-        <div class="logo-container">
+<div class="login-card">
+    <div class="text-center">
+        <div class="logo-container mb-3">
             <img src="{{ url_for('static', filename='img/logo.png') }}" alt="AP" class="login-logo">
         </div>
         <h1 class="login-title">Arasaka Plaza</h1>
-        <p class="login-subtitle">Admin Panel для Warframe клана</p>
+        <p class="login-subtitle">Панель управления кланом</p>
         
         <a href="{{ discord_auth_url }}" class="discord-btn">
             <i class="fab fa-discord"></i>
@@ -17,15 +19,15 @@
         <div class="login-features">
             <div class="feature">
                 <i class="fas fa-shield-alt"></i>
-                <span>Безопасный вход</span>
-            </div>
-            <div class="feature">
-                <i class="fas fa-users-cog"></i>
-                <span>Управление участниками</span>
+                <span>Безопасность</span>
             </div>
             <div class="feature">
                 <i class="fas fa-chart-line"></i>
-                <span>Статистика клана</span>
+                <span>Статистика</span>
+            </div>
+            <div class="feature">
+                <i class="fas fa-users"></i>
+                <span>Управление</span>
             </div>
         </div>
     </div>
