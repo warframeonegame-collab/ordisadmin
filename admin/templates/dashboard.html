@@ -68,38 +68,6 @@
     </div>
 </div>
 
-<!-- Графики -->
-<div class="row mb-4">
-    <div class="col-md-8">
-        <div class="card">
-            <div class="card-header">
-                <h5><i class="fas fa-chart-line"></i> Активность по уровням (топ-20)</h5>
-            </div>
-            <div class="card-body" style="min-height: 320px; position: relative;">
-                <canvas id="activityChart" height="300" style="width:100% !important; height:300px !important;"></canvas>
-                <div id="chart-error-activity" class="text-center text-muted py-5" style="display:none;">
-                    <i class="fas fa-exclamation-circle fa-3x mb-3"></i>
-                    <p>График не загрузился</p>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-4">
-        <div class="card">
-            <div class="card-header">
-                <h5><i class="fas fa-chart-pie"></i> Распределение по тирам</h5>
-            </div>
-            <div class="card-body" style="min-height: 320px; position: relative;">
-                <canvas id="tiersChart" height="300" style="width:100% !important; height:300px !important;"></canvas>
-                <div id="chart-error-tiers" class="text-center text-muted py-5" style="display:none;">
-                    <i class="fas fa-exclamation-circle fa-3x mb-3"></i>
-                    <p>График не загрузился</p>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
 <!-- Информация о сервере -->
 <div class="row mb-4">
     <div class="col-md-7">
@@ -197,23 +165,6 @@
 }
 </style>
 <script>
-// Дожидаемся полной загрузки Chart.js
-function waitForChart() {
-    return new Promise((resolve) => {
-        if (typeof Chart !== 'undefined') {
-            resolve();
-        } else {
-            const check = setInterval(() => {
-                if (typeof Chart !== 'undefined') {
-                    clearInterval(check);
-                    resolve();
-                }
-            }, 50);
-            setTimeout(() => { clearInterval(check); resolve(); }, 5000);
-        }
-    });
-}
-
 async function loadServerInfo() {
     try {
         const resp = await fetch('/api/server/stats');
@@ -269,124 +220,6 @@ async function loadServerInfo() {
 }
 
 loadServerInfo();
-
-// ========== ГРАФИКИ ==========
-async function loadCharts() {
-    try {
-        await waitForChart();
-        
-        if (typeof Chart === 'undefined') {
-            document.getElementById('chart-error-activity').style.display = 'block';
-            document.getElementById('chart-error-tiers').style.display = 'block';
-            return;
-        }
-        
-        const resp = await fetch('/api/stats/charts');
-        const data = await resp.json();
-        
-        const isDark = document.body.getAttribute('data-bs-theme') === 'dark';
-        const textColor = isDark ? '#b0b0b0' : '#555555';
-        const gridColor = isDark ? '#3a3a3a' : '#e0e0e0';
-        
-        Chart.defaults.color = textColor;
-        Chart.defaults.borderColor = gridColor;
-        
-        // График активности по уровням (топ-20 участников)
-        const activityCanvas = document.getElementById('activityChart');
-        if (activityCanvas && data.members && data.members.length > 0) {
-            const top20 = data.members.slice(0, 20);
-            
-            // Проверяем, есть ли уже график, и удаляем его
-            const existingChart = Chart.getChart(activityCanvas);
-            if (existingChart) existingChart.destroy();
-            
-            new Chart(activityCanvas, {
-                type: 'bar',
-                data: {
-                    labels: top20.map(m => m.nickname.substring(0, 12)),
-                    datasets: [{
-                        label: 'Уровень',
-                        data: top20.map(m => m.level),
-                        backgroundColor: 'rgba(233, 30, 99, 0.6)',
-                        borderColor: '#e91e63',
-                        borderWidth: 1,
-                        borderRadius: 4,
-                    }, {
-                        label: 'XP (÷100)',
-                        data: top20.map(m => Math.round(m.xp / 100)),
-                        backgroundColor: 'rgba(155, 89, 182, 0.6)',
-                        borderColor: '#9b59b6',
-                        borderWidth: 1,
-                        borderRadius: 4,
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { position: 'top' }
-                    },
-                    scales: {
-                        x: { 
-                            ticks: { maxRotation: 45, font: { size: 10 } },
-                            grid: { display: false }
-                        },
-                        y: { beginAtZero: true }
-                    }
-                }
-            });
-        } else {
-            document.getElementById('chart-error-activity').style.display = 'block';
-        }
-        
-        // Круговая диаграмма по тирам
-        const tiersCanvas = document.getElementById('tiersChart');
-        if (tiersCanvas && data.tiers && Object.keys(data.tiers).length > 0) {
-            // Проверяем, есть ли уже график, и удаляем его
-            const existingChart = Chart.getChart(tiersCanvas);
-            if (existingChart) existingChart.destroy();
-            
-            const tierLabels = Object.keys(data.tiers);
-            const tierValues = Object.values(data.tiers);
-            const tierColors = ['#dc3545', '#e91e63', '#9b59b6', '#28a745', '#f1c40f'];
-            
-            new Chart(tiersCanvas, {
-                type: 'doughnut',
-                data: {
-                    labels: tierLabels,
-                    datasets: [{
-                        data: tierValues,
-                        backgroundColor: tierColors.slice(0, tierLabels.length),
-                        borderWidth: 2,
-                        borderColor: isDark ? '#252525' : '#ffffff',
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { 
-                            position: 'bottom',
-                            labels: { padding: 12, font: { size: 11 } }
-                        }
-                    }
-                }
-            });
-        } else {
-            document.getElementById('chart-error-tiers').style.display = 'block';
-        }
-    } catch (e) {
-        console.error('Failed to load charts:', e);
-        document.getElementById('chart-error-activity').style.display = 'block';
-        document.getElementById('chart-error-tiers').style.display = 'block';
-    }
-}
-
-// Загружаем графики после загрузки страницы
-document.addEventListener('DOMContentLoaded', function() {
-    // Небольшая задержка чтобы Chart.js точно успел загрузиться
-    setTimeout(loadCharts, 100);
-});
 
 // ========== НЕАКТИВНЫЕ УЧАСТНИКИ ==========
 async function loadInactive() {

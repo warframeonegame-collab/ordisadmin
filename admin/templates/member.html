@@ -199,7 +199,7 @@
             </div>
             <div class="modal-footer border-secondary">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
-                <button type="button" class="btn btn-primary" onclick="executeQuickAction()" id="qaExecBtn">
+                <button type="submit" class="btn btn-primary" id="qaExecBtn">
                     <i class="fas fa-paper-plane"></i> Выполнить
                 </button>
             </div>
@@ -315,6 +315,12 @@ function quickAction(action) {
     document.getElementById('qaStatus').innerHTML = '';
     modal.show();
 }
+
+// Обработка отправки формы модального окна
+document.getElementById('quickActionModal')?.addEventListener('submit', async function(e) {
+    e.preventDefault();
+    await executeQuickAction();
+});
 
 async function executeQuickAction() {
     const reason = document.getElementById('qaReason').value.trim();
