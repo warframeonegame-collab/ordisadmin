@@ -482,6 +482,11 @@ class AntiLeak(commands.Cog):
                 value="⏳ Ожидает подтверждения основателя",
                 inline=False
             )
+            embed.add_field(
+                name="Действие",
+                value="Используйте панель управления для подтверждения или отклонения алерта",
+                inline=False
+            )
             embed.set_footer(text="🛡️ Система Антилива — Arasaka Plaza")
 
             await log_channel.send(embed=embed)

@@ -179,7 +179,7 @@ body {
   pointer-events: none;
   z-index: 0;
 }
-.content > * { position: relative; z-index: 1; }
+.content > * { position: relative; }
 
 .page-header { margin-bottom: 1.5rem; }
 .page-header h1 {

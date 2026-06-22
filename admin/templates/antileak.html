@@ -69,7 +69,7 @@
         <div class="modal-content bg-dark border-secondary">
             <div class="modal-header border-secondary">
                 <h5 class="modal-title"><i class="fas fa-shield-alt me-2 text-danger"></i>Детали алерта</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body" id="alertModalBody">
             </div>
@@ -261,16 +261,19 @@ function showDetails(alertId) {
     let footerHtml = `<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>`;
     if (alert.status === 'pending') {
         footerHtml = `
-            <button type="button" class="btn btn-warning" onclick="resolveAlert('${alert.id}', 'reject'); bootstrap.Modal.getInstance(document.getElementById('alertModal')).hide();">
+            <button type="button" class="btn btn-warning" onclick="resolveAlert('${alert.id}', 'reject')">
                 <i class="fas fa-undo me-1"></i>Отклонить
             </button>
-            <button type="button" class="btn btn-success" onclick="resolveAlert('${alert.id}', 'confirm'); bootstrap.Modal.getInstance(document.getElementById('alertModal')).hide();">
+            <button type="button" class="btn btn-success" onclick="resolveAlert('${alert.id}', 'confirm')">
                 <i class="fas fa-check me-1"></i>Подтвердить
             </button>` + footerHtml;
     }
     document.getElementById('alertModalFooter').innerHTML = footerHtml;
     
-    new bootstrap.Modal(document.getElementById('alertModal')).show();
+    // Показываем модалку
+    const modalEl = document.getElementById('alertModal');
+    const modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+    modal.show();
 }
 
 function resolveAlert(alertId, action) {
