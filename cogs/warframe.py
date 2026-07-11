@@ -791,8 +791,10 @@ class Warframe(commands.Cog):
             return
         self._last_tennocon_drops_hash = drops_hash
 
+        # Отправляем в канал уведомлений (как и Баро)
         notify_channel = self.bot.get_channel(BARO_NOTIFY_CHANNEL_ID)
         if not notify_channel:
+            logging.warning(f"[Warframe] Канал уведомлений {BARO_NOTIFY_CHANNEL_ID} не найден!")
             return
 
         # Группируем по дням
@@ -863,144 +865,38 @@ class Warframe(commands.Cog):
 
     # ==================== КОМАНДЫ ====================
 
-    @commands.command(name="testbaro")
+    @commands.command(name="update")
     @commands.has_permissions(administrator=True)
-    async def test_baro(self, ctx):
-        """Тест: отправляет уведомление о приходе Баро Ки'Тира."""
+    async def update_command(self, ctx):
+        """Принудительно обновляет все данные (Warframe, лидерборд)."""
         try:
             await ctx.message.delete()
         except Exception:
             pass
 
-        notify_channel = self.bot.get_channel(BARO_NOTIFY_CHANNEL_ID)
-        if not notify_channel:
-            await ctx.send("❌ Канал уведомлений не найден!", delete_after=10)
-            return
-
-        test_items = [
-            ("Набор Братон Прайм", 450, 175000),
-            ("Набор Сарин Прайм", 500, 200000),
-            ("Основная Непрерывность Прайм", 300, 150000),
-            ("Аркан Энергиз", 0, 250000),
-            ("Призма Скана", 150, 50000),
-            ("Чертёж Умбра Форма", 150, 0),
-            ("Туманный Ривен Шифр", 20, 75000),
-        ]
-
-        items_text = []
-        for name, ducats, credits in test_items:
-            items_text.append(f"• **{name}** — <:OldDucats:1512114394094502050> {ducats} | <:Credits:1514175092035424319> {credits}")
-
-        embed = discord.Embed(
-            title="🛒 Баро Ки'Тир прибыл! (ТЕСТ)",
-            description="\n".join(items_text),
-            color=WARFRAME_COLOR,
-            timestamp=datetime.now(timezone.utc)
-        )
-        embed.add_field(name="📍 Локация", value="Kronia Relay (Saturn)", inline=True)
-        embed.add_field(name="⏳ Улетает через", value="~24ч 0м", inline=True)
-        embed.set_footer(text="ТЕСТОВОЕ СООБЩЕНИЕ")
-
-        try:
-            await notify_channel.send(embed=embed)
-            await ctx.send("✅ Тестовое уведомление Баро отправлено!", delete_after=10)
-        except Exception as e:
-            await ctx.send(f"❌ Ошибка: {e}", delete_after=10)
-
-    @commands.command(name="wf")
-    @commands.has_permissions(administrator=True)
-    async def wf_manual(self, ctx):
-        """Принудительно обновляет Warframe-данные (только для администраторов)."""
-        print(f"[Warframe] .wf команда от {ctx.author}")
-        try:
-            await ctx.message.delete()
-        except Exception:
-            pass
-
-        try:
-            data = await fetch_warframe_data()
-            print("[Warframe] .wf: API данные получены")
-        except Exception as e:
-            print(f"[Warframe] .wf: Ошибка API: {e}")
-            await ctx.send(f"❌ Ошибка API: {e}", delete_after=15)
-            return
-
-        info_channel = self.bot.get_channel(WARFRAME_INFO_CHANNEL_ID)
-        if info_channel:
-            await self._handle_baro(data.get("voidTrader", {}))
-            await self._build_and_send_main_embed(data, info_channel)
-            await ctx.send("✅ Warframe-данные обновлены!", delete_after=10)
-        else:
-            await ctx.send("❌ Канал таймеров не найден!", delete_after=10)
-
-    @commands.command(name="testwf")
-    async def test_wf(self, ctx):
-        """Тест: отправляет тестовое сообщение в канал таймеров."""
-        info_channel = self.bot.get_channel(WARFRAME_INFO_CHANNEL_ID)
-        if not info_channel:
-            await ctx.send(f"❌ Канал {WARFRAME_INFO_CHANNEL_ID} не найден!", delete_after=10)
-            return
-        try:
-            msg = await info_channel.send("🔧 Тестовое сообщение от Ордиса...")
-            await ctx.send(f"✅ Тестовое сообщение отправлено в {info_channel.mention}!", delete_after=10)
-        except Exception as e:
-            await ctx.send(f"❌ Ошибка: {e}", delete_after=10)
-
-    @commands.command(name="testtwitch")
-    @commands.has_permissions(administrator=True)
-    async def test_twitch(self, ctx):
-        """Тест: отправляет тестовое уведомление о Twitch Drops."""
-        try:
-            await ctx.message.delete()
-        except Exception:
-            pass
-
-        notify_channel = self.bot.get_channel(BARO_NOTIFY_CHANNEL_ID)
-        if not notify_channel:
-            await ctx.send("❌ Канал уведомлений не найден!", delete_after=10)
-            return
-
-        embed = discord.Embed(
-            title="🎮 Twitch Drops: TennoCon 2026 — Смотрите прямой эфир! (ТЕСТ)",
-            description=(
-                "📅 **Начало:** 11.07.2026 17:45 МСК\n"
-                "📅 **Окончание:** 12.07.2026 17:45 МСК"
-            ),
-            color=WARFRAME_COLOR,
-            timestamp=datetime.now(timezone.utc)
-        )
-        embed.add_field(
-            name="🔗 Ссылка",
-            value="[Смотреть на Twitch](https://www.twitch.tv/warframe)",
-            inline=False
-        )
-        embed.set_footer(text="ТЕСТОВОЕ СООБЩЕНИЕ")
-
-        try:
-            await notify_channel.send(embed=embed)
-            await ctx.send("✅ Тестовое уведомление Twitch Drops отправлено!", delete_after=10)
-        except Exception as e:
-            await ctx.send(f"❌ Ошибка: {e}", delete_after=10)
-
-    @commands.command(name="testtennocon")
-    @commands.has_permissions(administrator=True)
-    async def test_tennocon(self, ctx):
-        """Тест: принудительно обновляет и отправляет информацию о TennoCon дропах."""
-        try:
-            await ctx.message.delete()
-        except Exception:
-            pass
-
-        await ctx.send("🔄 Запускаю обновление TennoCon дропов...", delete_after=5)
+        await ctx.send("🔄 Запускаю обновление всех данных...", delete_after=5)
         
         try:
-            # Сбрасываем хеш чтобы принудительно обновить
-            self._last_tennocon_drops_hash = None
-            await self._send_tennocon_drops()
-            await ctx.send("✅ TennoCon дропы обновлены! Проверьте канал уведомлений.", delete_after=10)
+            # Обновляем Warframe данные
+            data = await fetch_warframe_data()
+            info_channel = self.bot.get_channel(WARFRAME_INFO_CHANNEL_ID)
+            if info_channel:
+                await self._handle_baro(data.get("voidTrader", {}))
+                await self._build_and_send_main_embed(data, info_channel)
+                await self._check_twitch_drops(data)
+                # Сбрасываем хеш для принудительного обновления TennoCon
+                self._last_tennocon_drops_hash = None
+                await self._send_tennocon_drops()
+            
+            # Обновляем таблицу лидеров
+            leaderboard_cog = self.bot.get_cog("Leaderboard")
+            if leaderboard_cog:
+                await leaderboard_cog.update_leaderboard_manual(ctx)
+            
+            await ctx.send("✅ Все данные обновлены! (Warframe + Лидерборд)", delete_after=10)
         except Exception as e:
-            await ctx.send(f"❌ Ошибка: {e}", delete_after=15)
-            logging.error(f"[Warframe] Ошибка в testtennocon: {e}")
+            await ctx.send(f"❌ Ошибка обновления: {e}", delete_after=15)
+            logging.error(f"[Warframe] Ошибка в update: {e}")
 
 
 async def setup(bot):

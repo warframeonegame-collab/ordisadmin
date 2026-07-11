@@ -266,22 +266,11 @@ class ProfileSystem(commands.Cog):
         is_mod = (discord.utils.get(ctx.author.roles, id=1493218079528976414) is not None or 
                   discord.utils.get(ctx.author.roles, id=1492100129342357534) is not None)
 
-        # Раздел Система (только для администраторов)
-        system_parts = []
-        if ctx.author.guild_permissions.administrator:
-            system_parts.append("`.wf` - обновить статус Warframe в канале таймеров")
-            system_parts.append("`.updatetable` - обновить таблицу лидеров")
-        if system_parts:
-            embed.add_field(
-                name="🛠️ Система",
-                value="\n".join(system_parts),
-                inline=False
-            )
-
         # Раздел Модерация (для authorised roles)
         if is_mod:
             mod_parts = [
                 "`.warn @user <причина>` - выдать предупреждение (3/3 → штраф)",
+                "`.unwarn @user <причина>` - снять предупреждение",
                 "`.mute @user --chat/--voice <причина>` - заблокировать чат/голос",
                 "`.unmute @user` - снять блокировку",
                 "`.ban @user <причина>` - выдать штрафную роль (4 Tier)",
@@ -314,6 +303,19 @@ class ProfileSystem(commands.Cog):
             embed.add_field(
                 name="📁 Управление подразделениями",
                 value="`.setsubdivision @user <название>` - установить подразделение\n`.setsubdivision @user remove` - удалить подразделение",
+                inline=False
+            )
+
+        # Раздел Система (только для администраторов)
+        system_parts = []
+        if ctx.author.guild_permissions.administrator:
+            system_parts.append("`.update` - обновить все данные (Warframe + лидерборд)")
+            system_parts.append("`.updatetable` - обновить таблицу лидеров")
+            system_parts.append("`.sendquestionnaire` - отправить анкеты всем участникам")
+        if system_parts:
+            embed.add_field(
+                name="⚙️ Система",
+                value="\n".join(system_parts),
                 inline=False
             )
 
