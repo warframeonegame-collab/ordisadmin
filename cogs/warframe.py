@@ -660,23 +660,29 @@ class Warframe(commands.Cog):
                 months_map = {"July": 7, "August": 8, "September": 9}
 
                 drops = []
+                logging.info(f"[Warframe] Найдено карточек TennoCon: {len(cards)}")
 
-                for card in cards:
+                for idx, card in enumerate(cards):
                     try:
                         # Извлекаем название
                         title_elem = await card.query_selector('h3')
                         if not title_elem:
+                            logging.warning(f"[Warframe] Карточка {idx}: нет заголовка h3")
                             continue
                         name_raw = (await title_elem.inner_text()).strip()
+                        logging.info(f"[Warframe] Карточка {idx}: название = '{name_raw}'")
 
                         # Извлекаем дату
                         date_elem = await card.query_selector('.StreamCard-datetime div')
                         if not date_elem:
+                            logging.warning(f"[Warframe] Карточка {idx}: нет даты")
                             continue
                         date_text = (await date_elem.inner_text()).strip()
+                        logging.info(f"[Warframe] Карточка {idx}: дата текст = '{date_text}'")
                         # Парсим "July 10"
                         parts = date_text.split()
                         if len(parts) < 2:
+                            logging.warning(f"[Warframe] Карточка {idx}: недостаточно частей в дате")
                             continue
                         month_name = parts[0]
                         day = int(parts[1])
@@ -684,20 +690,23 @@ class Warframe(commands.Cog):
                         # Извлекаем время начала и конца
                         time_elems = await card.query_selector_all('.StreamCard-time div')
                         if len(time_elems) < 2:
+                            logging.warning(f"[Warframe] Карточка {idx}: меньше 2 time div")
                             continue
 
                         # Первый div - дата (уже обработана), второй - диапазон времени
                         # Время в формате "7 p.m. ET – 8:30 p.m. ET"
                         time_range_text = (await time_elems[1].inner_text()).strip()
+                        logging.info(f"[Warframe] Карточка {idx}: время текст = '{time_range_text}'")
 
-                        # Парсим диапазон времени "7:00 p.m. ET – 8:30 p.m. ET"
-                        time_range_match = re.match(r'(\d{1,2}):(\d{2})\s*(a\.m\.|p\.m\.)\s*ET\s*[–-]\s*(\d{1,2}):(\d{2})\s*(a\.m\.|p\.m\.)', time_range_text)
+                        # Парсим диапазон времени "7:00 p.m. ET – 8:30 p.m. ET" или "7 p.m. ET – 8:30 p.m. ET"
+                        time_range_match = re.match(r'(\d{1,2})(?::(\d{2}))?\s*(a\.m\.|p\.m\.)\s*ET\s*[–-]\s*(\d{1,2}):(\d{2})\s*(a\.m\.|p\.m\.)', time_range_text)
                         
                         if not time_range_match:
+                            logging.warning(f"[Warframe] Карточка {idx}: не удалось распарсить время")
                             continue
 
                         start_h = int(time_range_match.group(1))
-                        start_m = int(time_range_match.group(2))
+                        start_m = int(time_range_match.group(2)) if time_range_match.group(2) else 0
                         start_ampm = time_range_match.group(3)
                         end_h = int(time_range_match.group(4))
                         end_m = int(time_range_match.group(5))
@@ -721,16 +730,21 @@ class Warframe(commands.Cog):
                             start_dt = datetime(year, month, day, start_h, start_m)
                             end_dt = datetime(year, month, day, end_h, end_m)
                             
-                            if self._is_edt(start_dt):
-                                # EDT (летнее время) → МСК: прибавляем 8 часов
-                                ET_OFFSET = timedelta(hours=8)
-                            else:
-                                # EST (зимнее время) → МСК: прибавляем 7 часов
+                            is_edt = self._is_edt(start_dt)
+                            logging.info(f"[Warframe] Карточка {idx}: дата {year}-{month}-{day}, is_edt={is_edt}")
+                            
+                            if is_edt:
+                                # EDT (летнее время, UTC-4) → МСК (UTC+3): прибавляем 7 часов
                                 ET_OFFSET = timedelta(hours=7)
+                            else:
+                                # EST (зимнее время, UTC-5) → МСК (UTC+3): прибавляем 8 часов
+                                ET_OFFSET = timedelta(hours=8)
                             
                             start_msk = start_dt + ET_OFFSET
                             end_msk = end_dt + ET_OFFSET
-                        except Exception:
+                            logging.info(f"[Warframe] Карточка {idx}: ET {start_h}:{start_m:02d} → MSK {start_msk.strftime('%H:%M')} (смещение +{ET_OFFSET.total_seconds()/3600:.0f}ч)")
+                        except Exception as e:
+                            logging.error(f"[Warframe] Карточка {idx}: ошибка конвертации времени: {e}")
                             continue
 
                         # Извлекаем описание/награду
@@ -743,6 +757,7 @@ class Warframe(commands.Cog):
                             reward_text = re.sub(r'\*subject to change.*?\*', '', reward_text, flags=re.IGNORECASE).strip()
                             if len(reward_text) > 250:
                                 reward_text = reward_text[:250] + "..."
+                        logging.info(f"[Warframe] Карточка {idx}: награда = '{reward_text[:100]}'")
 
                         drops.append({
                             "name": name_raw,
@@ -750,6 +765,7 @@ class Warframe(commands.Cog):
                             "start_msk": start_msk,
                             "end_msk": end_msk,
                         })
+                        logging.info(f"[Warframe] Карточка {idx}: добавлен дроп {start_msk.strftime('%H:%M')} — {end_msk.strftime('%H:%M')} МСК")
                     except Exception as e:
                         logging.error(f"[Warframe] Ошибка парсинга карточки: {e}")
                         continue
@@ -759,6 +775,7 @@ class Warframe(commands.Cog):
             logging.error(f"[Warframe] Ошибка загрузки TennoCon страницы: {e}")
             return []
 
+        logging.info(f"[Warframe] Успешно спарсено дропов: {len(drops)}")
         drops.sort(key=lambda d: d["start_msk"])
         return drops
 
@@ -964,6 +981,26 @@ class Warframe(commands.Cog):
             await ctx.send("✅ Тестовое уведомление Twitch Drops отправлено!", delete_after=10)
         except Exception as e:
             await ctx.send(f"❌ Ошибка: {e}", delete_after=10)
+
+    @commands.command(name="testtennocon")
+    @commands.has_permissions(administrator=True)
+    async def test_tennocon(self, ctx):
+        """Тест: принудительно обновляет и отправляет информацию о TennoCon дропах."""
+        try:
+            await ctx.message.delete()
+        except Exception:
+            pass
+
+        await ctx.send("🔄 Запускаю обновление TennoCon дропов...", delete_after=5)
+        
+        try:
+            # Сбрасываем хеш чтобы принудительно обновить
+            self._last_tennocon_drops_hash = None
+            await self._send_tennocon_drops()
+            await ctx.send("✅ TennoCon дропы обновлены! Проверьте канал уведомлений.", delete_after=10)
+        except Exception as e:
+            await ctx.send(f"❌ Ошибка: {e}", delete_after=15)
+            logging.error(f"[Warframe] Ошибка в testtennocon: {e}")
 
 
 async def setup(bot):
