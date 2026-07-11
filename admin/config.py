@@ -13,9 +13,12 @@ DISCORD_BOT_TOKEN = os.getenv('DISCORD_TOKEN', '')
 
 # ==================== FLASK ====================
 SECRET_KEY = os.getenv('FLASK_SECRET_KEY', 'arasaka-plaza-admin-secret-key-change-me')
-# Путь к БД: DATA_DIR (или /app/data) + database.json
-DATA_DIR = os.getenv('DATA_DIR', '/app/data')
+# Путь к БД: корень проекта /data
+# На хостинге: /app/data, локально: e:\bots DS\Ordis2\data
+PROJECT_ROOT = os.path.dirname(os.path.dirname(__file__))
+DATA_DIR = os.getenv('DATA_DIR', os.path.join(PROJECT_ROOT, 'data'))
 DATABASE_PATH = os.path.join(DATA_DIR, 'database.json')
+LOGS_PATH = os.path.join(DATA_DIR, 'logs.json')
 
 # ==================== DISCORD SERVER ====================
 GUILD_ID = os.getenv('GUILD_ID', '1255216389296492564')  # ID сервера Arasaka Plaza
@@ -24,8 +27,12 @@ LOG_CHANNEL_ID = '1255221212519596184'  # Канал для отправки к�
 # Discord роль, которая автоматически даёт роль "Рекрутер" на сайте
 RECRUITER_DISCORD_ROLE_ID = '1513958773331464285'
 
+# ==================== ПРИГЛАШЕНИЕ НА СЕРВЕР ====================
+INVITE_URL = "https://discord.gg/Whsgd3fJmS"  # Ссылка приглашения на сервер
+
 # ==================== РОЛИ НА САЙТЕ ====================
 # Discord ID → роль на сайте
+# Эти роли мигрируются в БД при первом запуске, можно оставить хардкод как дефолт
 SITE_ROLES = {
     '436827887165898752': 'founder',      # Основатель (Weelh)
     '748069725698785381': 'cofounder',    # Со-основатель
@@ -44,6 +51,7 @@ ROLE_PERMISSIONS = {
         'roles_manage': False,
         'settings_manage': False,
         'questionnaires_view': True,
+        'rules_edit': False,
     },
     'user': {
         'dashboard': True,
@@ -55,6 +63,7 @@ ROLE_PERMISSIONS = {
         'timers_view': True,
         'roles_manage': False,
         'settings_manage': False,
+        'rules_edit': False,
     },
     'admin': {
         'dashboard': True,
@@ -67,6 +76,7 @@ ROLE_PERMISSIONS = {
         'roles_manage': False,
         'settings_manage': False,
         'questionnaires_view': True,
+        'rules_edit': True,
     },
     'cofounder': {
         'dashboard': True,
@@ -79,6 +89,7 @@ ROLE_PERMISSIONS = {
         'roles_manage': True,
         'settings_manage': False,
         'questionnaires_view': True,
+        'rules_edit': True,
     },
     'founder': {
         'dashboard': True,
@@ -91,6 +102,8 @@ ROLE_PERMISSIONS = {
         'roles_manage': True,
         'settings_manage': True,
         'questionnaires_view': True,
+        'rules_edit': True,
+        'antileak_view': True,
     },
 }
 
@@ -105,6 +118,9 @@ ROLE_NAMES = {
 
 # ==================== УВЕДОМЛЕНИЯ ====================
 BARO_NOTIFY_MINUTES = 30  # За сколько минут до прибытия Баро отправлять уведомление
+
+# ==================== КАНАЛ ОБЪЯВЛЕНИЙ ====================
+ANNOUNCEMENT_CHANNEL_ID = '1257267587432058993'
 
 # ==================== WARFRAME API ====================
 WARFRAME_API = "https://api.warframestat.us/pc/"

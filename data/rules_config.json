@@ -1,0 +1,13 @@
+{
+  "categories": [
+    {"id": "main", "name": "Основные правила", "slug": "rules"},
+    {"id": "recruiter", "name": "Правила рекрутеров", "slug": "recruiter-rules"}
+  ],
+  "category_permissions": {
+    "founder": ["main", "recruiter"],
+    "cofounder": ["main", "recruiter"],
+    "admin": ["main"],
+    "recruiter": [],
+    "user": []
+  }
+}

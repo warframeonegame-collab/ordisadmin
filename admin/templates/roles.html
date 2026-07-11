@@ -50,6 +50,15 @@
     </div>
 </div>
 
+<!-- Кнопка удаления роли (только для founder) -->
+{% if role == 'founder' %}
+<div class="mb-3">
+    <button class="btn btn-outline-danger" onclick="openDeleteRoleModal()">
+        <i class="fas fa-trash-alt"></i> Удалить роль
+    </button>
+</div>
+{% endif %}
+
 <!-- Добавить роль -->
 {% if role == 'founder' %}
 <div class="card mb-4">
@@ -98,35 +107,36 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {% for perm, desc in [
-                        ('dashboard', 'Главная страница'),
-                        ('members_view_own', 'Просмотр своего профиля'),
-                        ('members_view_all', 'Просмотр всех участников'),
-                        ('members_edit', 'Редактирование участников'),
-                        ('logs_view', 'Просмотр логов'),
-                        ('commands_use', 'Использование команд'),
-                        ('timers_view', 'Просмотр таймеров'),
-                        ('roles_manage', 'Управление ролями'),
-                        ('settings_manage', 'Настройки сайта'),
-                        ('questionnaires_view', 'Просмотр анкет'),
-                    ] %}
-                    <tr>
-                        <td>{{ desc }}</td>
-                        {% for r in ['user', 'recruiter', 'admin', 'cofounder', 'founder'] %}
-                        <td>
-                            <span class="perm-toggle clickable" data-role="{{ r }}" data-perm="{{ perm }}" 
-                                  data-enabled="{{ 'true' if role_permissions[r].get(perm) else 'false' }}"
-                                  data-editable="{{ 'true' if role == 'founder' else 'false' }}">
-                                {% if role_permissions[r].get(perm) %}
-                                <i class="fas fa-check text-success"></i>
-                                {% else %}
-                                <i class="fas fa-times text-danger"></i>
-                                {% endif %}
-                            </span>
-                        </td>
-                        {% endfor %}
-                    </tr>
+                {% for perm, desc in [
+                    ('dashboard', 'Главная страница'),
+                    ('members_view_own', 'Просмотр своего профиля'),
+                    ('members_view_all', 'Просмотр всех участников'),
+                    ('members_edit', 'Редактирование участников'),
+                    ('logs_view', 'Просмотр логов'),
+                    ('commands_use', 'Использование команд'),
+                    ('timers_view', 'Просмотр таймеров'),
+                    ('roles_manage', 'Управление ролями'),
+                    ('settings_manage', 'Настройки сайта'),
+                    ('questionnaires_view', 'Просмотр анкет'),
+                    ('rules_edit', 'Редактирование правил'),
+                ] %}
+                <tr>
+                    <td>{{ desc }}</td>
+                    {% for r in ['user', 'recruiter', 'admin', 'cofounder', 'founder'] %}
+                    <td>
+                        <span class="perm-toggle clickable" data-role="{{ r }}" data-perm="{{ perm }}" 
+                              data-enabled="{{ 'true' if role_permissions[r].get(perm) else 'false' }}"
+                              data-editable="{{ 'true' if role == 'founder' else 'false' }}">
+                            {% if role_permissions[r].get(perm) %}
+                            <i class="fas fa-check text-success"></i>
+                            {% else %}
+                            <i class="fas fa-times text-danger"></i>
+                            {% endif %}
+                        </span>
+                    </td>
                     {% endfor %}
+                </tr>
+                {% endfor %}
                 </tbody>
             </table>
         </div>
@@ -170,6 +180,7 @@
                         ('roles_manage', 'Роли'),
                         ('settings_manage', 'Настройки'),
                         ('questionnaires_view', 'Анкеты'),
+                        ('rules_edit', 'Правила'),
                     ] %}
                     <div class="col-md-4">
                         <div class="form-check">
@@ -190,6 +201,38 @@
     </div>
 </div>
 {% endif %}
+
+<!-- Модальное окно: удаление роли -->
+<div class="modal fade" id="deleteRoleModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content" style="background: #1a1a1a; border: 1px solid #3a3a3a;">
+            <div class="modal-header" style="border-color: #3a3a3a;">
+                <h5 class="modal-title"><i class="fas fa-trash-alt text-danger"></i> Удалить роль</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted mb-3">Выберите роль для удаления. Пользователи с этой ролью будут сброшены на "Пользователь".</p>
+                <div class="mb-3">
+                    <label class="form-label">Роль для удаления</label>
+                    <select class="form-select" id="delete-role-select">
+                        {% for r, name in role_names.items() %}
+                            {% if r not in ['user', 'founder'] %}
+                            <option value="{{ r }}">{{ name }} ({{ r }})</option>
+                            {% endif %}
+                        {% endfor %}
+                    </select>
+                </div>
+                <div id="delete-role-status"></div>
+            </div>
+            <div class="modal-footer" style="border-color: #3a3a3a;">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-danger" onclick="deleteSelectedRole()">
+                    <i class="fas fa-trash-alt"></i> Удалить
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 
 {% endblock %}
 
@@ -305,7 +348,7 @@ document.getElementById('createRoleForm')?.addEventListener('submit', async (e) 
     const roleDisplay = formData.get('role_display');
     
     const permissions = {};
-    const permKeys = ['dashboard', 'members_view_own', 'members_view_all', 'members_edit', 'logs_view', 'commands_use', 'timers_view', 'roles_manage', 'settings_manage', 'questionnaires_view'];
+    const permKeys = ['dashboard', 'members_view_own', 'members_view_all', 'members_edit', 'logs_view', 'commands_use', 'timers_view', 'roles_manage', 'settings_manage', 'questionnaires_view', 'rules_edit'];
     permKeys.forEach(perm => {
         permissions[perm] = formData.has('perm_' + perm);
     });
@@ -326,5 +369,38 @@ document.getElementById('createRoleForm')?.addEventListener('submit', async (e) 
         alert('Ошибка: ' + e.message);
     }
 });
+
+// ========== УДАЛЕНИЕ РОЛИ ==========
+function openDeleteRoleModal() {
+    new bootstrap.Modal(document.getElementById('deleteRoleModal')).show();
+    document.getElementById('delete-role-status').innerHTML = '';
+}
+
+async function deleteSelectedRole() {
+    const select = document.getElementById('delete-role-select');
+    const roleName = select.value;
+    const status = document.getElementById('delete-role-status');
+    
+    if (!confirm(`Вы уверены, что хотите удалить роль "${select.options[select.selectedIndex].text}"? Пользователи с этой ролью будут сброшены на "Пользователь".`)) return;
+    
+    status.innerHTML = '<div class="text-success"><i class="fas fa-spinner fa-spin"></i> Удаление...</div>';
+    
+    try {
+        const resp = await fetch('/api/roles/delete', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ role_name: roleName })
+        });
+        if (resp.ok) {
+            status.innerHTML = '<div class="alert alert-success"><i class="fas fa-check"></i> Роль удалена!</div>';
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            const data = await resp.json();
+            status.innerHTML = `<div class="alert alert-danger">${data.error || 'Ошибка'}</div>`;
+        }
+    } catch (e) {
+        status.innerHTML = `<div class="alert alert-danger">Ошибка: ${e.message}</div>`;
+    }
+}
 </script>
 {% endblock %}

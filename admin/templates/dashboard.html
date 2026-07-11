@@ -5,7 +5,7 @@
 {% block content %}
 <div class="page-header">
     <h1><i class="fas fa-home"></i> Dashboard</h1>
-    <p class="text-muted">Arasaka Plaza | Warframe Clan</p>
+    <p class="text-muted">Arasaka Plaza | Discord Server</p>
 </div>
 
 <!-- Бот статус -->
@@ -68,9 +68,24 @@
     </div>
 </div>
 
-<!-- Быстрые действия -->
-<div class="row">
-    <div class="col-md-6">
+<!-- Информация о сервере -->
+<div class="row mb-4">
+    <div class="col-md-7">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-server"></i> Информация о сервере</h5>
+            </div>
+            <div class="card-body" id="server-info">
+                <div class="text-center">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Загрузка...</span>
+                    </div>
+                    <p class="mt-2">Загрузка данных сервера...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-5">
         <div class="card">
             <div class="card-header">
                 <h5><i class="fas fa-bolt"></i> Быстрые действия</h5>
@@ -88,73 +103,172 @@
                         <i class="fas fa-list-alt"></i> Просмотр логов
                     </a>
                     {% endif %}
-                    <a href="{{ url_for('timers') }}" class="btn btn-outline-warning">
+                    <a href="{{ url_for('leaderboard') }}" class="btn btn-outline-warning">
+                        <i class="fas fa-trophy"></i> Таблица лидеров
+                    </a>
+                    <a href="{{ url_for('timers') }}" class="btn btn-outline-secondary">
                         <i class="fas fa-clock"></i> Таймеры Warframe
+                    </a>
+                    <a href="{{ invite_url }}" target="_blank" class="btn btn-primary">
+                        <i class="fas fa-link"></i> Присоединиться к серверу
                     </a>
                 </div>
             </div>
         </div>
-    </div>
-    <div class="col-md-6">
+</div>
+</div>
+
+<!-- Неактивные участники -->
+{% if role in ['admin', 'cofounder', 'founder'] %}
+<div class="row mb-4">
+    <div class="col-12">
         <div class="card">
-            <div class="card-header">
-                <h5><i class="fas fa-gamepad"></i> Warframe</h5>
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5><i class="fas fa-user-clock"></i> Неактивные участники (>14 дней)</h5>
+                <button class="btn btn-sm btn-outline-secondary" onclick="loadInactive()">
+                    <i class="fas fa-sync-alt"></i>
+                </button>
             </div>
-            <div class="card-body" id="warframe-quick">
-                <div class="text-center">
-                    <div class="spinner-border text-warning" role="status">
-                        <span class="visually-hidden">Загрузка...</span>
-                    </div>
-                    <p class="mt-2">Загрузка данных...</p>
+            <div class="card-body" id="inactiveContainer">
+                <div class="text-center py-3">
+                    <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
                 </div>
             </div>
         </div>
     </div>
 </div>
+{% endif %}
 
 {% endblock %}
 
 {% block scripts %}
+<style>
+.server-stat {
+    background: var(--bg-card);
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 10px;
+    border-left: 3px solid #e91e63;
+    transition: transform 0.2s;
+}
+.server-stat:hover {
+    transform: translateX(5px);
+}
+.server-stat .stat-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #e91e63;
+}
+.server-stat .stat-label {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+}
+</style>
 <script>
-async function loadWarframeData() {
+async function loadServerInfo() {
     try {
-        const resp = await fetch('/api/warframe/baro');
+        const resp = await fetch('/api/server/stats');
         const data = await resp.json();
         
-        if (data.name) {
-            const endDate = new Date(data.endTime);
-            const now = new Date();
-            const diff = endDate - now;
-            
-            if (diff > 0) {
-                const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-                const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-                document.getElementById('warframe-quick').innerHTML = `
-                    <div class="text-center">
-                        <h6 class="text-warning"><i class="fas fa-store"></i> Баро Ки'Тиер</h6>
-                        <p class="mb-1">Покинет через:</p>
-                        <h4>${days}д ${hours}ч</h4>
-                    </div>
-                `;
-            } else {
-                document.getElementById('warframe-quick').innerHTML = `
-                    <div class="text-center">
-                        <h6 class="text-warning"><i class="fas fa-store"></i> Баро Ки'Тиер</h6>
-                        <p>Ожидается прибытие...</p>
-                    </div>
-                `;
-            }
+        const container = document.getElementById('server-info');
+        
+        let seniorOnlineText = '0';
+        if (data.senior_online !== undefined) {
+            seniorOnlineText = data.senior_online;
         }
+        
+        container.innerHTML = `
+            <div class="server-stat">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="stat-value">${data.total_members || 0}</div>
+                        <div class="stat-label"><i class="fas fa-users"></i> Всего участников</div>
+                    </div>
+                    <i class="fas fa-users fa-2x" style="color: #e91e63; opacity: 0.3;"></i>
+                </div>
+            </div>
+            
+            <div class="server-stat" style="border-left-color: #28a745;">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="stat-value" style="color: #28a745;">${data.online_now || 'N/A'}</div>
+                        <div class="stat-label"><i class="fas fa-circle" style="color: #28a745;"></i> В сети сейчас</div>
+                    </div>
+                    <i class="fas fa-signal fa-2x" style="color: #28a745; opacity: 0.3;"></i>
+                </div>
+            </div>
+            
+            <div class="server-stat" style="border-left-color: #f1c40f;">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="stat-value" style="color: #f1c40f;">${seniorOnlineText}</div>
+                        <div class="stat-label"><i class="fas fa-star" style="color: #f1c40f;"></i> Старший состав онлайн</div>
+                    </div>
+                    <i class="fas fa-crown fa-2x" style="color: #f1c40f; opacity: 0.3;"></i>
+                </div>
+            </div>
+        `;
     } catch (e) {
-        document.getElementById('warframe-quick').innerHTML = `
-            <div class="text-center text-muted">
-                <i class="fas fa-exclamation-circle"></i>
-                <p>Не удалось загрузить данные</p>
+        console.error('Failed to load server info:', e);
+        document.getElementById('server-info').innerHTML = `
+            <div class="text-center text-muted py-4">
+                <i class="fas fa-exclamation-circle fa-3x mb-3"></i>
+                <p>Не удалось загрузить данные сервера</p>
             </div>
         `;
     }
 }
 
-loadWarframeData();
+loadServerInfo();
+
+// ========== НЕАКТИВНЫЕ УЧАСТНИКИ ==========
+async function loadInactive() {
+    const container = document.getElementById('inactiveContainer');
+    if (!container) return;
+    
+    try {
+        const resp = await fetch('/api/stats/inactive');
+        const data = await resp.json();
+        const inactive = data.inactive || [];
+        
+        if (inactive.length === 0) {
+            container.innerHTML = '<div class="text-center text-muted py-3"><i class="fas fa-check-circle me-2"></i>Все участники активны</div>';
+            return;
+        }
+        
+        let html = `<div class="mb-2 text-muted" style="font-size:0.85rem;">Найдено: ${inactive.length} (порог: ${data.threshold || 30} дней)</div>`;
+        html += '<div class="table-responsive"><table class="table table-dark table-sm"><thead><tr><th>Участник</th><th>Последняя активность</th><th>Дней</th></tr></thead><tbody>';
+        
+        for (const m of inactive) {
+            const la = m.last_active ? new Date(m.last_active).toLocaleString('ru-RU') : 'Нет данных';
+            let days = m.days_ago !== null ? m.days_ago : null;
+            let badgeHtml = '';
+            if (days === null) {
+                badgeHtml = '<span class="badge bg-secondary">Нет данных</span>';
+            } else {
+                const badgeClass = days > 60 ? 'danger' : 'warning';
+                badgeHtml = `<span class="badge bg-${badgeClass}">${days} дн.</span>`;
+            }
+            html += `<tr>
+                <td><a href="/member/${m.user_id}" style="color:var(--accent-pink)">${escapeHtml(m.nickname)}</a> <small class="text-muted">${m.user_id}</small></td>
+                <td><small>${la}</small></td>
+                <td>${badgeHtml}</td>
+            </tr>`;
+        }
+        
+        html += '</tbody></table></div>';
+        container.innerHTML = html;
+    } catch (e) {
+        container.innerHTML = '<div class="text-center text-muted py-3">Не удалось загрузить данные</div>';
+    }
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text || '';
+    return div.innerHTML;
+}
+
+loadInactive();
 </script>
 {% endblock %}

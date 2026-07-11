@@ -1,6 +1,7 @@
 import json
 import os
 from datetime import datetime
+from typing import Optional
 import config
 
 class Database:
@@ -10,7 +11,9 @@ class Database:
         if cls._instance is None:
             cls._instance = super().__new__(cls)
             cls._instance.db_file = config.DB_FILE
+            cls._instance.site_roles_file = os.path.join(config.DATA_DIR, 'site_roles.json')
             cls._instance.data = cls._instance.load_data()
+            cls._instance.site_roles = cls._instance.load_site_roles()
             cls._instance._create_directory()
         return cls._instance
 
@@ -29,6 +32,22 @@ class Database:
             if os.path.exists(self.db_file):
                 with open(self.db_file, 'r', encoding='utf-8') as f:
                     data = json.load(f)
+                
+                # Миграция: переносим _site_roles из database.json в site_roles.json
+                if '_site_roles' in data:
+                    old_site_roles = data.pop('_site_roles')
+                    if old_site_roles:
+                        self.site_roles_file = os.path.join(
+                            os.path.dirname(self.db_file) or config.DATA_DIR, 
+                            'site_roles.json'
+                        )
+                        self.site_roles = self.load_site_roles()
+                        self.site_roles.update(old_site_roles)
+                        self.save_site_roles()
+                        print(f"Миграция: _site_roles перенесён в site_roles.json")
+                        # Сохраняем database.json без _site_roles
+                        with open(self.db_file, 'w', encoding='utf-8') as f:
+                            json.dump(data, f, indent=4, ensure_ascii=False)
                 
                 DEFAULT_FIELDS = {
                     'position': None,
@@ -230,3 +249,47 @@ class Database:
     def __del__(self):
         """Сохраняет данные при уничтожении объекта"""
         self.save_data()
+
+    # ==================== SITE ROLES (отдельный файл) ====================
+
+    def load_site_roles(self) -> dict:
+        """Загружает site_roles из отдельного файла site_roles.json"""
+        try:
+            if os.path.exists(self.site_roles_file):
+                with open(self.site_roles_file, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+            return {}
+        except Exception as e:
+            print(f"Ошибка при загрузке site_roles: {str(e)}")
+            return {}
+
+    def save_site_roles(self):
+        """Сохраняет site_roles в отдельный файл site_roles.json"""
+        try:
+            directory = os.path.dirname(self.site_roles_file)
+            if directory and not os.path.exists(directory):
+                os.makedirs(directory)
+            with open(self.site_roles_file, 'w', encoding='utf-8') as f:
+                json.dump(self.site_roles, f, indent=4, ensure_ascii=False)
+        except Exception as e:
+            print(f"Ошибка при сохранении site_roles: {str(e)}")
+
+    def get_site_roles(self) -> dict:
+        """Возвращает сохранённые site_roles"""
+        return self.site_roles
+
+    def set_site_role(self, user_id: str, role: str):
+        """Устанавливает роль пользователя на сайте и сохраняет в отдельный файл"""
+        self.site_roles[str(user_id)] = role
+        self.save_site_roles()
+
+    def remove_site_role(self, user_id: str):
+        """Удаляет роль пользователя на сайте"""
+        if str(user_id) in self.site_roles:
+            del self.site_roles[str(user_id)]
+            self.save_site_roles()
+
+    def merge_site_roles(self, roles: dict):
+        """Сливает переданные site_roles с сохранёнными (для миграции из хардкода)"""
+        self.site_roles.update(roles)
+        self.save_site_roles()

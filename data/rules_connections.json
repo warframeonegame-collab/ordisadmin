@@ -1,0 +1,28 @@
+{
+  "connections": [
+    {
+      "from": "outside",
+      "to": "first"
+    },
+    {
+      "from": "first",
+      "to": "second-recruiter"
+    },
+    {
+      "from": "first",
+      "to": "second-builder"
+    },
+    {
+      "from": "second-recruiter",
+      "to": "third-recruiter"
+    },
+    {
+      "from": "second-builder",
+      "to": "third-builder"
+    },
+    {
+      "from": "third-recruiter",
+      "to": "combined"
+    }
+  ]
+}

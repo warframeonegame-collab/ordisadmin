@@ -21,8 +21,9 @@ SUBDIVISION_ROLE_ID = 1493218079528976414  # ID роли, которая мож�
 
 # 📊 Система уровней
 load_dotenv()
-# Путь к БД: DATA_DIR (или /app/data) + database.json
-DATA_DIR = os.getenv('DATA_DIR', '/app/data')
+# Путь к БД: корень проекта /data
+PROJECT_ROOT = os.path.dirname(__file__)
+DATA_DIR = os.getenv('DATA_DIR', os.path.join(PROJECT_ROOT, 'data'))
 DB_FILE = os.path.join(DATA_DIR, 'database.json')
 XP_PER_MESSAGE = 5  # Опыт за сообщение
 XP_PER_VOICE = 5  # Опыт за нахождение в голосовом канале (каждые 60 сек)
@@ -52,3 +53,15 @@ EMOJIS = {
     "ERROR": "❌",
     "INFO": "🔍"
 }
+
+# 🛡️ Антилив — пороги срабатывания
+ANTILEAK_WINDOW = 60                    # Окно времени в секундах
+ANTILEAK_BAN_THRESHOLD = 3              # Банов за окно → триггер
+ANTILEAK_KICK_THRESHOLD = 3             # Киков за окно → триггер
+ANTILEAK_CHANNEL_DELETE_THRESHOLD = 2   # Удалений каналов за окно → триггер
+ANTILEAK_CHANNEL_CREATE_THRESHOLD = 5   # Созданий каналов за окно → триггер
+ANTILEAK_PERMISSION_THRESHOLD = 5       # Изменений прав каналов за окно → триггер
+ANTILEAK_ROLE_THRESHOLD = 5             # Изменений ролей за окно → триггер
+ANTILEAK_GUILD_CHANGE_THRESHOLD = 1     # Изменений сервера (название/иконка) → триггер
+ANTILEAK_OWNER_TRANSFER = 1             # Передача владельца → триггер
+ANTILEAK_BOT_ADD = 1                    # Подключение бота → триггер

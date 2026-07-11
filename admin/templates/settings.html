@@ -5,132 +5,465 @@
 {% block content %}
 <div class="page-header">
     <h1><i class="fas fa-cog"></i> Настройки</h1>
-    <p class="text-muted">Управление настройками сайта и бота</p>
+    <p class="text-muted">Управление настройками сайта, безопасностью и сессиями</p>
 </div>
 
-<div class="row">
-    <!-- Discord настройки -->
-    <div class="col-md-6">
-        <div class="card mb-4">
-            <div class="card-header">
-                <h5><i class="fab fa-discord"></i> Discord</h5>
-            </div>
-            <div class="card-body">
-                <form id="discordSettingsForm">
-                    <div class="mb-3">
-                        <label class="form-label">Client ID</label>
-                        <input type="text" class="form-control" id="clientId" placeholder="Discord Client ID">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Client Secret</label>
-                        <input type="password" class="form-control" id="clientSecret" placeholder="Discord Client Secret">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Redirect URI</label>
-                        <input type="text" class="form-control" id="redirectUri" placeholder="http://localhost:5000/callback">
-                    </div>
-                    <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-save"></i> Сохранить
-                    </button>
-                </form>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Бот настройки -->
-    <div class="col-md-6">
-        <div class="card mb-4">
-            <div class="card-header">
-                <h5><i class="fas fa-robot"></i> Бот</h5>
-            </div>
-            <div class="card-body">
-                <form id="botSettingsForm">
-                    <div class="mb-3">
-                        <label class="form-label">Bot Token</label>
-                        <input type="password" class="form-control" id="botToken" placeholder="Discord Bot Token">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Guild ID</label>
-                        <input type="text" class="form-control" id="guildId" placeholder="ID сервера Discord">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Канал логов</label>
-                        <input type="text" class="form-control" id="logChannel" placeholder="ID канала логов">
-                    </div>
-                    <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-save"></i> Сохранить
-                    </button>
-                </form>
-            </div>
-        </div>
-    </div>
-</div>
+<!-- Вкладки -->
+<ul class="nav nav-tabs mb-4" id="settingsTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="general-tab" data-bs-toggle="tab" data-bs-target="#general" type="button" role="tab">
+            <i class="fas fa-sliders-h"></i> Основные
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="antileak-tab" data-bs-toggle="tab" data-bs-target="#antileak" type="button" role="tab">
+            <i class="fas fa-shield-alt"></i> Антислив
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="sessions-tab" data-bs-toggle="tab" data-bs-target="#sessions" type="button" role="tab">
+            <i class="fas fa-desktop"></i> Сессии
+        </button>
+    </li>
+</ul>
 
-<!-- Уведомления -->
-<div class="card mb-4">
-    <div class="card-header">
-        <h5><i class="fas fa-bell"></i> Уведомления</h5>
-    </div>
-    <div class="card-body">
+<div class="tab-content" id="settingsTabContent">
+    <!-- ====== ВКЛАДКА: ОСНОВНЫЕ ====== -->
+    <div class="tab-pane fade show active" id="general" role="tabpanel">
         <div class="row">
-            <div class="col-md-4">
-                <div class="form-check form-switch mb-3">
-                    <input class="form-check-input" type="checkbox" id="baroNotify" checked>
-                    <label class="form-check-label" for="baroNotify">Уведомления о Баро</label>
+            <div class="col-md-6">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5><i class="fab fa-discord"></i> Discord</h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="discordSettingsForm">
+                            <div class="mb-3">
+                                <label class="form-label">Client ID</label>
+                                <input type="text" class="form-control" id="clientId" placeholder="Discord Client ID">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Client Secret</label>
+                                <input type="password" class="form-control" id="clientSecret" placeholder="Discord Client Secret">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Redirect URI</label>
+                                <input type="text" class="form-control" id="redirectUri" placeholder="http://localhost:5000/callback">
+                            </div>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Сохранить
+                            </button>
+                        </form>
+                    </div>
                 </div>
             </div>
-            <div class="col-md-4">
-                <div class="mb-3">
-                    <label class="form-label">За сколько минут</label>
-                    <input type="number" class="form-control" id="baroMinutes" value="30" min="5" max="1440">
+            
+            <div class="col-md-6">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5><i class="fas fa-robot"></i> Бот</h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="botSettingsForm">
+                            <div class="mb-3">
+                                <label class="form-label">Bot Token</label>
+                                <input type="password" class="form-control" id="botToken" placeholder="Discord Bot Token">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Guild ID</label>
+                                <input type="text" class="form-control" id="guildId" placeholder="ID сервера Discord">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Канал логов</label>
+                                <input type="text" class="form-control" id="logChannel" placeholder="ID канала логов">
+                            </div>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Сохранить
+                            </button>
+                        </form>
+                    </div>
                 </div>
             </div>
-            <div class="col-md-4">
-                <button class="btn btn-primary" onclick="saveNotifSettings()">
-                    <i class="fas fa-save"></i> Сохранить
-                </button>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5><i class="fas fa-bell"></i> Уведомления</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input" type="checkbox" id="baroNotify" checked>
+                            <label class="form-check-label" for="baroNotify">Уведомления о Баро</label>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label class="form-label">За сколько минут</label>
+                            <input type="number" class="form-control" id="baroMinutes" value="30" min="5" max="1440">
+                        </div>
+                    </div>
+                    <div class="col-md-4 d-flex align-items-end">
+                        <button class="btn btn-primary" onclick="saveNotifSettings()">
+                            <i class="fas fa-save"></i> Сохранить
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-info-circle"></i> Системная информация</h5>
+            </div>
+            <div class="card-body">
+                <table class="table table-dark">
+                    <tr><th>Версия</th><td>1.0.0</td></tr>
+                    <tr><th>PYTHON</th><td>3.11+</td></tr>
+                    <tr><th>Flask</th><td>3.0+</td></tr>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- ====== ВКЛАДКА: АНТИСЛИВ ====== -->
+    <div class="tab-pane fade" id="antileak" role="tabpanel">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="mb-0"><i class="fas fa-shield-alt me-2 text-danger"></i>Мониторинг безопасности</h5>
+            <button class="btn btn-sm btn-outline-secondary" onclick="loadAlerts()">
+                <i class="fas fa-sync-alt me-1"></i>Обновить
+            </button>
+        </div>
+
+        <div class="row mb-4">
+            <div class="col-3">
+                <div class="card">
+                    <div class="card-body text-center py-3">
+                        <h3 class="text-danger mb-0" id="pendingCount">0</h3>
+                        <small class="text-muted">Ожидают</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-3">
+                <div class="card">
+                    <div class="card-body text-center py-3">
+                        <h3 class="text-success mb-0" id="confirmedCount">0</h3>
+                        <small class="text-muted">Подтверждено</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-3">
+                <div class="card">
+                    <div class="card-body text-center py-3">
+                        <h3 class="text-warning mb-0" id="rejectedCount">0</h3>
+                        <small class="text-muted">Отклонено</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-3">
+                <div class="card">
+                    <div class="card-body text-center py-3">
+                        <h3 class="text-secondary mb-0" id="totalCount">0</h3>
+                        <small class="text-muted">Всего</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="mb-3">
+            <div class="btn-group btn-group-sm" role="group">
+                <button type="button" class="btn btn-outline-danger active" data-filter="all" onclick="filterAlerts('all', this)">Все</button>
+                <button type="button" class="btn btn-outline-warning" data-filter="pending" onclick="filterAlerts('pending', this)">Ожидают</button>
+                <button type="button" class="btn btn-outline-success" data-filter="confirmed" onclick="filterAlerts('confirmed', this)">Подтверждено</button>
+                <button type="button" class="btn btn-outline-secondary" data-filter="rejected" onclick="filterAlerts('rejected', this)">Отклонено</button>
+            </div>
+        </div>
+
+        <div id="alertsContainer">
+            <div class="text-center py-5">
+                <div class="spinner-border text-danger" role="status"></div>
+                <p class="text-muted mt-2">Загрузка...</p>
+            </div>
+        </div>
+
+        <div class="modal fade" id="alertModal" tabindex="-1">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title"><i class="fas fa-shield-alt me-2 text-danger"></i>Детали алерта</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body" id="alertModalBody"></div>
+                    <div class="modal-footer" id="alertModalFooter"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ====== ВКЛАДКА: СЕССИИ ====== -->
+    <div class="tab-pane fade" id="sessions" role="tabpanel">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="mb-0"><i class="fas fa-desktop me-2"></i>Активные сессии</h5>
+            <button class="btn btn-sm btn-outline-secondary" onclick="loadSessions()">
+                <i class="fas fa-sync-alt me-1"></i>Обновить
+            </button>
+        </div>
+        <div class="card">
+            <div class="card-body" id="sessionsContainer">
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <p class="text-muted mt-2">Загрузка...</p>
+                </div>
             </div>
         </div>
     </div>
 </div>
-
-<!-- Системная информация -->
-<div class="card">
-    <div class="card-header">
-        <h5><i class="fas fa-info-circle"></i> Системная информация</h5>
-    </div>
-    <div class="card-body">
-        <table class="table table-dark">
-            <tr>
-                <th>Версия</th>
-                <td>1.0.0</td>
-            </tr>
-            <tr>
-                <th>PYTHON</th>
-                <td>3.11+</td>
-            </tr>
-            <tr>
-                <th>Flask</th>
-                <td>3.0+</td>
-            </tr>
-        </table>
-    </div>
-</div>
-
 {% endblock %}
 
 {% block scripts %}
 <script>
+// ====== ОСНОВНЫЕ НАСТРОЙКИ ======
 function saveNotifSettings() {
     const enabled = document.getElementById('baroNotify').checked;
     const minutes = document.getElementById('baroMinutes').value;
     localStorage.setItem('baroNotifyEnabled', enabled);
     localStorage.setItem('baroNotifyMinutes', minutes);
-    alert('Настройки сохранены!');
+    showToast('Настройки сохранены!', 'success');
 }
 
-// Загрузка сохранённых настроек
 document.getElementById('baroNotify').checked = localStorage.getItem('baroNotifyEnabled') !== 'false';
 document.getElementById('baroMinutes').value = localStorage.getItem('baroNotifyMinutes') || 30;
+
+// ====== АНТИСЛИВ ======
+let allAlerts = [];
+let currentFilter = 'all';
+
+const ACTION_LABELS = {
+    'member_ban_add': '🚫 Массовый бан',
+    'member_kick': '👢 Массовый кик',
+    'channel_delete': '🗑️ Удаление каналов',
+    'channel_create': '📝 Создание каналов',
+    'channel_overwrite_update': '🔓 Изменение прав каналов',
+    'member_role_update': '👥 Изменение ролей',
+    'guild_update': '⚙️ Изменение сервера',
+    'owner_transfer': '👑 Передача владельца',
+    'bot_add': '🤖 Подключение бота',
+};
+
+const STATUS_LABELS = {
+    'pending': '<span class="badge bg-warning text-dark">⏳ Ожидает</span>',
+    'confirmed': '<span class="badge bg-success">✅ Подтверждено</span>',
+    'rejected': '<span class="badge bg-secondary">❌ Отклонено</span>',
+};
+
+function loadAlerts() {
+    fetch('/api/antileak/alerts')
+        .then(r => r.json())
+        .then(data => {
+            allAlerts = data.alerts || [];
+            renderAlerts();
+            updateStats();
+        })
+        .catch(err => {
+            document.getElementById('alertsContainer').innerHTML = 
+                '<div class="alert alert-danger">Ошибка загрузки: ' + err.message + '</div>';
+        });
+}
+
+function updateStats() {
+    document.getElementById('pendingCount').textContent = allAlerts.filter(a => a.status === 'pending').length;
+    document.getElementById('confirmedCount').textContent = allAlerts.filter(a => a.status === 'confirmed').length;
+    document.getElementById('rejectedCount').textContent = allAlerts.filter(a => a.status === 'rejected').length;
+    document.getElementById('totalCount').textContent = allAlerts.length;
+}
+
+function filterAlerts(filter, btn) {
+    currentFilter = filter;
+    document.querySelectorAll('#antileak .btn-group .btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    renderAlerts();
+}
+
+function renderAlerts() {
+    const container = document.getElementById('alertsContainer');
+    let filtered = currentFilter === 'all' ? allAlerts : allAlerts.filter(a => a.status === currentFilter);
+    
+    if (filtered.length === 0) {
+        container.innerHTML = `<div class="text-center py-5"><i class="fas fa-shield-alt fa-3x text-muted mb-3"></i><p class="text-muted">Нет алертов</p></div>`;
+        return;
+    }
+    
+    let html = '';
+    for (const alert of filtered) {
+        const actionLabel = ACTION_LABELS[alert.action_type] || alert.action_type;
+        const statusHtml = STATUS_LABELS[alert.status] || alert.status;
+        const date = alert.timestamp ? new Date(alert.timestamp).toLocaleString('ru-RU') : 'Н/Д';
+        const avatarUrl = alert.user_avatar || 'https://cdn.discordapp.com/embed/avatars/0.png';
+        
+        html += `
+        <div class="card mb-3">
+            <div class="card-body">
+                <div class="d-flex align-items-start">
+                    <img src="${avatarUrl}" class="rounded-circle me-3" width="40" height="40" onerror="this.src='https://cdn.discordapp.com/embed/avatars/0.png'">
+                    <div class="flex-grow-1">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <div class="fw-medium">${escapeHtml(alert.username || 'Unknown')} <small class="text-muted">(${alert.user_id})</small></div>
+                                <span class="me-2">${actionLabel}</span>
+                                <small class="text-muted">×${alert.action_count || 1}</small>
+                            </div>
+                            <div class="text-end">
+                                ${statusHtml}<br>
+                                <small class="text-muted">${date}</small>
+                            </div>
+                        </div>
+                        <div class="mt-2">
+                            <button class="btn btn-sm btn-outline-info" onclick="showDetails('${alert.id}')">
+                                <i class="fas fa-info-circle me-1"></i>Подробнее
+                            </button>
+                            ${alert.status === 'pending' ? `
+                            <button class="btn btn-sm btn-outline-success ms-1" onclick="resolveAlert('${alert.id}', 'confirm')">
+                                <i class="fas fa-check me-1"></i>Подтвердить
+                            </button>
+                            <button class="btn btn-sm btn-outline-warning ms-1" onclick="resolveAlert('${alert.id}', 'reject')">
+                                <i class="fas fa-undo me-1"></i>Отклонить
+                            </button>` : ''}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+    }
+    container.innerHTML = html;
+}
+
+function showDetails(alertId) {
+    const alert = allAlerts.find(a => a.id === alertId);
+    if (!alert) return;
+    const actionLabel = ACTION_LABELS[alert.action_type] || alert.action_type;
+    const date = alert.timestamp ? new Date(alert.timestamp).toLocaleString('ru-RU') : 'Н/Д';
+    
+    let html = `
+        <div class="row">
+            <div class="col-md-6">
+                <p><strong>Пользователь:</strong> ${escapeHtml(alert.username)} (${alert.user_id})</p>
+                <p><strong>Действие:</strong> ${actionLabel}</p>
+                <p><strong>Количество:</strong> ${alert.action_count || 1}</p>
+                <p><strong>Время:</strong> ${date}</p>
+            </div>
+            <div class="col-md-6">
+                <p><strong>Статус:</strong> ${STATUS_LABELS[alert.status] || alert.status}</p>
+                ${alert.resolved_by ? `<p><strong>Решил:</strong> ${escapeHtml(alert.resolved_by)}</p>` : ''}
+                ${alert.resolved_at ? `<p><strong>Время решения:</strong> ${new Date(alert.resolved_at).toLocaleString('ru-RU')}</p>` : ''}
+            </div>
+        </div>`;
+    
+    document.getElementById('alertModalBody').innerHTML = html;
+    let footerHtml = `<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>`;
+    if (alert.status === 'pending') {
+        footerHtml = `
+            <button type="button" class="btn btn-warning" onclick="resolveAlert('${alert.id}', 'reject'); bootstrap.Modal.getInstance(document.getElementById('alertModal')).hide();">
+                <i class="fas fa-undo me-1"></i>Отклонить
+            </button>
+            <button type="button" class="btn btn-success" onclick="resolveAlert('${alert.id}', 'confirm'); bootstrap.Modal.getInstance(document.getElementById('alertModal')).hide();">
+                <i class="fas fa-check me-1"></i>Подтвердить
+            </button>` + footerHtml;
+    }
+    document.getElementById('alertModalFooter').innerHTML = footerHtml;
+    new bootstrap.Modal(document.getElementById('alertModal')).show();
+}
+
+function resolveAlert(alertId, action) {
+    const actionText = action === 'confirm' ? 'подтвердить' : 'отклонить';
+    if (!confirm(`Вы уверены, что хотите ${actionText} этот алерт?`)) return;
+    
+    fetch('/api/antileak/resolve', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({alert_id: alertId, action: action})
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            const alert = allAlerts.find(a => a.id === alertId);
+            if (alert) {
+                alert.status = data.status || (action === 'confirm' ? 'confirmed' : 'rejected');
+                alert.resolved_by = '{{ session.get("username", "Unknown") }}';
+                alert.resolved_at = new Date().toISOString();
+            }
+            renderAlerts();
+            updateStats();
+            showToast(data.message || 'Готово', 'success');
+        } else {
+            showToast(data.error || 'Ошибка', 'danger');
+        }
+    })
+    .catch(err => showToast('Ошибка: ' + err.message, 'danger'));
+}
+
+// ====== СЕССИИ ======
+function loadSessions() {
+    const container = document.getElementById('sessionsContainer');
+    fetch('/api/sessions')
+        .then(r => r.json())
+        .then(data => {
+            const sessions = data.sessions || [];
+            if (sessions.length === 0) {
+                container.innerHTML = '<div class="text-center py-5 text-muted"><i class="fas fa-desktop fa-3x mb-3"></i><p>Нет активных сессий</p></div>';
+                return;
+            }
+            let html = '<div class="table-responsive"><table class="table table-dark"><thead><tr><th>Пользователь</th><th>ID</th><th>Последняя активность</th><th></th></tr></thead><tbody>';
+            for (const s of sessions) {
+                const la = s.last_active ? new Date(s.last_active).toLocaleString('ru-RU') : '—';
+                html += `<tr>
+                    <td>${escapeHtml(s.username || 'Unknown')}</td>
+                    <td><code>${s.user_id}</code></td>
+                    <td><small>${la}</small></td>
+                    <td><button class="btn btn-sm btn-outline-danger" onclick="terminateSession('${s.user_id}')"><i class="fas fa-times"></i></button></td>
+                </tr>`;
+            }
+            html += '</tbody></table></div>';
+            container.innerHTML = html;
+        })
+        .catch(err => {
+            container.innerHTML = '<div class="text-center py-5 text-muted">Ошибка загрузки сессий</div>';
+        });
+}
+
+function terminateSession(userId) {
+    if (!confirm('Завершить сессию пользователя ' + userId + '?')) return;
+    fetch('/api/sessions/terminate', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({user_id: userId})
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            showToast('Сессия завершена', 'success');
+            loadSessions();
+        }
+    })
+    .catch(err => showToast('Ошибка', 'danger'));
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text || '';
+    return div.innerHTML;
+}
+
+// Инициализация при переключении на вкладку
+document.querySelectorAll('#settingsTabs button').forEach(tab => {
+    tab.addEventListener('shown.bs.tab', function(e) {
+        const target = e.target.getAttribute('data-bs-target');
+        if (target === '#antileak' && allAlerts.length === 0) loadAlerts();
+        if (target === '#sessions') loadSessions();
+    });
+});
+
+// Автообновление антислива
+setInterval(loadAlerts, 30000);
 </script>
 {% endblock %}

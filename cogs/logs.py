@@ -13,6 +13,8 @@ class Logs(commands.Cog):
         self.move_requests = {}  # Отслеживание запросов на перемещение
         self._processed_events = {}  # Кэш для предотвращения дублирования событий
         self._cache_ttl = 2.0  # Время жизни кэша (сек)
+        from utils.logs_manager import LogsManager
+        self.local_logs = LogsManager()
 
     def _is_duplicate(self, event_key: str) -> bool:
         """Проверяет, не было ли это событие уже обработано (для предотвращения дублирования)."""
@@ -56,6 +58,22 @@ class Logs(commands.Cog):
         except Exception as e:
             print(f"[ОШИБКА ЛОГОВ] Не удалось отправить лог: {e}")
 
+    async def send_log_local(self, log_type, title, description, executor=None, color=None, attachments=None):
+        """Дублирует лог в локальный файл"""
+        if color is None:
+            color = 0xf1c40f
+        author_id = str(executor.id) if executor else ''
+        author_name = executor.display_name if executor else ''
+        self.local_logs.add_log(
+            log_type=log_type,
+            title=title,
+            description=description,
+            author_id=author_id,
+            author_name=author_name,
+            color=color,
+            attachments=attachments or [],
+        )
+
 
     # Логирование выполненных команд
     @commands.Cog.listener()
@@ -73,6 +91,14 @@ class Logs(commands.Cog):
             executor=ctx.author,
             color=discord.Color.green()
         )
+        # Дублируем в локальный лог
+        await self.send_log_local(
+            log_type='command',
+            title=f"Выполнена команда: {ctx.command}",
+            description=f"Автор: {ctx.author}\nКоманда: {ctx.message.content}",
+            executor=ctx.author,
+            color=0x28a745
+        )
 
     # Логирование ошибок команд
     @commands.Cog.listener()
@@ -88,19 +114,55 @@ class Logs(commands.Cog):
             executor=ctx.author,
             color=discord.Color.red()
         )
+        await self.send_log_local(
+            log_type='command',
+            title=f"Ошибка команды: {ctx.command}",
+            description=f"Автор: {ctx.author}\nОшибка: {error}\nКоманда: {ctx.message.content}",
+            executor=ctx.author,
+            color=0xdc3545
+        )
 
     # Логирование удаления сообщений
     @commands.Cog.listener()
     async def on_message_delete(self, message):
         if message.author.bot:
             return  # Не логируем ботов
-        await self.send_log(
+        
+        # Собираем URL вложений (изображения)
+        attachments = []
+        for att in message.attachments:
+            attachments.append(att.url)
+        
+        # Формируем описание для Discord embed
+        desc = f"Автор: {message.author.mention}\n"
+        desc += f"Сервер: {message.guild.name}\n"
+        desc += f"Канал: {message.channel.mention}\n"
+        if message.content:
+            desc += f"Сообщение: {message.content}"
+        
+        # Отправляем в Discord (с изображением если есть)
+        embed = discord.Embed(
             title="Удалено сообщение",
-            description=f"Автор: {message.author.mention}\n"
-                       f"Сервер: {message.guild.name}\n"
-                       f"Канал: {message.channel.mention}\n"
-                       f"Сообщение: {message.content}",
-            color=discord.Color.purple()
+            description=desc,
+            color=discord.Color.purple(),
+            timestamp=datetime.utcnow()
+        )
+        if attachments:
+            embed.set_image(url=attachments[0])
+        try:
+            channel = await self.bot.fetch_channel(self.LOG_CHANNEL_ID)
+            await channel.send(embed=embed)
+        except Exception as e:
+            print(f"[ОШИБКА ЛОГОВ] {e}")
+        
+        # Дублируем в локальный лог (с изображениями)
+        await self.send_log_local(
+            log_type='delete',
+            title='Удалено сообщение',
+            description=f"Автор: {message.author}\nКанал: {message.channel.name}\nСообщение: {message.content[:200]}",
+            executor=message.author,
+            color=0x9b59b6,
+            attachments=attachments
         )
 
     # Логирование редактирования сообщений
@@ -108,6 +170,12 @@ class Logs(commands.Cog):
     async def on_message_edit(self, before, after):
         if before.author.bot or before.content == after.content:
             return  # Не логируем ботов и пустые правки
+        
+        # Собираем URL вложений (изображения)
+        attachments = []
+        for att in after.attachments:
+            attachments.append(att.url)
+        
         await self.send_log(
             title="Отредактировано сообщение",
             description=f"Автор: {before.author.mention}\n"
@@ -116,6 +184,14 @@ class Logs(commands.Cog):
                        f"**Было:** {before.content}\n"
                        f"**Стало:** {after.content}",
             color=discord.Color.blurple()
+        )
+        await self.send_log_local(
+            log_type='edit',
+            title='Отредактировано сообщение',
+            description=f"Автор: {before.author}\nКанал: {before.channel.name}\nБыло: {before.content[:200]}\nСтало: {after.content[:200]}",
+            executor=before.author,
+            color=0x3498db,
+            attachments=attachments
         )
 
     # Логирование подключения пользователя (с определением источника приглашения)
