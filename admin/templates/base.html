@@ -107,6 +107,11 @@
                         <i class="fas fa-cog"></i><span>Настройки</span>
                     </a>
                 </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if request.endpoint == 'bot_errors_page' %}active{% endif %}" href="{{ url_for('bot_errors_page') }}">
+                        <i class="fas fa-exclamation-triangle text-danger"></i><span>Ошибки бота</span>
+                    </a>
+                </li>
                 {% endif %}
             </ul>
             

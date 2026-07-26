@@ -22,6 +22,10 @@ config = admin_config
 from utils.logs_manager import LogsManager
 logs_manager = LogsManager()
 
+# Импортируем менеджер ошибок бота
+from utils.bot_errors import BotErrorsManager
+bot_errors_manager = BotErrorsManager()
+
 # Импортируем Database для сохранения site_roles
 from utils.database import Database
 
@@ -2045,6 +2049,68 @@ def api_antileak_resolve():
     except Exception as e:
         logging.error(f"Ошибка resolve антилив: {e}")
         return jsonify({'error': str(e)}), 500
+
+# ==================== BOT ERRORS PAGE ====================
+
+@app.route('/bot-errors')
+@login_required
+def bot_errors_page():
+    """Страница логов ошибок бота (только для основателя)"""
+    if session.get('role') != 'founder':
+        abort(403)
+    return render_template('bot_errors.html', role=session.get('role', 'user'))
+
+@app.route('/api/bot-errors')
+@login_required
+def api_bot_errors():
+    """Получить логи ошибок бота (только для основателя)"""
+    if session.get('role') != 'founder':
+        return jsonify({'error': 'Доступ запрещён'}), 403
+    
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 50, type=int)
+    error_type = request.args.get('type', 'all')
+    date_from = request.args.get('date_from', '').strip()
+    date_to = request.args.get('date_to', '').strip()
+    
+    try:
+        result = bot_errors_manager.get_errors(
+            page=page,
+            per_page=per_page,
+            error_type=error_type,
+            date_from=date_from,
+            date_to=date_to
+        )
+        return jsonify(result)
+    except Exception as e:
+        logging.error(f"Ошибка при получении ошибок бота: {e}")
+        return jsonify({'error': str(e), 'errors': [], 'page': 1, 'total_pages': 0, 'total': 0}), 500
+
+@app.route('/api/bot-errors/stats')
+@login_required
+def api_bot_errors_stats():
+    """Статистика по ошибкам бота (только для основателя)"""
+    if session.get('role') != 'founder':
+        return jsonify({'error': 'Доступ запрещён'}), 403
+    return jsonify(bot_errors_manager.get_stats())
+
+@app.route('/api/bot-errors/clear', methods=['POST'])
+@login_required
+def api_bot_errors_clear():
+    """Очистить все логи ошибок бота (только для основателя)"""
+    if session.get('role') != 'founder':
+        return jsonify({'error': 'Доступ запрещён'}), 403
+    
+    bot_errors_manager.clear_errors()
+    
+    logs_manager.log_site_action(
+        action='Очистка логов ошибок бота',
+        description='Основатель очистил все логи ошибок бота',
+        user_id=session.get('user_id', ''),
+        user_name=session.get('username', 'Unknown')
+    )
+    
+    return jsonify({'success': True, 'message': 'Логи ошибок бота очищены'})
 
 # ==================== ERROR HANDLERS ====================
 

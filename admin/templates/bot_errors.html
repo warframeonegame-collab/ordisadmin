@@ -1,0 +1,410 @@
+{% extends 'base.html' %}
+
+{% block title %}Ошибки бота{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <div>
+        <h1><i class="fas fa-exclamation-triangle text-danger"></i> Ошибки бота</h1>
+        <p class="text-muted">Логи ошибок Discord бота. Только для основателя.</p>
+    </div>
+    <div>
+        <button class="btn btn-danger" onclick="clearBotErrors()" id="clearBtn">
+            <i class="fas fa-trash-alt"></i> Очистить все
+        </button>
+    </div>
+</div>
+
+<!-- Статистика -->
+<div class="row mb-4" id="stats-container">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-body text-center">
+                <h3 class="stat-number" id="total-errors">0</h3>
+                <p class="stat-label">Всего ошибок</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <h6 class="mb-3"><i class="fas fa-chart-pie"></i> По типам</h6>
+                <div id="errors-by-type" class="small">
+                    <div class="text-muted">Загрузка...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Фильтры -->
+<div class="card mb-4">
+    <div class="card-body">
+        <div class="row g-3 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label">Тип ошибки</label>
+                <select class="form-select" id="error-type">
+                    <option value="all">Все типы</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Дата от</label>
+                <input type="date" class="form-control" id="error-date-from">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Дата до</label>
+                <input type="date" class="form-control" id="error-date-to">
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+                <button class="btn btn-primary me-2" onclick="loadErrors()">
+                    <i class="fas fa-filter"></i>
+                </button>
+                <button class="btn btn-outline-secondary" onclick="resetFilters()">
+                    <i class="fas fa-sync"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Ошибки -->
+<div class="card">
+    <div class="card-body">
+        <div id="errors-container">
+            <div class="text-center py-4">
+                <div class="spinner-border text-danger" role="status">
+                    <span class="visually-hidden">Загрузка...</span>
+                </div>
+                <p class="mt-2">Загрузка ошибок...</p>
+            </div>
+        </div>
+
+        <!-- Пагинация -->
+        <nav id="pagination-nav" class="mt-3 d-none" aria-label="Навигация по страницам">
+            <ul class="pagination justify-content-center">
+                <li class="page-item" id="prev-page">
+                    <a class="page-link" href="#" onclick="changePage(-1)"><i class="fas fa-chevron-left"></i></a>
+                </li>
+                <li class="page-item disabled">
+                    <span class="page-link" id="page-info">Страница 1 из 1</span>
+                </li>
+                <li class="page-item" id="next-page">
+                    <a class="page-link" href="#" onclick="changePage(1)"><i class="fas fa-chevron-right"></i></a>
+                </li>
+            </ul>
+        </nav>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<style>
+.error-entry {
+    border-left: 3px solid var(--violet);
+    background: var(--bg-card-glass);
+    backdrop-filter: blur(12px);
+    border-radius: var(--radius);
+    padding: 12px 16px;
+    margin-bottom: 12px;
+    transition: all 0.2s;
+    border: 1px solid var(--border-glass);
+}
+.error-entry:hover { border-color: var(--border-glass-hover); }
+.error-entry .error-type-badge {
+    font-size: 0.7rem;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+}
+.error-type-critical { background: #dc3545; color: #fff; }
+.error-type-error { background: #e74c3c; color: #fff; }
+.error-type-warning { background: #f39c12; color: #000; }
+.error-type-info { background: #3498db; color: #fff; }
+.error-type-other { background: #6c757d; color: #fff; }
+.error-message {
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-size: 0.85rem;
+    background: rgba(0,0,0,0.15);
+    padding: 6px 10px;
+    border-radius: 4px;
+    word-break: break-all;
+}
+.details-toggle {
+    cursor: pointer;
+    color: var(--cyan);
+    font-size: 0.8rem;
+    user-select: none;
+}
+.details-toggle:hover { text-decoration: underline; }
+.error-details {
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-size: 0.75rem;
+    white-space: pre-wrap;
+    word-break: break-all;
+    background: rgba(0,0,0,0.2);
+    padding: 8px 10px;
+    border-radius: 4px;
+    max-height: 300px;
+    overflow-y: auto;
+    display: none;
+}
+.page-link {
+    background: var(--bg-glass);
+    border-color: var(--border-glass);
+    color: var(--text-secondary);
+    border-radius: 8px !important;
+    margin: 0 2px;
+}
+.page-link:hover {
+    background: var(--danger);
+    border-color: var(--danger);
+    color: #fff;
+}
+.page-item.disabled .page-link {
+    background: transparent;
+    border-color: var(--border-glass);
+    color: var(--text-muted);
+}
+</style>
+<script>
+let currentPage = 1;
+let totalPages = 1;
+
+function getErrorTypeBadge(errorType) {
+    const t = (errorType || '').toLowerCase();
+    let cls = 'error-type-other';
+    if (t.includes('critical') || t.includes('fatal')) cls = 'error-type-critical';
+    else if (t.includes('error') || t.includes('exception') || t.includes('on_error')) cls = 'error-type-error';
+    else if (t.includes('warn')) cls = 'error-type-warning';
+    else if (t.includes('info')) cls = 'error-type-info';
+    return cls;
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text || '';
+    return div.innerHTML;
+}
+
+function formatTimestamp(ts) {
+    try {
+        return new Date(ts).toLocaleString('ru-RU');
+    } catch(e) {
+        return ts || '';
+    }
+}
+
+async function loadStats() {
+    try {
+        const resp = await fetch('/api/bot-errors/stats');
+        const stats = await resp.json();
+        document.getElementById('total-errors').textContent = stats.total || 0;
+
+        const byTypeDiv = document.getElementById('errors-by-type');
+        if (stats.by_type && Object.keys(stats.by_type).length > 0) {
+            let html = '<div class="d-flex flex-wrap gap-2">';
+            for (const [type, count] of Object.entries(stats.by_type)) {
+                const badgeClass = getErrorTypeBadge(type);
+                html += `<span class="badge ${badgeClass}">${escapeHtml(type)}: ${count}</span>`;
+            }
+            html += '</div>';
+            byTypeDiv.innerHTML = html;
+        } else {
+            byTypeDiv.innerHTML = '<div class="text-muted">Нет ошибок</div>';
+        }
+
+        // Обновляем select типов ошибок
+        const select = document.getElementById('error-type');
+        select.innerHTML = '<option value="all">Все типы</option>';
+        if (stats.by_type) {
+            for (const type of Object.keys(stats.by_type).sort()) {
+                const opt = document.createElement('option');
+                opt.value = type;
+                opt.textContent = `${type} (${stats.by_type[type]})`;
+                select.appendChild(opt);
+            }
+        }
+    } catch (e) {
+        console.error('Failed to load stats:', e);
+    }
+}
+
+async function loadErrors() {
+    const container = document.getElementById('errors-container');
+    const errorType = document.getElementById('error-type').value;
+    const dateFrom = document.getElementById('error-date-from').value;
+    const dateTo = document.getElementById('error-date-to').value;
+
+    container.innerHTML = `
+        <div class="text-center py-4">
+            <div class="spinner-border text-danger" role="status"></div>
+            <p class="mt-2">Загрузка...</p>
+        </div>
+    `;
+
+    try {
+        let url = `/api/bot-errors?page=${currentPage}&per_page=50`;
+        if (errorType !== 'all') url += `&type=${encodeURIComponent(errorType)}`;
+        if (dateFrom) url += `&date_from=${dateFrom}`;
+        if (dateTo) url += `&date_to=${dateTo}`;
+
+        const resp = await fetch(url);
+        const data = await resp.json();
+
+        if (data.error) {
+            container.innerHTML = `
+                <div class="text-center text-muted py-4">
+                    <i class="fas fa-exclamation-circle fa-3x mb-3"></i>
+                    <h5>Ошибка загрузки</h5>
+                    <p>${escapeHtml(data.error)}</p>
+                </div>
+            `;
+            return;
+        }
+
+        const errors = data.errors || [];
+        totalPages = data.total_pages || 1;
+
+        if (errors.length === 0) {
+            container.innerHTML = `
+                <div class="text-center text-muted py-4">
+                    <i class="fas fa-check-circle fa-3x mb-3" style="color: #28a745;"></i>
+                    <h5>Ошибок нет</h5>
+                    <p>Система работает без ошибок</p>
+                </div>
+            `;
+            updatePagination();
+            return;
+        }
+
+        let html = `
+            <div class="mb-3 text-muted small">
+                <i class="fas fa-database"></i> Всего ошибок: <strong>${data.total}</strong> &middot;
+                Страница ${currentPage} из ${totalPages}
+            </div>
+        `;
+
+        for (const err of errors) {
+            const badgeClass = getErrorTypeBadge(err.error_type);
+            const ts = formatTimestamp(err.timestamp);
+            const source = escapeHtml(err.source || '');
+            const errorMsg = escapeHtml(err.error_message || '');
+            const userName = escapeHtml(err.user_name || '');
+            const details = err.details ? JSON.stringify(err.details, null, 2) : '';
+
+            html += `
+                <div class="error-entry" style="border-left-color: #dc3545;">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div>
+                            <span class="error-type-badge ${badgeClass} me-2">${escapeHtml(err.error_type || 'unknown')}</span>
+                            ${source ? `<span class="badge bg-secondary me-2" style="font-size:0.7rem;">${source}</span>` : ''}
+                            ${userName ? `<span class="text-muted" style="font-size:0.85rem;">${userName}</span>` : ''}
+                        </div>
+                        <small class="text-muted"><i class="far fa-clock"></i> ${ts}</small>
+                    </div>
+
+                    <div class="error-message mb-2">${errorMsg}</div>
+
+                    ${err.user_id ? `<div class="mb-1" style="font-size:0.8rem;color:var(--text-muted);">Пользователь: <code>${escapeHtml(err.user_id)}</code></div>` : ''}
+
+                    ${details ? `
+                        <div class="details-toggle" onclick="toggleDetails(this)">
+                            <i class="fas fa-chevron-right me-1"></i> Подробнее
+                        </div>
+                        <div class="error-details">${escapeHtml(details)}</div>
+                    ` : ''}
+                </div>
+            `;
+        }
+
+        container.innerHTML = html;
+        updatePagination();
+
+    } catch (e) {
+        console.error('Failed to load errors:', e);
+        container.innerHTML = `
+            <div class="text-center text-muted py-4">
+                <i class="fas fa-exclamation-circle fa-3x mb-3"></i>
+                <h5>Ошибка загрузки</h5>
+                <p>${escapeHtml(e.message)}</p>
+            </div>
+        `;
+    }
+}
+
+function toggleDetails(el) {
+    const details = el.nextElementSibling;
+    if (!details) return;
+    const isHidden = details.style.display === 'none' || !details.style.display;
+    details.style.display = isHidden ? 'block' : 'none';
+    el.innerHTML = isHidden
+        ? '<i class="fas fa-chevron-down me-1"></i> Скрыть'
+        : '<i class="fas fa-chevron-right me-1"></i> Подробнее';
+}
+
+function changePage(delta) {
+    const newPage = currentPage + delta;
+    if (newPage < 1 || newPage > totalPages) return;
+    currentPage = newPage;
+    loadErrors();
+}
+
+function updatePagination() {
+    const nav = document.getElementById('pagination-nav');
+    const pageInfo = document.getElementById('page-info');
+    const prevItem = document.getElementById('prev-page');
+    const nextItem = document.getElementById('next-page');
+
+    if (totalPages <= 1) {
+        nav.classList.add('d-none');
+        return;
+    }
+
+    nav.classList.remove('d-none');
+    pageInfo.textContent = `Страница ${currentPage} из ${totalPages}`;
+    prevItem.classList.toggle('disabled', currentPage <= 1);
+    nextItem.classList.toggle('disabled', currentPage >= totalPages);
+}
+
+function resetFilters() {
+    document.getElementById('error-type').value = 'all';
+    document.getElementById('error-date-from').value = '';
+    document.getElementById('error-date-to').value = '';
+    currentPage = 1;
+    loadErrors();
+}
+
+async function clearBotErrors() {
+    if (!confirm('Вы уверены, что хотите очистить все логи ошибок бота?')) return;
+
+    const btn = document.getElementById('clearBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Очистка...';
+
+    try {
+        const resp = await fetch('/api/bot-errors/clear', { method: 'POST' });
+        const data = await resp.json();
+
+        if (data.success) {
+            showToast('Логи ошибок бота очищены', 'success');
+            currentPage = 1;
+            loadStats();
+            loadErrors();
+        } else {
+            showToast(data.error || 'Ошибка очистки', 'danger');
+        }
+    } catch (e) {
+        showToast('Ошибка при очистке: ' + e.message, 'danger');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-trash-alt"></i> Очистить все';
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadStats();
+    loadErrors();
+});
+</script>
+{% endblock %}
