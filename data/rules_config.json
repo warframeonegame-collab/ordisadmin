@@ -1,13 +1,24 @@
 {
   "categories": [
-    {"id": "main", "name": "Основные правила", "slug": "rules"},
-    {"id": "recruiter", "name": "Правила рекрутеров", "slug": "recruiter-rules"}
+    {
+      "id": "main_rules",
+      "name": "Основные правила",
+      "slug": "main_rules"
+    }
   ],
   "category_permissions": {
-    "founder": ["main", "recruiter"],
-    "cofounder": ["main", "recruiter"],
-    "admin": ["main"],
-    "recruiter": [],
-    "user": []
+    "user": [],
+    "recruiter": [
+      "main_rules"
+    ],
+    "admin": [
+      "main_rules"
+    ],
+    "cofounder": [
+      "main_rules"
+    ],
+    "founder": [
+      "main_rules"
+    ]
   }
 }

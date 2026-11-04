@@ -32,3 +32,6 @@ Thumbs.db
 
 # Discord bot token files
 token.txt
+
+# Случайные артефакты
+/10.0.0

@@ -17,6 +17,8 @@ SECRET_KEY = os.getenv('FLASK_SECRET_KEY', 'arasaka-plaza-admin-secret-key-chang
 # На хостинге: /app/data, локально: e:\bots DS\Ordis2\data
 PROJECT_ROOT = os.path.dirname(os.path.dirname(__file__))
 DATA_DIR = os.getenv('DATA_DIR', os.path.join(PROJECT_ROOT, 'data'))
+# PostgreSQL (если задан — используется вместо JSON-файлов)
+PG_DSN = os.getenv('PG_DSN', '')
 DATABASE_PATH = os.path.join(DATA_DIR, 'database.json')
 LOGS_PATH = os.path.join(DATA_DIR, 'logs.json')
 

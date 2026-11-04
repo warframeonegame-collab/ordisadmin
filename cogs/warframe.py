@@ -5,8 +5,19 @@ import logging
 import asyncio
 import re
 import hashlib
+import traceback
 from datetime import datetime, timezone, timedelta
-from playwright.async_api import async_playwright
+
+# Playwright — опционально, для TennoCon дропов
+try:
+    from playwright.async_api import async_playwright
+    PLAYWRIGHT_AVAILABLE = True
+except ImportError:
+    PLAYWRIGHT_AVAILABLE = False
+    logging.warning("[Warframe] Playwright не установлен. TennoCon дропы будут пропущены.")
+
+# Импортируем менеджер ошибок бота
+from bot import bot_errors
 
 WARFRAME_API = "https://api.warframestat.us/pc/"
 WARFRAME_COLOR = discord.Color.from_rgb(255, 185, 15)
@@ -278,8 +289,37 @@ class Warframe(commands.Cog):
 
         await self._handle_baro(data.get("voidTrader", {}))
         await self._build_and_send_main_embed(data, info_channel)
-        await self._check_twitch_drops(data)
-        await self._send_tennocon_drops()
+        
+        # Twitch Drops и TennoCon Drops — оборачиваем в try, чтобы краш не валил весь цикл
+        try:
+            await self._check_twitch_drops(data)
+        except Exception as e:
+            logging.error(f"[Warframe] Ошибка в _check_twitch_drops: {e}")
+            traceback.print_exc()
+            try:
+                bot_errors.add_error(
+                    error_type="WarframeTwitchDrops",
+                    error_message=str(e),
+                    source="warframe_update_loop",
+                    details={'traceback': traceback.format_exc()[:2000]}
+                )
+            except Exception:
+                pass
+        
+        try:
+            await self._send_tennocon_drops()
+        except Exception as e:
+            logging.error(f"[Warframe] Ошибка в _send_tennocon_drops: {e}")
+            traceback.print_exc()
+            try:
+                bot_errors.add_error(
+                    error_type="WarframeTennoconDrops",
+                    error_message=str(e),
+                    source="warframe_update_loop",
+                    details={'traceback': traceback.format_exc()[:2000]}
+                )
+            except Exception:
+                pass
 
     @warframe_update_loop.before_loop
     async def before_warframe_loop(self):
@@ -648,6 +688,10 @@ class Warframe(commands.Cog):
 
     async def _fetch_tennocon_drops(self):
         """Парсит страницу TennoCon и возвращает список дропов с временем в МСК."""
+        if not PLAYWRIGHT_AVAILABLE:
+            logging.warning("[Warframe] Playwright не установлен. TennoCon дропы пропущены.")
+            return []
+        
         try:
             async with async_playwright() as p:
                 browser = await p.chromium.launch(headless=True)

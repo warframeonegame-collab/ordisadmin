@@ -24,6 +24,9 @@ load_dotenv()
 # Путь к БД: корень проекта /data
 PROJECT_ROOT = os.path.dirname(__file__)
 DATA_DIR = os.getenv('DATA_DIR', os.path.join(PROJECT_ROOT, 'data'))
+# PostgreSQL (если задан — используется вместо JSON-файлов)
+PG_DSN = os.getenv('PG_DSN', '')
+# Оставляем пути к JSON-файлам для обратной совместимости / миграции
 DB_FILE = os.path.join(DATA_DIR, 'database.json')
 XP_PER_MESSAGE = 5  # Опыт за сообщение
 XP_PER_VOICE = 5  # Опыт за нахождение в голосовом канале (каждые 60 сек)

@@ -33,8 +33,9 @@ class AntiLeak(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
-        self.alerts_file = os.path.join(config.DATA_DIR, 'antileak_alerts.json')
-        self._ensure_alerts_file()
+        # Алерты хранятся в PostgreSQL (таблица antileak_alerts)
+        from utils.database import Database
+        self.db = Database()
 
         # Счётчик действий: {user_id: {action_type: [timestamps]}}
         self.action_tracker = defaultdict(lambda: defaultdict(list))
@@ -49,34 +50,15 @@ class AntiLeak(commands.Cog):
     def cog_unload(self):
         self.audit_log_polling.cancel()
 
-    def _ensure_alerts_file(self):
-        """Создаёт файл алертов, если его нет."""
-        os.makedirs(os.path.dirname(self.alerts_file), exist_ok=True)
-        if not os.path.exists(self.alerts_file):
-            with open(self.alerts_file, 'w', encoding='utf-8') as f:
-                json.dump([], f, ensure_ascii=False, indent=2)
-
     # ==================== ЗАГРУЗКА/СОХРАНЕНИЕ АЛЕРТОВ ====================
-
-    def _load_alerts(self):
-        """Загружает алерты из файла."""
-        try:
-            with open(self.alerts_file, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        except Exception:
-            return []
-
-    def _save_alerts(self, alerts):
-        """Сохраняет алерты в файл."""
-        os.makedirs(os.path.dirname(self.alerts_file), exist_ok=True)
-        with open(self.alerts_file, 'w', encoding='utf-8') as f:
-            json.dump(alerts, f, ensure_ascii=False, indent=2)
+    # Алерты хранятся в PostgreSQL (таблица antileak_alerts) вместо JSON-файла.
 
     def _add_alert(self, alert_data):
-        """Добавляет новый алерт."""
-        alerts = self._load_alerts()
-        alerts.insert(0, alert_data)  # Новые сверху
-        self._save_alerts(alerts)
+        """Добавляет новый алерт в PostgreSQL."""
+        try:
+            self.db.add_antileak_alert(alert_data)
+        except Exception as e:
+            logging.error(f"[AntiLeak] Ошибка сохранения алерта: {e}")
 
     # ==================== ОЧИСТКА ТРЕКЕРА ====================
 
@@ -553,38 +535,30 @@ class AntiLeak(commands.Cog):
     @staticmethod
     def get_all_alerts():
         """Возвращает все алерты (для сайта)."""
-        alerts_file = os.path.join(config.DATA_DIR, 'antileak_alerts.json')
+        from utils.database import Database
         try:
-            with open(alerts_file, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        except Exception:
+            return Database().get_antileak_alerts()
+        except Exception as e:
+            logging.error(f"[AntiLeak] Ошибка get_all_alerts: {e}")
             return []
 
     @staticmethod
     def get_alert_by_id(alert_id):
         """Возвращает алерт по ID."""
-        alerts = AntiLeak.get_all_alerts()
-        for a in alerts:
-            if a['id'] == alert_id:
-                return a
-        return None
+        from utils.database import Database
+        try:
+            return Database().get_antileak_alert(alert_id)
+        except Exception as e:
+            logging.error(f"[AntiLeak] Ошибка get_alert_by_id: {e}")
+            return None
 
     @staticmethod
     def resolve_alert(alert_id, status, resolved_by):
         """Подтверждает или отклоняет алерт."""
-        alerts_file = os.path.join(config.DATA_DIR, 'antileak_alerts.json')
+        from utils.database import Database
         try:
-            with open(alerts_file, 'r', encoding='utf-8') as f:
-                alerts = json.load(f)
-            for a in alerts:
-                if a['id'] == alert_id:
-                    a['status'] = status
-                    a['resolved_by'] = resolved_by
-                    a['resolved_at'] = datetime.utcnow().isoformat()
-                    break
-            with open(alerts_file, 'w', encoding='utf-8') as f:
-                json.dump(alerts, f, ensure_ascii=False, indent=2)
-            return True
+            updated = Database().resolve_antileak_alert(alert_id, status, resolved_by)
+            return updated is not None
         except Exception as e:
             logging.error(f"[AntiLeak] Ошибка resolve_alert: {e}")
             return False

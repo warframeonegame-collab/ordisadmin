@@ -22,6 +22,10 @@ config = admin_config
 from utils.logs_manager import LogsManager
 logs_manager = LogsManager()
 
+# Импортируем менеджер ошибок бота
+from utils.bot_errors import BotErrorsManager
+bot_errors_manager = BotErrorsManager()
+
 # Импортируем Database для сохранения site_roles
 from utils.database import Database
 
@@ -111,26 +115,27 @@ def load_database():
     return db.get_all_users()
 
 def save_database(data):
-    """Сохраняет database.json через единый Database"""
+    """Сохраняет database.json через единый Database (PostgreSQL)"""
     db = get_db()
-    db.data = data
-    db.save_data()
+    # Обновляем каждую запись пользователя в PostgreSQL
+    for uid, user_data in data.items():
+        if uid.startswith('_'):
+            continue
+        db.update_user(uid, **{k: v for k, v in user_data.items() if k != 'user_id'})
 
 def get_user_role(user_id):
-    """Возвращает роль пользователя на сайте (читает напрямую из файла)"""
+    """Возвращает роль пользователя на сайте (читает из PostgreSQL / config)"""
     user_id_str = str(user_id)
-    
-    # Читаем site_roles.json напрямую из файла (всегда актуальные данные)
+
+    # Читаем site_roles из PostgreSQL через Database
     try:
-        site_roles_file = os.path.join(config.DATA_DIR, 'site_roles.json')
-        if os.path.exists(site_roles_file):
-            with open(site_roles_file, 'r', encoding='utf-8') as f:
-                site_roles = json.load(f)
-            if user_id_str in site_roles:
-                return site_roles[user_id_str]
+        db = get_db()
+        site_roles = db.get_site_roles()
+        if user_id_str in site_roles:
+            return site_roles[user_id_str]
     except Exception:
         pass
-    
+
     # Фолбек на хардкод из config
     if user_id_str in config.SITE_ROLES:
         return config.SITE_ROLES[user_id_str]
@@ -675,13 +680,10 @@ def api_stats_inactive():
     # Маппинг: user_id → last_active из сессий сайта
     session_map = {s['user_id']: s.get('last_active') for s in sessions}
     
-    # Загружаем presence_cache из бота (активность в Discord)
-    presence_cache_file = os.path.join(config.DATA_DIR, 'presence_cache.json')
+    # Загружаем presence_cache из PostgreSQL (активность в Discord)
     presence_cache = {}
     try:
-        if os.path.exists(presence_cache_file):
-            with open(presence_cache_file, 'r', encoding='utf-8') as f:
-                presence_cache = json.load(f)
+        presence_cache = get_db().get_presence_cache()
     except Exception as e:
         logging.warning(f"Не удалось загрузить presence_cache: {e}")
     
@@ -1198,14 +1200,11 @@ def api_stats_charts():
 @login_required
 def api_server_stats():
     """Возвращает статистику сервера Discord (онлайн, старший состав)"""
-    # Используем кэш presence из бота
-    presence_cache_file = os.path.join(config.DATA_DIR, 'presence_cache.json')
+    # Используем кэш presence из PostgreSQL
     presence_cache = {}
     
     try:
-        if os.path.exists(presence_cache_file):
-            with open(presence_cache_file, 'r', encoding='utf-8') as f:
-                presence_cache = json.load(f)
+        presence_cache = get_db().get_presence_cache()
     except Exception as e:
         logging.warning(f"Не удалось загрузить кэш presence: {e}")
     
@@ -1565,27 +1564,17 @@ def api_execute_command():
         user_name=username
     )
     
-    # Записываем команду в файл для бота
-    pending_file = os.path.join(os.path.dirname(__file__), '..', 'pending_commands.json')
-    pending_commands = []
-    
-    if os.path.exists(pending_file):
-        try:
-            with open(pending_file, 'r', encoding='utf-8') as f:
-                pending_commands = json.load(f)
-        except:
-            pending_commands = []
-    
-    pending_commands.append({
-        'command': command,
-        'channel_id': channel_id or config.LOG_CHANNEL_ID,
-        'executor': username,
-        'executor_id': session.get('user_id', ''),
-        'timestamp': datetime.now().isoformat()
-    })
-    
-    with open(pending_file, 'w', encoding='utf-8') as f:
-        json.dump(pending_commands, f, indent=2, ensure_ascii=False)
+    # Записываем команду в очередь PostgreSQL — бот заберёт её сам
+    try:
+        get_db().add_pending_command(
+            command=command,
+            channel_id=channel_id or config.LOG_CHANNEL_ID,
+            executor=username,
+            executor_id=session.get('user_id', ''),
+        )
+    except Exception as e:
+        logging.error(f"Не удалось записать команду в очередь: {e}")
+        return jsonify({'error': 'Ошибка записи команды'}), 500
     
     return jsonify({'success': True, 'message': 'Команда отправлена боту на выполнение'})
 
@@ -1942,12 +1931,7 @@ def antileak_page():
 def api_antileak_alerts():
     """Получить все алерты антилива"""
     try:
-        alerts_file = os.path.join(config.DATA_DIR, 'antileak_alerts.json')
-        if os.path.exists(alerts_file):
-            with open(alerts_file, 'r', encoding='utf-8') as f:
-                alerts = json.load(f)
-        else:
-            alerts = []
+        alerts = get_db().get_antileak_alerts()
         
         # Обогащаем данные — подтягиваем ники из Discord
         discord_nicks = fetch_discord_members()
@@ -1973,16 +1957,9 @@ def api_antileak_resolve():
     if not alert_id or action not in ('confirm', 'reject'):
         return jsonify({'error': 'Неверные параметры'}), 400
     
-    alerts_file = os.path.join(config.DATA_DIR, 'antileak_alerts.json')
+    db = get_db()
     try:
-        with open(alerts_file, 'r', encoding='utf-8') as f:
-            alerts = json.load(f)
-        
-        target_alert = None
-        for a in alerts:
-            if a['id'] == alert_id:
-                target_alert = a
-                break
+        target_alert = db.get_antileak_alert(alert_id)
         
         if not target_alert:
             return jsonify({'error': 'Алерт не найден'}), 404
@@ -1990,13 +1967,12 @@ def api_antileak_resolve():
         if target_alert['status'] != 'pending':
             return jsonify({'error': 'Алерт уже обработан'}), 400
         
-        # Обновляем статус
-        target_alert['status'] = 'confirmed' if action == 'confirm' else 'rejected'
-        target_alert['resolved_by'] = session.get('username', 'Unknown')
-        target_alert['resolved_at'] = datetime.now().isoformat()
-        
-        with open(alerts_file, 'w', encoding='utf-8') as f:
-            json.dump(alerts, f, ensure_ascii=False, indent=2)
+        # Обновляем статус в PostgreSQL
+        target_alert = db.resolve_antileak_alert(
+            alert_id,
+            'confirmed' if action == 'confirm' else 'rejected',
+            session.get('username', 'Unknown'),
+        )
         
         # Если отклонено — восстанавливаем роли через Discord API
         if action == 'reject':
@@ -2045,6 +2021,68 @@ def api_antileak_resolve():
     except Exception as e:
         logging.error(f"Ошибка resolve антилив: {e}")
         return jsonify({'error': str(e)}), 500
+
+# ==================== BOT ERRORS PAGE ====================
+
+@app.route('/bot-errors')
+@login_required
+def bot_errors_page():
+    """Страница логов ошибок бота (только для основателя)"""
+    if session.get('role') != 'founder':
+        abort(403)
+    return render_template('bot_errors.html', role=session.get('role', 'user'))
+
+@app.route('/api/bot-errors')
+@login_required
+def api_bot_errors():
+    """Получить логи ошибок бота (только для основателя)"""
+    if session.get('role') != 'founder':
+        return jsonify({'error': 'Доступ запрещён'}), 403
+    
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 50, type=int)
+    error_type = request.args.get('type', 'all')
+    date_from = request.args.get('date_from', '').strip()
+    date_to = request.args.get('date_to', '').strip()
+    
+    try:
+        result = bot_errors_manager.get_errors(
+            page=page,
+            per_page=per_page,
+            error_type=error_type,
+            date_from=date_from,
+            date_to=date_to
+        )
+        return jsonify(result)
+    except Exception as e:
+        logging.error(f"Ошибка при получении ошибок бота: {e}")
+        return jsonify({'error': str(e), 'errors': [], 'page': 1, 'total_pages': 0, 'total': 0}), 500
+
+@app.route('/api/bot-errors/stats')
+@login_required
+def api_bot_errors_stats():
+    """Статистика по ошибкам бота (только для основателя)"""
+    if session.get('role') != 'founder':
+        return jsonify({'error': 'Доступ запрещён'}), 403
+    return jsonify(bot_errors_manager.get_stats())
+
+@app.route('/api/bot-errors/clear', methods=['POST'])
+@login_required
+def api_bot_errors_clear():
+    """Очистить все логи ошибок бота (только для основателя)"""
+    if session.get('role') != 'founder':
+        return jsonify({'error': 'Доступ запрещён'}), 403
+    
+    bot_errors_manager.clear_errors()
+    
+    logs_manager.log_site_action(
+        action='Очистка логов ошибок бота',
+        description='Основатель очистил все логи ошибок бота',
+        user_id=session.get('user_id', ''),
+        user_name=session.get('username', 'Unknown')
+    )
+    
+    return jsonify({'success': True, 'message': 'Логи ошибок бота очищены'})
 
 # ==================== ERROR HANDLERS ====================
 

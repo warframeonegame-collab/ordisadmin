@@ -1,1 +1,91 @@
-[]
+[
+  {
+    "id": "202606182059178752",
+    "user_id": "436827887165898752",
+    "username": "Where are the boobs?",
+    "user_avatar": "https://cdn.discordapp.com/avatars/436827887165898752/9d661b43494b810e5c2c7a1dd4233c00.png?size=1024",
+    "action_type": "guild_update",
+    "action_count": 1,
+    "threshold": 1,
+    "details": {
+      "action_type": "guild_update",
+      "user_id": "436827887165898752",
+      "username": "Where are the boobs?",
+      "user_avatar": "https://cdn.discordapp.com/avatars/436827887165898752/9d661b43494b810e5c2c7a1dd4233c00.png?size=1024",
+      "timestamp": "2026-06-18T20:59:17.221054",
+      "target": "Arasaka Plaza",
+      "target_id": "1255216389296492564",
+      "guild_changes": {},
+      "action_count": 1,
+      "threshold": 1
+    },
+    "saved_roles": [],
+    "victim_ids": [],
+    "timestamp": "2026-06-18T20:59:17.221368",
+    "status": "confirmed",
+    "resolved_by": "_poxyi",
+    "resolved_at": "2026-06-18T20:59:45.842540",
+    "guild_id": "1255216389296492564"
+  },
+  {
+    "id": "202606172325428752",
+    "user_id": "436827887165898752",
+    "username": "Where are the boobs?",
+    "user_avatar": "https://cdn.discordapp.com/avatars/436827887165898752/9d661b43494b810e5c2c7a1dd4233c00.png?size=1024",
+    "action_type": "guild_update",
+    "action_count": 1,
+    "threshold": 1,
+    "details": {
+      "action_type": "guild_update",
+      "user_id": "436827887165898752",
+      "username": "Where are the boobs?",
+      "user_avatar": "https://cdn.discordapp.com/avatars/436827887165898752/9d661b43494b810e5c2c7a1dd4233c00.png?size=1024",
+      "timestamp": "2026-06-17T23:25:42.683172",
+      "target": "Arasaka Plaza",
+      "target_id": "1255216389296492564",
+      "guild_changes": {},
+      "action_count": 1,
+      "threshold": 1
+    },
+    "saved_roles": [
+      1492100129342357534
+    ],
+    "victim_ids": [],
+    "timestamp": "2026-06-17T23:25:42.877637",
+    "status": "confirmed",
+    "resolved_by": "_poxyi",
+    "resolved_at": "2026-06-17T23:26:04.808230",
+    "guild_id": "1255216389296492564"
+  },
+  {
+    "id": "202606172325025381",
+    "user_id": "748069725698785381",
+    "username": "xsk (Психиатр)",
+    "user_avatar": "https://cdn.discordapp.com/avatars/748069725698785381/55f2924b8cf35aabcd4f54f321926fa7.png?size=1024",
+    "action_type": "guild_update",
+    "action_count": 1,
+    "threshold": 1,
+    "details": {
+      "action_type": "guild_update",
+      "user_id": "748069725698785381",
+      "username": "xsk (Психиатр)",
+      "user_avatar": "https://cdn.discordapp.com/avatars/748069725698785381/55f2924b8cf35aabcd4f54f321926fa7.png?size=1024",
+      "timestamp": "2026-06-17T23:25:02.496350",
+      "target": "Militech",
+      "target_id": "1255216389296492564",
+      "guild_changes": {},
+      "action_count": 1,
+      "threshold": 1
+    },
+    "saved_roles": [
+      1515771033632772126,
+      1492100129342357534
+    ],
+    "victim_ids": [],
+    "timestamp": "2026-06-17T23:25:02.922467",
+    "status": "rejected",
+    "resolved_by": "_poxyi",
+    "resolved_at": "2026-06-17T23:25:18.289071",
+    "guild_id": "1255216389296492564"
+  }
+]

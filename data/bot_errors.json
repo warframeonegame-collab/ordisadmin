@@ -1,0 +1,32 @@
+[
+  {
+    "id": "1",
+    "timestamp": "2026-11-02T17:05:36.473195",
+    "error_type": "on_error:on_member_remove",
+    "error_message": "type object 'Colour' has no attribute 'light_orange'",
+    "source": "событие: on_member_remove",
+    "user_id": "",
+    "user_name": "",
+    "details": {
+      "traceback": "Traceback (most recent call last):\n  File \"/usr/local/lib/python3.11/site-packages/discord/client.py\", line 508, in _run_event\n    await coro(*args, **kwargs)\n  File \"/app/cogs/../cogs/logs.py\", line 255, in on_member_remove\n    color=discord.Color.light_orange()\n          ^^^^^^^^^^^^^^^^^^^^^^^^^^\nAttributeError: type object 'Colour' has no attribute 'light_orange'\n",
+      "args": [
+        "1233412"
+      ]
+    }
+  },
+  {
+    "id": "2",
+    "timestamp": "2026-11-02T20:24:41.994750",
+    "error_type": "on_error:on_member_remove",
+    "error_message": "type object 'Colour' has no attribute 'light_orange'",
+    "source": "событие: on_member_remove",
+    "user_id": "",
+    "user_name": "",
+    "details": {
+      "traceback": "Traceback (most recent call last):\n  File \"/usr/local/lib/python3.11/site-packages/discord/client.py\", line 508, in _run_event\n    await coro(*args, **kwargs)\n  File \"/app/cogs/../cogs/logs.py\", line 255, in on_member_remove\n    color=discord.Color.light_orange()\n          ^^^^^^^^^^^^^^^^^^^^^^^^^^\nAttributeError: type object 'Colour' has no attribute 'light_orange'\n",
+      "args": [
+        "alexander_19291"
+      ]
+    }
+  }
+]

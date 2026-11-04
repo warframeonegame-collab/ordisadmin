@@ -1,16 +1,16 @@
 import discord
 from discord.ext import commands, tasks
-import json
-import os
 import logging
 from datetime import datetime
+
+from utils.database import Database
 
 class WebCommands(commands.Cog):
     """Cog для обработки команд с веб-панели"""
     
     def __init__(self, bot):
         self.bot = bot
-        self.pending_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'pending_commands.json')
+        self.db = Database()
         self.check_commands.start()
     
     def cog_unload(self):
@@ -18,20 +18,14 @@ class WebCommands(commands.Cog):
     
     @tasks.loop(seconds=5)
     async def check_commands(self):
-        if not os.path.exists(self.pending_file):
-            return
-        
+        """Забирает команды из очереди PostgreSQL (таблица pending_commands)."""
         try:
-            with open(self.pending_file, 'r', encoding='utf-8') as f:
-                pending = json.load(f)
-            if not pending:
-                return
-            with open(self.pending_file, 'w', encoding='utf-8') as f:
-                json.dump([], f)
-            for item in pending:
-                await self.execute_command(item)
+            pending = self.db.pop_pending_commands()
         except Exception as e:
             logging.error(f"[WebCommands] Ошибка чтения pending_commands: {e}")
+            return
+        for item in pending:
+            await self.execute_command(item)
     
     async def execute_command(self, item):
         command_text = item.get('command', '')

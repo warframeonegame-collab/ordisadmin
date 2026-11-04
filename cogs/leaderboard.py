@@ -24,12 +24,12 @@ class LeaderboardSystem(commands.Cog):
             except discord.NotFound:
                 pass  # Сообщение уже удалено, игнорируем
             
-            # Принудительно загружаем актуальные данные
-            self.db.data = self.db.load_data()
+            # Данные каждый раз читаются напрямую из PostgreSQL
+            users_data = self.db.get_all_users()
             
             # Получаем отсортированный список пользователей
             users = sorted(
-                self.db.data.items(), 
+                users_data.items(), 
                 key=lambda x: x[1]['level'], 
                 reverse=True
             )
@@ -75,9 +75,8 @@ class LeaderboardSystem(commands.Cog):
 
     @commands.Cog.listener()
     async def on_member_remove(self, member):
-        # Обнуляем профиль при выходе пользователя
-        self.db.data.pop(str(member.id), None)
-        self.db.save_data()
+        # Обнуляем профиль при выходе пользователя (удаляем запись из PostgreSQL)
+        self.db.delete_user(str(member.id))
 
     # Автоматическое обновление
     @tasks.loop(minutes=60)  # Обновление каждые 60 минут
@@ -87,11 +86,11 @@ class LeaderboardSystem(commands.Cog):
             return
 
         try:
-            # Принудительно загружаем актуальные данные
-            self.db.data = self.db.load_data()
+            # Данные каждый раз читаются напрямую из PostgreSQL
+            users_data = self.db.get_all_users()
             
             users = sorted(
-                self.db.data.items(), 
+                users_data.items(), 
                 key=lambda x: x[1]['level'], 
                 reverse=True
             )
