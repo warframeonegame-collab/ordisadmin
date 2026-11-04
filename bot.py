@@ -89,9 +89,20 @@ async def on_ready():
 
     # Инициализация базы данных (PostgreSQL)
     if db.enabled:
-        logging.info("✅ База данных PostgreSQL подключена")
+        try:
+            users_count = len(db.get_all_users())
+            logging.info(f"✅ База данных PostgreSQL подключена (пользователей в БД: {users_count})")
+        except Exception as e:
+            logging.info("✅ База данных PostgreSQL подключена (не удалось посчитать пользователей)")
     else:
-        logging.warning("⚠️ PostgreSQL не подключен (PG_DSN не задан). Работа без БД.")
+        logging.critical(
+            "=" * 60 + "\n"
+            "⚠️ PostgreSQL НЕ ПОДКЛЮЧЁН — профили пользователей недоступны!\n"
+            "Команды .profile и таблица лидеров работать НЕ БУДУТ.\n"
+            "Проверьте, что в .env рядом с bot.py есть строка:\n"
+            "PG_DSN=postgresql://пользователь:пароль@хост:порт/база\n"
+            + "=" * 60
+        )
 
     await bot.change_presence(activity=discord.Game(name="Warframe"))
     logging.info('Статус установлен: Играет в Warframe')
