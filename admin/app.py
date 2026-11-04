@@ -115,26 +115,27 @@ def load_database():
     return db.get_all_users()
 
 def save_database(data):
-    """Сохраняет database.json через единый Database"""
+    """Сохраняет database.json через единый Database (PostgreSQL)"""
     db = get_db()
-    db.data = data
-    db.save_data()
+    # Обновляем каждую запись пользователя в PostgreSQL
+    for uid, user_data in data.items():
+        if uid.startswith('_'):
+            continue
+        db.update_user(uid, **{k: v for k, v in user_data.items() if k != 'user_id'})
 
 def get_user_role(user_id):
-    """Возвращает роль пользователя на сайте (читает напрямую из файла)"""
+    """Возвращает роль пользователя на сайте (читает из PostgreSQL / config)"""
     user_id_str = str(user_id)
-    
-    # Читаем site_roles.json напрямую из файла (всегда актуальные данные)
+
+    # Читаем site_roles из PostgreSQL через Database
     try:
-        site_roles_file = os.path.join(config.DATA_DIR, 'site_roles.json')
-        if os.path.exists(site_roles_file):
-            with open(site_roles_file, 'r', encoding='utf-8') as f:
-                site_roles = json.load(f)
-            if user_id_str in site_roles:
-                return site_roles[user_id_str]
+        db = get_db()
+        site_roles = db.get_site_roles()
+        if user_id_str in site_roles:
+            return site_roles[user_id_str]
     except Exception:
         pass
-    
+
     # Фолбек на хардкод из config
     if user_id_str in config.SITE_ROLES:
         return config.SITE_ROLES[user_id_str]

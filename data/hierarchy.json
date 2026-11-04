@@ -1,0 +1,80 @@
+{
+  "tiers": [
+    {
+      "level": 0,
+      "name": "Outside Tier",
+      "roles": [
+        {
+          "name": "Основатель",
+          "subtitle": ""
+        },
+        {
+          "name": "Со-основатель",
+          "subtitle": ""
+        }
+      ]
+    },
+    {
+      "level": 1,
+      "name": "1 Tier",
+      "roles": [
+        {
+          "name": "Заместитель клана",
+          "subtitle": ""
+        }
+      ]
+    },
+    {
+      "level": 2,
+      "name": "1 Tier",
+      "roles": [
+        {
+          "name": "Руководитель рекрутинга",
+          "subtitle": ""
+        },
+        {
+          "name": "Руководитель строителей",
+          "subtitle": ""
+        }
+      ]
+    },
+    {
+      "level": 3,
+      "name": "2 Tier",
+      "roles": [
+        {
+          "name": "Рекрутер",
+          "subtitle": ""
+        },
+        {
+          "name": "Строители",
+          "subtitle": ""
+        }
+      ]
+    },
+    {
+      "level": 4,
+      "name": "3 Tier",
+      "roles": [
+        {
+          "name": "Участники",
+          "subtitle": ""
+        },
+        {
+          "name": "Посвященный Тэнно",
+          "subtitle": ""
+        }
+      ]
+    },
+    {
+      "level": 5,
+      "name": "4 Tier",
+      "roles": [
+        {
+          "name": "Штрафная роль",
+          "subtitle": ""
+        }
+      ]
+    }
+  ]
+}

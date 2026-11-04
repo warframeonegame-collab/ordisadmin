@@ -1,0 +1,24 @@
+{
+  "categories": [
+    {
+      "id": "main_rules",
+      "name": "Основные правила",
+      "slug": "main_rules"
+    }
+  ],
+  "category_permissions": {
+    "user": [],
+    "recruiter": [
+      "main_rules"
+    ],
+    "admin": [
+      "main_rules"
+    ],
+    "cofounder": [
+      "main_rules"
+    ],
+    "founder": [
+      "main_rules"
+    ]
+  }
+}

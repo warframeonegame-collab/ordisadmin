@@ -1,14 +1,17 @@
+"""Менеджер ошибок бота на PostgreSQL (заменяет bot_errors.json)."""
+
 import json
-import os
+import logging
 from datetime import datetime
 from typing import List, Dict, Optional
 import config
+from utils.postgres_db import db as pg_db
 
-BOT_ERRORS_FILE = os.path.join(config.DATA_DIR, 'bot_errors.json')
+logger = logging.getLogger(__name__)
 
 
 class BotErrorsManager:
-    """Менеджер для хранения и получения логов ошибок бота."""
+    """Менеджер для хранения и получения логов ошибок бота в PostgreSQL."""
 
     _instance = None
 
@@ -16,27 +19,6 @@ class BotErrorsManager:
         if cls._instance is None:
             cls._instance = super().__new__(cls)
         return cls._instance
-
-    def _ensure_file(self):
-        directory = os.path.dirname(BOT_ERRORS_FILE)
-        if directory and not os.path.exists(directory):
-            os.makedirs(directory)
-        if not os.path.exists(BOT_ERRORS_FILE):
-            with open(BOT_ERRORS_FILE, 'w', encoding='utf-8') as f:
-                json.dump([], f)
-
-    def _load_errors(self) -> List[Dict]:
-        self._ensure_file()
-        try:
-            with open(BOT_ERRORS_FILE, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        except (json.JSONDecodeError, FileNotFoundError):
-            return []
-
-    def _save_errors(self, errors: List[Dict]):
-        self._ensure_file()
-        with open(BOT_ERRORS_FILE, 'w', encoding='utf-8') as f:
-            json.dump(errors, f, indent=2, ensure_ascii=False)
 
     def add_error(
         self,
@@ -47,26 +29,64 @@ class BotErrorsManager:
         user_name: str = '',
         details: Optional[Dict] = None,
     ):
-        """Сохраняет ошибку бота в локальный файл."""
-        errors = self._load_errors()
-        error_entry = {
-            'id': str(len(errors) + 1),
-            'timestamp': datetime.now().isoformat(),
-            'error_type': error_type,
-            'error_message': error_message,
-            'source': source,
-            'user_id': user_id,
-            'user_name': user_name,
-            'details': details or {},
-        }
-        errors.append(error_entry)
+        """Сохраняет ошибку бота в PostgreSQL."""
+        if not pg_db.enabled:
+            return None
+        try:
+            entry_id = None
+            with pg_db.conn.cursor() as cur:
+                cur.execute(
+                    """
+                    INSERT INTO bot_errors (timestamp, error_type, error_message, source,
+                                            user_id, user_name, details)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    RETURNING id
+                    """,
+                    (
+                        datetime.now().isoformat(),
+                        error_type,
+                        error_message,
+                        source,
+                        str(user_id),
+                        user_name,
+                        json.dumps(details or {}, ensure_ascii=False),
+                    ),
+                )
+                row = cur.fetchone()
+                if row:
+                    entry_id = row[0]
+            # Ограничиваем хранилище (максимум 5000 записей)
+            self._enforce_limit()
+            return {
+                'id': str(entry_id) if entry_id else '',
+                'timestamp': datetime.now().isoformat(),
+                'error_type': error_type,
+                'error_message': error_message,
+                'source': source,
+                'user_id': str(user_id),
+                'user_name': user_name,
+                'details': details or {},
+            }
+        except Exception as e:
+            logger.error(f"Не удалось сохранить ошибку бота: {e}")
+            return None
 
-        # Ограничиваем хранилище (максимум 5000 записей)
-        if len(errors) > 5000:
-            errors = errors[-5000:]
-
-        self._save_errors(errors)
-        return error_entry
+    def _enforce_limit(self):
+        """Оставляет только последние 5000 записей."""
+        if not pg_db.enabled:
+            return
+        try:
+            with pg_db.conn.cursor() as cur:
+                cur.execute(
+                    """
+                    DELETE FROM bot_errors
+                    WHERE id NOT IN (
+                        SELECT id FROM bot_errors ORDER BY id DESC LIMIT 5000
+                    )
+                    """
+                )
+        except Exception as e:
+            logger.error(f"Ошибка при ограничении логов ошибок: {e}")
 
     def get_errors(
         self,
@@ -77,69 +97,81 @@ class BotErrorsManager:
         date_to: str = '',
     ) -> Dict:
         """Получает ошибки с фильтрацией и пагинацией."""
-        errors = self._load_errors()
+        if not pg_db.enabled:
+            return {'errors': [], 'page': page, 'per_page': per_page, 'total': 0, 'total_pages': 0}
+        try:
+            with pg_db.conn.cursor() as cur:
+                # Базовый запрос с фильтрами
+                where = ["1=1"]
+                params: List = []
+                if error_type != 'all':
+                    where.append("error_type ILIKE %s")
+                    params.append(f"%{error_type}%")
+                if date_from:
+                    where.append("timestamp >= %s")
+                    params.append(date_from + 'T00:00:00')
+                if date_to:
+                    where.append("timestamp <= %s")
+                    params.append(date_to + 'T23:59:59')
+                where_sql = " AND ".join(where)
 
-        # Фильтрация по типу ошибки
-        if error_type != 'all':
-            errors = [
-                e for e in errors
-                if error_type.lower() in e.get('error_type', '').lower()
-            ]
+                # Общее количество
+                cur.execute(f"SELECT COUNT(*) FROM bot_errors WHERE {where_sql}", tuple(params))
+                total = cur.fetchone()[0]
 
-        # Фильтрация по дате
-        if date_from or date_to:
-            filtered = []
-            for e in errors:
-                try:
-                    log_date = datetime.fromisoformat(e.get('timestamp', ''))
-                    if date_from:
-                        from_date = datetime.fromisoformat(date_from + 'T00:00:00')
-                        if log_date < from_date:
-                            continue
-                    if date_to:
-                        to_date = datetime.fromisoformat(date_to + 'T23:59:59')
-                        if log_date > to_date:
-                            continue
-                    filtered.append(e)
-                except (ValueError, TypeError):
-                    filtered.append(e)
-            errors = filtered
+                # Страница
+                total_pages = max(1, (total + per_page - 1) // per_page)
+                page = max(1, min(page, total_pages))
+                offset = (page - 1) * per_page
 
-        # Сортировка по времени (новые сверху)
-        errors.sort(key=lambda x: x.get('timestamp', ''), reverse=True)
+                cur.execute(
+                    f"""
+                    SELECT id, timestamp, error_type, error_message, source,
+                           user_id, user_name, details
+                    FROM bot_errors
+                    WHERE {where_sql}
+                    ORDER BY id DESC
+                    LIMIT %s OFFSET %s
+                    """,
+                    tuple(params + [per_page, offset]),
+                )
+                rows = cur.fetchall()
 
-        total = len(errors)
-        total_pages = max(1, (total + per_page - 1) // per_page)
-        page = max(1, min(page, total_pages))
+            errors = []
+            for row in rows:
+                errors.append({
+                    'id': str(row[0]),
+                    'timestamp': row[1].isoformat() if row[1] else '',
+                    'error_type': row[2],
+                    'error_message': row[3],
+                    'source': row[4],
+                    'user_id': row[5] or '',
+                    'user_name': row[6] or '',
+                    'details': row[7] if isinstance(row[7], dict) else (json.loads(row[7]) if row[7] else {}),
+                })
 
-        start = (page - 1) * per_page
-        end = start + per_page
-        page_errors = errors[start:end]
-
-        return {
-            'errors': page_errors,
-            'page': page,
-            'per_page': per_page,
-            'total': total,
-            'total_pages': total_pages,
-        }
+            return {
+                'errors': errors,
+                'page': page,
+                'per_page': per_page,
+                'total': total,
+                'total_pages': total_pages,
+            }
+        except Exception as e:
+            logger.error(f"Ошибка при получении ошибок бота: {e}")
+            return {'errors': [], 'page': page, 'per_page': per_page, 'total': 0, 'total_pages': 0}
 
     def clear_errors(self):
         """Очищает все сохранённые ошибки."""
-        self._save_errors([])
+        if not pg_db.enabled:
+            return
+        try:
+            with pg_db.conn.cursor() as cur:
+                cur.execute("DELETE FROM bot_errors")
+        except Exception as e:
+            logger.error(f"Ошибка при очистке логов ошибок: {e}")
 
     def get_stats(self) -> Dict:
         """Возвращает статистику по ошибкам."""
-        errors = self._load_errors()
-        if not errors:
+        if not pg_db.enabled:
             return {'total': 0, 'by_type': {}}
-
-        by_type = {}
-        for e in errors:
-            etype = e.get('error_type', 'unknown')
-            by_type[etype] = by_type.get(etype, 0) + 1
-
-        return {
-            'total': len(errors),
-            'by_type': dict(sorted(by_type.items(), key=lambda x: x[1], reverse=True)),
-        }

@@ -11,6 +11,10 @@ import logging
 from utils.bot_errors import BotErrorsManager
 bot_errors = BotErrorsManager()
 
+# Импортируем PostgreSQL базу данных
+from utils.database import Database
+db = Database()
+
 # Настройка логирования
 logging.basicConfig(
     level=logging.INFO,
@@ -83,6 +87,12 @@ async def on_ready():
     logging.info(f'🤖 Бот {bot.user} успешно авторизован!')
     logging.info(f'ID бота: {bot.user.id}')
 
+    # Инициализация базы данных (PostgreSQL)
+    if db.enabled:
+        logging.info("✅ База данных PostgreSQL подключена")
+    else:
+        logging.warning("⚠️ PostgreSQL не подключен (PG_DSN не задан). Работа без БД.")
+
     await bot.change_presence(activity=discord.Game(name="Warframe"))
     logging.info('Статус установлен: Играет в Warframe')
 
@@ -96,6 +106,11 @@ async def stop_bot(ctx):
         pass
     await ctx.send("🔴 Бот останавливается...", delete_after=5)
     logging.info(f"Бот остановлен по команде пользователя {ctx.author} ({ctx.author.id})")
+    # Закрываем соединение с БД
+    try:
+        db.close()
+    except Exception:
+        pass
     await bot.close()
 
 @bot.event
