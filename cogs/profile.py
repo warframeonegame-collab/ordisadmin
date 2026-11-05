@@ -150,7 +150,7 @@ class HelpView(discord.ui.View):
         select = discord.ui.Select(
             placeholder="📂 Выберите раздел команд...",
             options=[
-                discord.ui.SelectOption(
+                discord.SelectOption(
                     label=HELP_CATEGORIES[k]['name'],
                     emoji=HELP_CATEGORIES[k]['emoji'],
                     value=HELP_CATEGORIES[k]['name'],
