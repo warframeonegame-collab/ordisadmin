@@ -854,3 +854,221 @@ body, .card, .sidebar, .btn, .form-control, .form-select, input, a {
     animation: none !important;
   }
 }
+
+/* ================================================================
+   ORDIS v3 // WARFRAME x CYBERPUNK SKIN
+   Gold glyphs + neon chamfers + scanlines
+   ================================================================ */
+:root {
+  --wf-gold: #f0c96a;
+  --wf-gold-dim: #b08d3f;
+  --wf-gold-glow: rgba(240, 201, 106, 0.28);
+  --neon-cyan: #00e5ff;
+  --neon-cyan-glow: rgba(0, 229, 255, 0.35);
+  --neon-magenta: #ff2e88;
+  --neon-magenta-glow: rgba(255, 46, 136, 0.30);
+  --chamfer: 8px;
+  --font-display: Orbitron, Rajdhani, sans-serif;
+  --font-ui: Rajdhani, Inter, sans-serif;
+}
+
+/* ---- Body: сетка + сканлайны ---- */
+body {
+  font-family: var(--font-ui) !important;
+  letter-spacing: 0.2px;
+}
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image:
+    linear-gradient(rgba(0, 229, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 229, 255, 0.025) 1px, transparent 1px);
+  background-size: 42px 42px;
+  mask-image: radial-gradient(ellipse at center, black 30%, transparent 85%);
+}
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 999;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent 0px, transparent 3px,
+    rgba(0, 0, 0, 0.09) 3px, rgba(0, 0, 0, 0.09) 4px
+  );
+  opacity: 0.5;
+}
+[data-bs-theme=light] body::after { opacity: 0.12; }
+body > .container-fluid, body > .d-flex, body > div { position: relative; z-index: 1; }
+
+/* ---- Заголовки страниц: Orbitron + золотая риск ---- */
+h1, h2, h3, h4, h5, .card-title, .modal-title, .nav-section-title, .logo-text {
+  font-family: var(--font-display) !important;
+  text-transform: uppercase;
+}
+h4 {
+  letter-spacing: 3px;
+  font-weight: 700;
+  position: relative;
+  padding-left: 16px;
+}
+h4::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 15%;
+  bottom: 15%;
+  width: 3px;
+  background: linear-gradient(180deg, var(--wf-gold), var(--neon-cyan));
+  box-shadow: 0 0 12px var(--wf-gold-glow);
+}
+h4 i { color: var(--wf-gold) !important; }
+
+/* ---- Карточки: срезанные углы + неон ---- */
+.card {
+  clip-path: polygon(
+    var(--chamfer) 0, 100% 0, 100% calc(100% - var(--chamfer)),
+    calc(100% - var(--chamfer)) 100%, 0 100%, 0 var(--chamfer)
+  );
+  position: relative;
+  backdrop-filter: blur(12px);
+  transition: filter 0.25s, transform 0.25s;
+}
+.card:hover { filter: drop-shadow(0 0 14px var(--neon-cyan-glow)); }
+.card.bg-dark { background: linear-gradient(160deg, rgba(20,22,34,0.92), rgba(12,13,22,0.95)) !important; }
+[data-bs-theme=light] .card.bg-dark {
+  background: linear-gradient(160deg, #ffffff, #f4f6fb) !important;
+}
+.card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: var(--chamfer); right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--wf-gold), transparent);
+  opacity: 0.55;
+  pointer-events: none;
+}
+/* Угловые скобки на стат-карточках */
+.card-body.text-center { position: relative; }
+.card-body.text-center h3 {
+  font-family: var(--font-display) !important;
+  font-weight: 800;
+  letter-spacing: 2px;
+  text-shadow: 0 0 18px currentColor;
+}
+.card-body.text-center small {
+  font-family: var(--font-ui);
+  text-transform: uppercase;
+  letter-spacing: 2.5px;
+}
+
+/* ---- Кнопки: срезы + неон ---- */
+.btn {
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px) !important;
+  font-family: var(--font-ui);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  transition: box-shadow 0.2s, filter 0.2s !important;
+}
+.btn:hover { filter: brightness(1.12); }
+.btn-outline-secondary:hover { box-shadow: 0 0 14px var(--neon-cyan-glow); }
+.btn-outline-info:hover    { box-shadow: 0 0 14px var(--neon-cyan-glow); }
+.btn-outline-success:hover { box-shadow: 0 0 14px rgba(0, 230, 118, 0.35); }
+.btn-outline-danger:hover  { box-shadow: 0 0 14px var(--neon-magenta-glow); }
+.btn-outline-warning:hover { box-shadow: 0 0 14px var(--wf-gold-glow); }
+.btn-success { box-shadow: 0 0 10px rgba(0, 230, 118, 0.3); }
+.btn-danger  { box-shadow: 0 0 10px var(--neon-magenta-glow); }
+
+/* ---- Сайдбар: золотая грань ---- */
+.sidebar {
+  background: linear-gradient(180deg, rgba(12,13,22,0.97), rgba(9,10,16,0.95)) !important;
+}
+.sidebar .nav-link {
+  text-transform: none;
+  letter-spacing: 0.5px;
+}
+.sidebar .nav-link:hover {
+  border-left-color: var(--wf-gold-dim);
+}
+.sidebar .nav-link.active {
+  color: var(--wf-gold) !important;
+  background: linear-gradient(90deg, rgba(240, 201, 106, 0.10), transparent);
+  border-left-color: var(--wf-gold) !important;
+  text-shadow: 0 0 10px var(--wf-gold-glow);
+}
+.sidebar .nav-link.active i {
+  text-shadow: 0 0 12px var(--wf-gold-glow);
+}
+.nav-section-title { letter-spacing: 3.5px !important; color: var(--wf-gold-dim) !important; }
+.logo-small { border-radius: 0 !important; clip-path: polygon(18% 0, 100% 0, 100% 82%, 82% 100%, 0 100%, 0 18%); }
+
+/* ---- Таблицы ---- */
+.table thead th {
+  font-family: var(--font-display);
+  font-size: 0.68rem;
+  letter-spacing: 2.5px;
+  color: var(--wf-gold) !important;
+  border-bottom: 1px solid var(--wf-gold-dim) !important;
+}
+.table tbody tr { transition: background 0.15s, box-shadow 0.15s; }
+.table tbody tr:hover {
+  background: rgba(0, 229, 255, 0.05);
+  box-shadow: inset 0 0 0 1px rgba(0, 229, 255, 0.15);
+}
+
+/* ---- Бейджи ---- */
+.badge {
+  letter-spacing: 1px;
+  font-weight: 600;
+  clip-path: polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px);
+}
+.badge.bg-danger  { box-shadow: 0 0 8px var(--neon-magenta-glow); }
+.badge.bg-warning { box-shadow: 0 0 8px var(--wf-gold-glow); }
+.badge.bg-success { box-shadow: 0 0 8px rgba(0, 230, 118, 0.3); }
+
+/* ---- Модалки ---- */
+.modal-content {
+  clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px) !important;
+}
+.modal-header { border-bottom: 1px solid rgba(240, 201, 106, 0.18) !important; }
+.modal-footer { border-top: 1px solid rgba(240, 201, 106, 0.18) !important; }
+
+/* ---- Прогресс-бары: Warframe-сегменты ---- */
+.progress {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border: 1px solid rgba(240, 201, 106, 0.25);
+}
+.progress-bar {
+  background-image: repeating-linear-gradient(
+    45deg,
+    rgba(255, 255, 255, 0.12) 0 4px, transparent 4px 8px
+  ) !important;
+}
+
+/* ---- Формы ---- */
+.form-control, .form-select {
+  border-color: rgba(0, 229, 255, 0.2) !important;
+}
+.form-control:focus, .form-select:focus {
+  box-shadow: 0 0 12px var(--neon-cyan-glow) !important;
+  border-color: var(--neon-cyan) !important;
+}
+
+/* ---- Скроллбары ---- */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.02); }
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, var(--neon-cyan), var(--wf-gold-dim));
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--neon-cyan); }
+
+/* ---- Нав-ссылки топбара / прочие текстовые акценты ---- */
+a { text-decoration-color: rgba(240, 201, 106, 0.4); }
+.text-danger   { text-shadow: 0 0 10px rgba(255, 0, 68, 0.25); }
+.text-warning  { text-shadow: 0 0 10px var(--wf-gold-glow); }

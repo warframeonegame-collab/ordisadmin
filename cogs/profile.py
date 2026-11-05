@@ -12,6 +12,11 @@ import random
 import time
 
 
+# ==================== Бренд-палитра Ордиса ====================
+BRAND_GOLD = discord.Color.from_str('#F0C96A')   # Orokin gold
+BRAND_CYAN = discord.Color.from_str('#00E5FF')   # неон
+
+
 def build_xp_bar(xp, level, length=10):
     """Прогресс-бар до следующего уровня: ▰▰▰▱▱ — 40% (1234 XP)."""
     next_xp = config.LEVEL_MULTIPLIER * (level + 1) ** 2
@@ -179,7 +184,7 @@ class HelpView(discord.ui.View):
                 embed = discord.Embed(
                     title=f"{cat['emoji']} {name}",
                     description=cat['commands'],
-                    color=discord.Color.blue()
+                    color=BRAND_CYAN
                 )
                 self._category_embeds[name] = embed
             await interaction.response.edit_message(embed=embed, view=self)
@@ -302,7 +307,7 @@ class ProfileSystem(commands.Cog):
 
         embed = discord.Embed(
             title=f"Профиль {member.display_name}",
-            color=discord.Color.blue()
+            color=BRAND_GOLD
         )
         embed.set_thumbnail(url=member.display_avatar.url)
         embed.set_footer(text=f"Запрошено {ctx.author.display_name}", icon_url=ctx.author.display_avatar.url)
@@ -433,7 +438,7 @@ class ProfileSystem(commands.Cog):
         embed = discord.Embed(
             title=f"{first['emoji']} {first['name']}",
             description=first['commands'],
-            color=discord.Color.blue()
+            color=BRAND_CYAN
         )
         embed.set_footer(text="Выберите другой раздел через меню ниже • префикс '.' или слэш '/'")
         view.set_embed(first['name'], embed)
