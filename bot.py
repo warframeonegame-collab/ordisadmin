@@ -7,6 +7,8 @@ import sys
 from dotenv import load_dotenv
 import logging
 
+from config import GUILD_ID
+
 # Импортируем менеджер ошибок бота
 from utils.bot_errors import BotErrorsManager
 bot_errors = BotErrorsManager()
@@ -35,7 +37,9 @@ intents.members = True
 intents.voice_states = True
 intents.presences = True
 
-bot = commands.Bot(command_prefix='.', intents=intents)
+# max_messages=64 — не храним большой кэш сообщений (экономия RAM).
+# Кэш реально не нужен: везде используется fetch_message, а не кэш.
+bot = commands.Bot(command_prefix='.', intents=intents, max_messages=64)
 bot.remove_command("help")
 
 # Глобальный кэш для предотвращения дублирования команд
@@ -90,7 +94,7 @@ async def on_ready():
     # Инициализация базы данных (PostgreSQL)
     if db.enabled:
         try:
-            users_count = len(db.get_all_users())
+            users_count = db.count_users()
             logging.info(f"✅ База данных PostgreSQL подключена (пользователей в БД: {users_count})")
         except Exception as e:
             logging.info("✅ База данных PostgreSQL подключена (не удалось посчитать пользователей)")
@@ -106,6 +110,17 @@ async def on_ready():
 
     await bot.change_presence(activity=discord.Game(name="Warframe"))
     logging.info('Статус установлен: Играет в Warframe')
+
+    # Мгновенная синхронизация slash-команд на наш сервер
+    # (глобальный sync мог бы идти до ~1 часа; на конкретную гильдию — сразу)
+    if GUILD_ID:
+        try:
+            guild = discord.Object(id=GUILD_ID)
+            bot.tree.copy_global_to(guild=guild)
+            synced = await bot.tree.sync(guild=guild)
+            logging.info(f'⚡ Slash-команды синхронизированы на гильдию {GUILD_ID} ({len(synced)} шт.)')
+        except Exception as e:
+            logging.error(f'Ошибка синхронизации slash-команд: {e}')
 
 @bot.command(name="stop")
 @commands.is_owner()

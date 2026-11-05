@@ -2,26 +2,14 @@ import discord
 from discord.ext import commands, tasks
 import httpx
 import logging
-import asyncio
-import re
-import hashlib
 import traceback
-from datetime import datetime, timezone, timedelta
-
-# Playwright — опционально, для TennoCon дропов
-try:
-    from playwright.async_api import async_playwright
-    PLAYWRIGHT_AVAILABLE = True
-except ImportError:
-    PLAYWRIGHT_AVAILABLE = False
-    logging.warning("[Warframe] Playwright не установлен. TennoCon дропы будут пропущены.")
+from datetime import datetime, timezone
 
 # Импортируем менеджер ошибок бота
 from bot import bot_errors
 
 WARFRAME_API = "https://api.warframestat.us/pc/"
 WARFRAME_COLOR = discord.Color.from_rgb(255, 185, 15)
-TENNOCON_DROPS_URL = "https://www.tennocon.com/en/digital-info#drops"
 
 BARO_NOTIFY_CHANNEL_ID = 1255444820902543380
 WARFRAME_INFO_CHANNEL_ID = 1514184364941119528
@@ -177,14 +165,27 @@ BARO_ITEM_TRANSLATIONS = {
 }
 
 
+# Один общий клиент httpx (переиспользуем соединения вместо создания клиента на каждый запрос)
+_http_client: httpx.AsyncClient | None = None
+
+
+async def _get_http_client() -> httpx.AsyncClient:
+    global _http_client
+    if _http_client is None or _http_client.is_closed:
+        _http_client = httpx.AsyncClient(
+            timeout=120, headers={"User-Agent": "OrdisBot/1.0"}
+        )
+    return _http_client
+
+
 async def fetch_warframe_data(retries=3):
     """Получает данные Warframe API с повторными попытками."""
+    client = await _get_http_client()
     for attempt in range(retries):
         try:
-            async with httpx.AsyncClient(timeout=120) as client:
-                r = await client.get(WARFRAME_API, headers={"User-Agent": "OrdisBot/1.0"})
-                r.raise_for_status()
-                return r.json()
+            r = await client.get(WARFRAME_API)
+            r.raise_for_status()
+            return r.json()
         except httpx.ReadTimeout:
             print(f"[Warframe] API таймаут (попытка {attempt + 1}/{retries})")
             if attempt < retries - 1:
@@ -232,12 +233,8 @@ class Warframe(commands.Cog):
         self.bot = bot
         self._baro_notified = False
         self._main_message_id = None
-        self._last_main_embed = None
-        self._last_rotation_embed = None
         self._notified_news_ids = set()
         self._twitch_drops_message_id = None
-        self._last_tennocon_drops_hash = None
-        self._tennocon_drops_message_id = None
         print("[Warframe] Ког инициализирован")
 
     @commands.Cog.listener()
@@ -259,7 +256,6 @@ class Warframe(commands.Cog):
                 await self._handle_baro(data.get("voidTrader", {}))
                 await self._build_and_send_main_embed(data, info_channel)
                 await self._check_twitch_drops(data)
-                await self._send_tennocon_drops()
                 print("[Warframe] Начальное обновление выполнено!")
             else:
                 print(f"[Warframe] ОШИБКА: Канал {WARFRAME_INFO_CHANNEL_ID} не найден!")
@@ -290,7 +286,7 @@ class Warframe(commands.Cog):
         await self._handle_baro(data.get("voidTrader", {}))
         await self._build_and_send_main_embed(data, info_channel)
         
-        # Twitch Drops и TennoCon Drops — оборачиваем в try, чтобы краш не валил весь цикл
+        # Twitch Drops — оборачиваем в try, чтобы краш не валил весь цикл
         try:
             await self._check_twitch_drops(data)
         except Exception as e:
@@ -299,21 +295,6 @@ class Warframe(commands.Cog):
             try:
                 bot_errors.add_error(
                     error_type="WarframeTwitchDrops",
-                    error_message=str(e),
-                    source="warframe_update_loop",
-                    details={'traceback': traceback.format_exc()[:2000]}
-                )
-            except Exception:
-                pass
-        
-        try:
-            await self._send_tennocon_drops()
-        except Exception as e:
-            logging.error(f"[Warframe] Ошибка в _send_tennocon_drops: {e}")
-            traceback.print_exc()
-            try:
-                bot_errors.add_error(
-                    error_type="WarframeTennoconDrops",
                     error_message=str(e),
                     source="warframe_update_loop",
                     details={'traceback': traceback.format_exc()[:2000]}
@@ -359,16 +340,29 @@ class Warframe(commands.Cog):
                     name = translate_item(item.get("item", "?"))
                     ducats = item.get("ducats", 0)
                     credits = item.get("credits", 0)
-                    items_text.append(f"• **{name}** — <:OldDucats:1512114394094502050> {ducats} | <:Credits:1514175092035424319> {credits}")
-                desc = "\n".join(items_text[:20])
-                if len(items_text) > 20:
-                    desc += f"\n... и ещё {len(items_text) - 20}"
+                    items_text.append(f"**{name}** — <:OldDucats:1512114394094502050> {ducats} | <:Credits:1514175092035424319> {credits}")
+
+                # Инвентарь — компактными inline-полями (2 предмета на поле)
                 embed = discord.Embed(
                     title="🛒 Баро Ки'Тир прибыл!",
-                    description=desc,
                     color=WARFRAME_COLOR,
                     timestamp=datetime.now(timezone.utc)
                 )
+                overflow = 0
+                chunk = []
+                for line in items_text:
+                    if len(embed.fields) >= 24 or (chunk and sum(len(c) for c in chunk) + len(line) + 1 > 1000):
+                        if len(embed.fields) >= 24:
+                            overflow += 1
+                            continue
+                    chunk.append(line)
+                    if len(chunk) >= 2:
+                        embed.add_field(name="\u200b", value="\n".join(chunk), inline=True)
+                        chunk = []
+                if chunk:
+                    embed.add_field(name="\u200b", value="\n".join(chunk), inline=True)
+                if overflow:
+                    embed.add_field(name="ℹ️", value=f"... и ещё {overflow} предметов", inline=True)
                 embed.add_field(name="📍 Локация", value=location, inline=True)
                 if expiry:
                     try:
@@ -516,8 +510,6 @@ class Warframe(commands.Cog):
             try:
                 msg = await info_channel.fetch_message(self._main_message_id)
                 await msg.edit(embed=embed, view=WarframeView(embed, rotation_embed))
-                self._last_main_embed = embed
-                self._last_rotation_embed = rotation_embed
                 return
             except (discord.NotFound, discord.HTTPException):
                 self._main_message_id = None
@@ -527,8 +519,6 @@ class Warframe(commands.Cog):
         try:
             sent = await info_channel.send(embed=embed, view=WarframeView(embed, rotation_embed))
             self._main_message_id = sent.id
-            self._last_main_embed = embed
-            self._last_rotation_embed = rotation_embed
             logging.info(f"[Warframe] Отправлено главное сообщение в {info_channel.name}")
         except Exception as e:
             logging.error(f"[Warframe] Ошибка отправки: {e}")
@@ -655,268 +645,17 @@ class Warframe(commands.Cog):
             except Exception as e:
                 logging.error(f"[Warframe] Ошибка отправки Twitch Drops: {e}")
 
-    # ==================== TENNOCON DROPS ====================
-
-    def _is_edt(self, date: datetime) -> bool:
-        """Определяет, действует ли летнее время (EDT) в указанную дату.
-        
-        В США переход на летнее время: второе воскресенье марта в 2:00 AM
-        Переход на зимнее время: первое воскресенье ноября в 2:00 AM
-        """
-        month = date.month
-        day = date.day
-        
-        # Определяем день недели (0=понедельник, 6=воскресенье)
-        weekday = date.weekday()
-        
-        if month == 3:
-            # Второе воскресенье марта
-            # Находим первое воскресенье
-            first_sunday = 7 - weekday if weekday < 6 else 1
-            second_sunday = first_sunday + 7
-            return day >= second_sunday
-        elif month == 11:
-            # Первое воскресенье ноября
-            first_sunday = 7 - weekday if weekday < 6 else 1
-            return day < first_sunday
-        elif month in [4, 5, 6, 7, 8, 9, 10]:
-            # Апрель-октябрь: летнее время
-            return True
-        else:
-            # Декабрь-февраль: зимнее время
-            return False
-
-    async def _fetch_tennocon_drops(self):
-        """Парсит страницу TennoCon и возвращает список дропов с временем в МСК."""
-        if not PLAYWRIGHT_AVAILABLE:
-            logging.warning("[Warframe] Playwright не установлен. TennoCon дропы пропущены.")
-            return []
-        
-        try:
-            async with async_playwright() as p:
-                browser = await p.chromium.launch(headless=True)
-                page = await browser.new_page()
-                await page.goto(TENNOCON_DROPS_URL, wait_until="domcontentloaded", timeout=30000)
-                
-                # Используем селекторы Playwright вместо regex
-                cards = await page.query_selector_all('div.StreamCard')
-                
-                months_map = {"July": 7, "August": 8, "September": 9}
-
-                drops = []
-                logging.info(f"[Warframe] Найдено карточек TennoCon: {len(cards)}")
-
-                for idx, card in enumerate(cards):
-                    try:
-                        # Извлекаем название
-                        title_elem = await card.query_selector('h3')
-                        if not title_elem:
-                            logging.warning(f"[Warframe] Карточка {idx}: нет заголовка h3")
-                            continue
-                        name_raw = (await title_elem.inner_text()).strip()
-                        logging.info(f"[Warframe] Карточка {idx}: название = '{name_raw}'")
-
-                        # Извлекаем дату
-                        date_elem = await card.query_selector('.StreamCard-datetime div')
-                        if not date_elem:
-                            logging.warning(f"[Warframe] Карточка {idx}: нет даты")
-                            continue
-                        date_text = (await date_elem.inner_text()).strip()
-                        logging.info(f"[Warframe] Карточка {idx}: дата текст = '{date_text}'")
-                        # Парсим "July 10"
-                        parts = date_text.split()
-                        if len(parts) < 2:
-                            logging.warning(f"[Warframe] Карточка {idx}: недостаточно частей в дате")
-                            continue
-                        month_name = parts[0]
-                        day = int(parts[1])
-
-                        # Извлекаем время начала и конца
-                        time_elems = await card.query_selector_all('.StreamCard-time div')
-                        if len(time_elems) < 2:
-                            logging.warning(f"[Warframe] Карточка {idx}: меньше 2 time div")
-                            continue
-
-                        # Первый div - дата (уже обработана), второй - диапазон времени
-                        # Время в формате "7 p.m. ET – 8:30 p.m. ET"
-                        time_range_text = (await time_elems[1].inner_text()).strip()
-                        logging.info(f"[Warframe] Карточка {idx}: время текст = '{time_range_text}'")
-
-                        # Парсим диапазон времени "7:00 p.m. ET – 8:30 p.m. ET" или "7 p.m. ET – 8:30 p.m. ET"
-                        time_range_match = re.match(r'(\d{1,2})(?::(\d{2}))?\s*(a\.m\.|p\.m\.)\s*ET\s*[–-]\s*(\d{1,2}):(\d{2})\s*(a\.m\.|p\.m\.)', time_range_text)
-                        
-                        if not time_range_match:
-                            logging.warning(f"[Warframe] Карточка {idx}: не удалось распарсить время")
-                            continue
-
-                        start_h = int(time_range_match.group(1))
-                        start_m = int(time_range_match.group(2)) if time_range_match.group(2) else 0
-                        start_ampm = time_range_match.group(3)
-                        end_h = int(time_range_match.group(4))
-                        end_m = int(time_range_match.group(5))
-                        end_ampm = time_range_match.group(6)
-
-                        # Конвертируем в 24-часовой формат
-                        if start_ampm == "p.m." and start_h != 12:
-                            start_h += 12
-                        elif start_ampm == "a.m." and start_h == 12:
-                            start_h = 0
-                        if end_ampm == "p.m." and end_h != 12:
-                            end_h += 12
-                        elif end_ampm == "a.m." and end_h == 12:
-                            end_h = 0
-
-                        month = months_map.get(month_name, 7)
-                        year = 2026
-
-                        try:
-                            # Определяем, летнее или зимнее время
-                            start_dt = datetime(year, month, day, start_h, start_m)
-                            end_dt = datetime(year, month, day, end_h, end_m)
-                            
-                            is_edt = self._is_edt(start_dt)
-                            logging.info(f"[Warframe] Карточка {idx}: дата {year}-{month}-{day}, is_edt={is_edt}")
-                            
-                            if is_edt:
-                                # EDT (летнее время, UTC-4) → МСК (UTC+3): прибавляем 7 часов
-                                ET_OFFSET = timedelta(hours=7)
-                            else:
-                                # EST (зимнее время, UTC-5) → МСК (UTC+3): прибавляем 8 часов
-                                ET_OFFSET = timedelta(hours=8)
-                            
-                            start_msk = start_dt + ET_OFFSET
-                            end_msk = end_dt + ET_OFFSET
-                            logging.info(f"[Warframe] Карточка {idx}: ET {start_h}:{start_m:02d} → MSK {start_msk.strftime('%H:%M')} (смещение +{ET_OFFSET.total_seconds()/3600:.0f}ч)")
-                        except Exception as e:
-                            logging.error(f"[Warframe] Карточка {idx}: ошибка конвертации времени: {e}")
-                            continue
-
-                        # Извлекаем описание/награду
-                        desc_elem = await card.query_selector('.StreamCard-description')
-                        reward_text = ""
-                        if desc_elem:
-                            reward_text = (await desc_elem.inner_text()).strip()
-                            reward_text = re.sub(r'\s+', ' ', reward_text).strip()
-                            # Убираем "subject to change"
-                            reward_text = re.sub(r'\*subject to change.*?\*', '', reward_text, flags=re.IGNORECASE).strip()
-                            if len(reward_text) > 250:
-                                reward_text = reward_text[:250] + "..."
-                        logging.info(f"[Warframe] Карточка {idx}: награда = '{reward_text[:100]}'")
-
-                        drops.append({
-                            "name": name_raw,
-                            "reward": reward_text,
-                            "start_msk": start_msk,
-                            "end_msk": end_msk,
-                        })
-                        logging.info(f"[Warframe] Карточка {idx}: добавлен дроп {start_msk.strftime('%H:%M')} — {end_msk.strftime('%H:%M')} МСК")
-                    except Exception as e:
-                        logging.error(f"[Warframe] Ошибка парсинга карточки: {e}")
-                        continue
-                
-                await browser.close()
-        except Exception as e:
-            logging.error(f"[Warframe] Ошибка загрузки TennoCon страницы: {e}")
-            return []
-
-        logging.info(f"[Warframe] Успешно спарсено дропов: {len(drops)}")
-        drops.sort(key=lambda d: d["start_msk"])
-        return drops
-
-    async def _send_tennocon_drops(self):
-        """Парсит TennoCon страницу и отправляет/редактирует embed с дропами."""
-        drops = await self._fetch_tennocon_drops()
-        if not drops:
-            return
-
-        # Хеш для проверки изменений
-        drops_hash = hashlib.md5(str(drops).encode()).hexdigest()
-        if drops_hash == self._last_tennocon_drops_hash:
-            return
-        self._last_tennocon_drops_hash = drops_hash
-
-        # Отправляем в канал уведомлений (как и Баро)
-        notify_channel = self.bot.get_channel(BARO_NOTIFY_CHANNEL_ID)
-        if not notify_channel:
-            logging.warning(f"[Warframe] Канал уведомлений {BARO_NOTIFY_CHANNEL_ID} не найден!")
-            return
-
-        # Группируем по дням
-        day_data = {}
-        month_ru = {"July": "июля", "August": "августа", "September": "сентября"}
-        day_names = {4: "Пятница", 5: "Суббота", 6: "Воскресенье"}
-
-        for d in drops:
-            date_key = d["start_msk"].strftime("%d.%m.%Y")
-            if date_key not in day_data:
-                day_data[date_key] = []
-            day_data[date_key].append(d)
-
-        now = datetime.now(timezone.utc)
-        description_parts = []
-
-        for date_key in sorted(day_data.keys()):
-            day_drops = day_data[date_key]
-            day_dt = datetime.strptime(date_key, "%d.%m.%Y")
-            day_name = day_names.get(day_dt.weekday(), "")
-            month_en = day_dt.strftime("%B")
-
-            # Заголовок дня
-            description_parts.append(
-                f"**🗓 {day_dt.day} {month_ru.get(month_en, month_en)} {day_dt.year} ({day_name})**\n"
-            )
-
-            for d in day_drops:
-                start_str = d["start_msk"].strftime("%H:%M")
-                end_str = d["end_msk"].strftime("%H:%M")
-                description_parts.append(f"🕐 **{start_str} — {end_str} МСК** → {d['name']}")
-                if d["reward"]:
-                    description_parts.append(f"  • {d['reward']}")
-                description_parts.append("")
-
-        description = "\n".join(description_parts).strip()
-
-        embed = discord.Embed(
-            title="🎮 Twitch Drops TennoCon 2026",
-            description=description,
-            color=WARFRAME_COLOR,
-            timestamp=now
-        )
-        embed.add_field(
-            name="🔗 Ссылка",
-            value="[Смотреть на Twitch](https://www.twitch.tv/warframe)",
-            inline=False
-        )
-        embed.set_footer(text="tennocon.com • время указано в МСК")
-
-        # Отправляем или редактируем
-        if self._tennocon_drops_message_id:
-            try:
-                msg = await notify_channel.fetch_message(self._tennocon_drops_message_id)
-                await msg.edit(embed=embed)
-                return
-            except (discord.NotFound, discord.HTTPException):
-                self._tennocon_drops_message_id = None
-            except Exception as e:
-                logging.error(f"[Warframe] Ошибка редактирования TennoCon дропов: {e}")
-
-        try:
-            sent = await notify_channel.send(embed=embed)
-            self._tennocon_drops_message_id = sent.id
-            print("[Warframe] Отправлены TennoCon дропы")
-        except Exception as e:
-            logging.error(f"[Warframe] Ошибка отправки TennoCon дропов: {e}")
-
     # ==================== КОМАНДЫ ====================
 
-    @commands.command(name="update")
+    @commands.hybrid_command(name="update", description="Принудительно обновить данные Warframe и лидерборд")
     @commands.has_permissions(administrator=True)
     async def update_command(self, ctx):
         """Принудительно обновляет все данные (Warframe, лидерборд)."""
-        try:
-            await ctx.message.delete()
-        except Exception:
-            pass
+        if not isinstance(ctx.interaction, discord.Interaction):
+            try:
+                await ctx.message.delete()
+            except Exception:
+                pass
 
         await ctx.send("🔄 Запускаю обновление всех данных...", delete_after=5)
         
@@ -928,9 +667,6 @@ class Warframe(commands.Cog):
                 await self._handle_baro(data.get("voidTrader", {}))
                 await self._build_and_send_main_embed(data, info_channel)
                 await self._check_twitch_drops(data)
-                # Сбрасываем хеш для принудительного обновления TennoCon
-                self._last_tennocon_drops_hash = None
-                await self._send_tennocon_drops()
             
             # Обновляем таблицу лидеров
             leaderboard_cog = self.bot.get_cog("Leaderboard")

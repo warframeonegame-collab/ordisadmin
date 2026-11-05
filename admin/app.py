@@ -32,6 +32,58 @@ from utils.database import Database
 app = Flask(__name__)
 app.secret_key = config.SECRET_KEY
 
+# ==================== NAV BADGES (счётчики в сайдбаре) ====================
+
+_nav_badges_cache = {'data': None, 'ts': 0.0}
+
+def _get_nav_badges():
+    """Счётчики для бейджей сайдбара (кэш на 60 сек, чтобы не грузить БД на каждый запрос)."""
+    import time as _time
+    now = _time.time()
+    if _nav_badges_cache['data'] is not None and now - _nav_badges_cache['ts'] < 60:
+        return _nav_badges_cache['data']
+
+    badges = {'questionnaires': 0, 'bot_errors': 0}
+
+    # Анкеты за последние 3 дня («новые»)
+    try:
+        db = load_database()
+        cutoff = (datetime.now() - timedelta(days=3)).strftime('%d.%m.%Y')
+        count = 0
+        for uid, data in db.items():
+            if uid.startswith('_'):
+                continue
+            q = data.get('questionnaire')
+            if isinstance(q, dict):
+                filled = str(q.get('filled_at', ''))
+                if filled >= cutoff:  # формат dd.mm.yyyy HH:MM — лексикографическое сравнение корректно
+                    count += 1
+        badges['questionnaires'] = count
+    except Exception as e:
+        logging.debug(f"Не удалось посчитать новые анкеты: {e}")
+
+    # Ошибки бота за последние 24 часа
+    try:
+        yesterday = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
+        result = bot_errors_manager.get_errors(page=1, per_page=1, date_from=yesterday)
+        badges['bot_errors'] = int(result.get('total') or 0)
+    except Exception as e:
+        logging.debug(f"Не удалось посчитать ошибки бота: {e}")
+
+    _nav_badges_cache['data'] = badges
+    _nav_badges_cache['ts'] = now
+    return badges
+
+@app.context_processor
+def inject_nav_badges():
+    """Доступно nav_badges во всех шаблонах."""
+    try:
+        if not session.get('user_id'):
+            return {}
+        return {'nav_badges': _get_nav_badges()}
+    except Exception:
+        return {'nav_badges': {'questionnaires': 0, 'bot_errors': 0}}
+
 @app.before_request
 def refresh_session_role():
     """Обновляет роль в сессии из БД при каждом запросе, чтобы изменения вступали в силу сразу"""
@@ -1703,14 +1755,17 @@ def api_questionnaires():
 def api_leaderboard():
     """Возвращает таблицу лидеров для отображения на сайте"""
     db = load_database()
-    discord_nicks = fetch_discord_members()
-    
+    discord_data = fetch_discord_members_with_avatars()
+
     users = []
     for uid, data in db.items():
-        nickname = data.get('nickname') or discord_nicks.get(uid, 'Неизвестно')
+        info = discord_data.get(uid, {})
+        nickname = data.get('nickname') or info.get('nickname') or 'Неизвестно'
+        avatar = data.get('avatar') or info.get('avatar') or '0'
         users.append({
             'id': uid,
             'nickname': nickname,
+            'avatar': avatar,
             'level': int(data.get('level', 1)) if data.get('level') is not None else 1,
             'xp': int(data.get('xp', 0)) if data.get('xp') is not None else 0,
             'position': data.get('position', ''),
@@ -1949,57 +2004,45 @@ def api_antileak_alerts():
 @login_required
 @permission_required('antileak_view')
 def api_antileak_resolve():
-    """Подтвердить или отклонить алерт антилива (восстановить роли)"""
+    """Подтвердить или отклонить алерт антилива.
+
+    Решение пишется в очередь antileak_actions — бот подбирает его сам
+    (сайт НЕ дёргает Discord REST напрямую).
+    """
     data = request.json
     alert_id = data.get('alert_id')
     action = data.get('action')  # 'confirm' или 'reject'
-    
+
     if not alert_id or action not in ('confirm', 'reject'):
         return jsonify({'error': 'Неверные параметры'}), 400
-    
+
     db = get_db()
     try:
         target_alert = db.get_antileak_alert(alert_id)
-        
+
         if not target_alert:
             return jsonify({'error': 'Алерт не найден'}), 404
-        
+
         if target_alert['status'] != 'pending':
             return jsonify({'error': 'Алерт уже обработан'}), 400
-        
+
         # Обновляем статус в PostgreSQL
         target_alert = db.resolve_antileak_alert(
             alert_id,
             'confirmed' if action == 'confirm' else 'rejected',
             session.get('username', 'Unknown'),
         )
-        
-        # Если отклонено — восстанавливаем роли через Discord API
-        if action == 'reject':
-            user_id = target_alert.get('user_id')
-            saved_roles = target_alert.get('saved_roles', [])
-            guild_id = config.GUILD_ID
-            
-            if user_id and saved_roles:
-                try:
-                    headers = {
-                        'Authorization': f'Bot {config.DISCORD_BOT_TOKEN}',
-                        'Content-Type': 'application/json'
-                    }
-                    # Добавляем роли обратно
-                    resp = requests.put(
-                        f'https://discord.com/api/guilds/{guild_id}/members/{user_id}/roles',
-                        headers=headers,
-                        json={'roles': [str(r) for r in saved_roles]},
-                        timeout=10
-                    )
-                    if resp.status_code in (200, 204):
-                        logging.info(f"[AntiLeak] Роли восстановлены для {user_id} (отклонено основателем)")
-                    else:
-                        logging.warning(f"[AntiLeak] Ошибка восстановления ролей для {user_id}: {resp.status_code}")
-                except Exception as e:
-                    logging.error(f"[AntiLeak] Ошибка восстановления ролей: {e}")
-        
+
+        # Ставим решение в очередь — бот исполнит его сам
+        db.add_antileak_action(
+            action,
+            payload={'alert_id': alert_id, 'alert': target_alert},
+            created_by=session.get('username', 'Unknown'),
+            alert_id=alert_id,
+        )
+        logging.info(f"[AntiLeak] Решение '{action}' по алерту #{alert_id} "
+                     f"поставлено в очередь (автор: {session.get('username')})")
+
         # Логируем
         logs_manager.log_site_action(
             action='🛡️ Антилив — Решение',
@@ -2011,13 +2054,14 @@ def api_antileak_resolve():
             user_id=session.get('user_id', ''),
             user_name=session.get('username', 'Unknown')
         )
-        
+
         return jsonify({
             'success': True,
             'status': target_alert['status'],
-            'message': 'Алерт подтверждён' if action == 'confirm' else 'Алерт отклонён, роли восстановлены'
+            'message': 'Алерт подтверждён' if action == 'confirm'
+                       else 'Алерт отклонён, бот восстановит роли'
         })
-        
+
     except Exception as e:
         logging.error(f"Ошибка resolve антилив: {e}")
         return jsonify({'error': str(e)}), 500
@@ -2102,4 +2146,5 @@ def internal_error(e):
 # ==================== MAIN ====================
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=3000)
+    # debug=False — без reloader (reloader держит два копии процесса = двойная память)
+    app.run(debug=False, host='0.0.0.0', port=3000)

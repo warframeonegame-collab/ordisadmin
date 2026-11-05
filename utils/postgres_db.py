@@ -128,6 +128,18 @@ class Database:
                 executor TEXT, executor_id TEXT, timestamp TIMESTAMPTZ
             )
             """,
+            """
+            CREATE TABLE IF NOT EXISTS antileak_actions (
+                id SERIAL PRIMARY KEY, alert_id TEXT, action TEXT,
+                payload JSONB, status TEXT DEFAULT 'pending',
+                created_by TEXT, created_at TIMESTAMPTZ, executed_at TIMESTAMPTZ
+            )
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS antileak_state (
+                key TEXT PRIMARY KEY, value JSONB
+            )
+            """,
         ]
         with self.conn.cursor() as cur:
             for cmd in commands:
@@ -138,6 +150,14 @@ class Database:
                 "ALTER TABLE users ADD COLUMN IF NOT EXISTS "
                 "scheduled_unmutes JSONB DEFAULT '[]'::JSONB"
             )
+        v3 = [
+            # Антилив v3: уровень эскалации и итоговый score алерта
+            "ALTER TABLE antileak_alerts ADD COLUMN IF NOT EXISTS response_level TEXT",
+            "ALTER TABLE antileak_alerts ADD COLUMN IF NOT EXISTS score INTEGER DEFAULT 0",
+        ]
+        with self.conn.cursor() as cur:
+            for cmd in v3:
+                cur.execute(cmd)
         logger.info("✅ Таблицы PostgreSQL созданы/проверены")
 
     def close(self):
@@ -258,12 +278,76 @@ class Database:
         self.update_user(user_id, xp=new_xp, level=new_level)
         return new_level > old_level
 
+    def add_voice_xp(self, user_id, amount, minutes=1):
+        """Единый read-modify-write для голосового XP.
+
+        Начисляет XP/уровень (как add_xp) и инкрементирует achievements['voice_minutes'].
+        Автоматически проставляет достижения 'voice10' (600 минут) и 'voice50' (3000 минут).
+        Возвращает (level_up: bool, new_level: int, minutes_total: int).
+        """
+        if not self.enabled:
+            return False, 1, 0
+        user_id = str(user_id)
+        user = self.get_user(user_id)
+        if user is None:
+            return False, 1, 0
+
+        old_level = int(user.get('level') or 1)
+        new_xp = int(user.get('xp') or 0) + int(amount)
+        current_level = old_level
+        while True:
+            need = config.LEVEL_MULTIPLIER * (current_level + 1) ** 2
+            if new_xp >= need:
+                current_level += 1
+            else:
+                break
+
+        achievements = user.get('achievements') or {}
+        minutes_total = int(achievements.get('voice_minutes') or 0) + int(minutes)
+        achievements['voice_minutes'] = minutes_total
+        if minutes_total >= 600 and not achievements.get('voice10'):
+            achievements['voice10'] = True
+            logger.info(f"[VoiceXP] Достижение 'voice10' для {user_id} ({minutes_total} мин)")
+        if minutes_total >= 3000 and not achievements.get('voice50'):
+            achievements['voice50'] = True
+            logger.info(f"[VoiceXP] Достижение 'voice50' для {user_id} ({minutes_total} мин)")
+
+        self.update_user(user_id, xp=new_xp, level=current_level, achievements=achievements)
+        return current_level > old_level, current_level, minutes_total
+
     def delete_user(self, user_id):
         if not self.enabled:
             return
         user_id = str(user_id)
         with self.conn.cursor() as cur:
             cur.execute("DELETE FROM users WHERE user_id = %s::BIGINT", (int(user_id),))
+
+    def count_users(self):
+        """Количество пользователей (SQL COUNT — не грузит таблицу в память)."""
+        if not self.enabled:
+            return 0
+        with self.conn.cursor() as cur:
+            cur.execute("SELECT COUNT(*) FROM users")
+            return cur.fetchone()[0]
+
+    def get_top_users(self, limit=10):
+        """Топ-N пользователей по уровню (SQL — без загрузки всей таблицы users).
+
+        Возвращает список словарей: {'user_id', 'nickname', 'level', 'xp'}.
+        """
+        if not self.enabled:
+            return []
+        with self.conn.cursor() as cur:
+            cur.execute(
+                "SELECT user_id, nickname, level, xp FROM users "
+                "ORDER BY level DESC, xp DESC LIMIT %s",
+                (limit,),
+            )
+            rows = cur.fetchall()
+        return [
+            {'user_id': str(r[0]), 'nickname': r[1], 'level': r[2], 'xp': r[3]}
+            for r in rows
+        ]
 
     def get_all_users(self):
         if not self.enabled:
@@ -383,7 +467,7 @@ class Database:
         return self._alert_row_to_dict(row) if row else None
 
     def add_antileak_alert(self, alert_data):
-        """Добавляет новый алерт."""
+        """Добавляет новый алерт (v3: с response_level и score)."""
         if not self.enabled:
             return
         with self.conn.cursor() as cur:
@@ -391,8 +475,9 @@ class Database:
                 """
                 INSERT INTO antileak_alerts (id, user_id, username, user_avatar,
                     action_type, action_count, threshold, details, saved_roles,
-                    victim_ids, timestamp, status, resolved_by, resolved_at, guild_id)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    victim_ids, timestamp, status, resolved_by, resolved_at, guild_id,
+                    response_level, score)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (id) DO NOTHING
                 """,
                 (str(alert_data.get('id')),
@@ -409,7 +494,82 @@ class Database:
                  alert_data.get('status') or 'pending',
                  alert_data.get('resolved_by'),
                  alert_data.get('resolved_at'),
-                 str(alert_data.get('guild_id') or '')),
+                 str(alert_data.get('guild_id') or ''),
+                 alert_data.get('response_level'),
+                 alert_data.get('score', 0)),
+            )
+
+    # ------------------------------------------------------------------ #
+    # Антилив v3: очередь действий бот ← сайт + состояние lockdown
+    # ------------------------------------------------------------------ #
+    def _action_row_to_dict(self, row):
+        if row is None:
+            return None
+        data = dict(zip(
+            ('id', 'alert_id', 'action', 'payload', 'status', 'created_by',
+             'created_at', 'executed_at'), row))
+        data['payload'] = self._json_load(data.get('payload'))
+        for f in ('created_at', 'executed_at'):
+            data[f] = self._dt_to_iso(data.get(f))
+        return data
+
+    def add_antileak_action(self, action, payload=None, created_by='site', alert_id=None):
+        """Ставит действие в очередь исполнения ботом (reject/confirm/lockdown/unlock).
+        Возвращает id записи."""
+        if not self.enabled:
+            return None
+        with self.conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO antileak_actions (alert_id, action, payload, created_by, created_at) "
+                "VALUES (%s, %s, %s, %s, NOW()) RETURNING id",
+                (str(alert_id) if alert_id else None, str(action),
+                 self._json_default(payload or {}), str(created_by)),
+            )
+            return cur.fetchone()[0]
+
+    def get_pending_antileak_actions(self):
+        """Список неисполненных действий из очереди (по возрасту)."""
+        if not self.enabled:
+            return []
+        with self.conn.cursor() as cur:
+            cur.execute(
+                "SELECT id, alert_id, action, payload, status, created_by, created_at, executed_at "
+                "FROM antileak_actions WHERE status = 'pending' ORDER BY id ASC LIMIT 25"
+            )
+            return [self._action_row_to_dict(r) for r in cur.fetchall()]
+
+    def mark_antileak_action_done(self, action_id, success=True):
+        if not self.enabled or action_id is None:
+            return
+        status = 'done' if success else 'failed'
+        with self.conn.cursor() as cur:
+            cur.execute(
+                "UPDATE antileak_actions SET status = %s, executed_at = NOW() WHERE id = %s",
+                (status, int(action_id)),
+            )
+
+    def get_antileak_state(self, key):
+        """Значение из antileak_state (dict) или None."""
+        if not self.enabled:
+            return None
+        with self.conn.cursor() as cur:
+            cur.execute("SELECT value FROM antileak_state WHERE key = %s", (str(key),))
+            row = cur.fetchone()
+        if not row:
+            return None
+        try:
+            return json.loads(row[0]) if isinstance(row[0], (str,)) else row[0]
+        except Exception:
+            return None
+
+    def set_antileak_state(self, key, value):
+        if not self.enabled:
+            return
+        with self.conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO antileak_state (key, value) VALUES (%s, %s) "
+                "ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value",
+                (str(key), self._json_default(value)),
             )
 
     def resolve_antileak_alert(self, alert_id, status, resolved_by):
@@ -464,6 +624,36 @@ class Database:
                 (str(user_id), status, last_seen,
                  self._json_default([str(r) for r in roles or []]),
                  nickname),
+            )
+
+    def upsert_presence_many(self, rows):
+        """Пакетная запись кэша presence ОДНИМ запросом (без N отдельных INSERT).
+
+        rows — итератор кортежей (user_id, status, last_seen, roles_list, nickname).
+        """
+        if not self.enabled or not rows:
+            return
+        from psycopg2.extras import execute_values
+        prepared = [
+            (str(uid), status, last_seen,
+             self._json_default([str(r) for r in roles or []]),
+             nickname)
+            for uid, status, last_seen, roles, nickname in rows
+        ]
+        with self.conn.cursor() as cur:
+            execute_values(
+                cur,
+                """
+                INSERT INTO presence_cache (user_id, status, last_seen, roles, nickname)
+                VALUES %s
+                ON CONFLICT (user_id) DO UPDATE SET
+                    status = EXCLUDED.status,
+                    last_seen = EXCLUDED.last_seen,
+                    roles = EXCLUDED.roles,
+                    nickname = EXCLUDED.nickname
+                """,
+                prepared,
+                template="(%s, %s, %s, %s, %s)",
             )
 
     def delete_presence(self, user_id):

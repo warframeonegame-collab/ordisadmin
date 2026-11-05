@@ -101,14 +101,15 @@
 <div class="card">
     <div class="card-body">
         {% if members %}
-        <div class="table-responsive">
+        <div class="table-responsive table-ordis" style="max-height: 70vh; overflow-y: auto;">
             <table class="table table-dark table-hover align-middle mb-0">
                 <thead>
                     <tr>
                         <th style="width: 40px;">#</th>
                         <th>Участник</th>
                         <th>LVL</th>
-                        <th>XP</th>
+                        <th>Опыт</th>
+                        <th style="min-width: 130px;">Прогресс</th>
                         <th>Должность</th>
                         <th>Варны</th>
                         <th>Статус</th>
@@ -116,8 +117,17 @@
                 </thead>
                 <tbody>
                     {% for member in members %}
-                    <tr class="{{ 'table-danger' if member.banned }}" style="cursor: pointer;" onclick="location.href=this.dataset.href" data-href="{{ url_for('member_detail', user_id=member.id) }}">
-                        <td class="text-muted small">{{ loop.index }}</td>
+                    {% set m_level = member.level if member.level > 0 else 1 %}
+                    {% set m_xp = member.xp|int if member.xp is number else (member.xp|int if member.xp and member.xp.isdigit() else 0) %}
+                    {% set need = (m_level + 1) * (m_level + 1) * 100 %}
+                    {% set pct = (m_xp / need * 100) | round | int %}
+                    <tr class="{{ 'table-danger' if member.banned }} {{ 'row-top' + loop.index|string if loop.index <= 3 else '' }}" style="cursor: pointer;" onclick="location.href=this.dataset.href" data-href="{{ url_for('member_detail', user_id=member.id) }}">
+                        <td class="rank-medal text-muted small">
+                            {% if loop.index == 1 %}🥇
+                            {% elif loop.index == 2 %}🥈
+                            {% elif loop.index == 3 %}🥉
+                            {% else %}{{ loop.index }}{% endif %}
+                        </td>
                         <td>
                             <div class="d-flex align-items-center gap-2">
                                 <img src="{{ member.avatar_url }}" 
@@ -129,8 +139,14 @@
                                 </div>
                             </div>
                         </td>
-                        <td><span class="badge bg-primary">{{ member.level }}</span></td>
-                        <td class="text-muted small">{{ "{:,}".format(member.xp | int) }}</td>
+                        <td><span class="lvl-chip">{{ m_level }}</span></td>
+                        <td class="text-muted small">{{ "{:,}".format(m_xp) }}</td>
+                        <td class="xp-bar-cell">
+                            <div class="xp-bar">
+                                <div class="xp-bar-fill" style="width: {{ pct }}%;"></div>
+                            </div>
+                            <div class="xp-bar-label">{{ pct }}% до {{ m_level + 1 }} lvl</div>
+                        </td>
                         <td>{{ member.position or '—' }}</td>
                         <td>
                             {% if member.warns > 0 %}
@@ -185,13 +201,16 @@ async function addMember() {
         const data = await resp.json();
         if (resp.ok) {
             status.innerHTML = '<div class="alert alert-success"><i class="fas fa-check"></i> ' + data.message + '</div>';
+            showToast(data.message, 'success');
             input.value = '';
             setTimeout(() => { location.reload(); }, 1500);
         } else {
             status.innerHTML = '<div class="alert alert-danger"><i class="fas fa-times"></i> ' + data.error + '</div>';
+            showToast(data.error, 'danger');
         }
     } catch (e) {
         status.innerHTML = '<div class="alert alert-danger"><i class="fas fa-times"></i> Ошибка: ' + e.message + '</div>';
+        showToast('Ошибка сети: ' + e.message, 'danger');
     }
     btn.disabled = false;
     btn.innerHTML = '<i class="fas fa-plus"></i> Добавить';

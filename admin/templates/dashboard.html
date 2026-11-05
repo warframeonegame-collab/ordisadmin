@@ -34,7 +34,7 @@
         <div class="card stat-card">
             <div class="card-body text-center">
                 <div class="stat-icon"><i class="fas fa-users"></i></div>
-                <h3 class="stat-number">{{ stats.total_members }}</h3>
+                <h3 class="stat-number" data-countup>{{ stats.total_members }}</h3>
                 <p class="stat-label">Участников</p>
             </div>
         </div>
@@ -43,7 +43,7 @@
         <div class="card stat-card">
             <div class="card-body text-center">
                 <div class="stat-icon"><i class="fas fa-star"></i></div>
-                <h3 class="stat-number">{{ "{:,}".format(stats.total_xp) }}</h3>
+                <h3 class="stat-number" data-countup>{{ stats.total_xp }}</h3>
                 <p class="stat-label">Общий XP</p>
             </div>
         </div>
@@ -52,7 +52,7 @@
         <div class="card stat-card">
             <div class="card-body text-center">
                 <div class="stat-icon warning"><i class="fas fa-exclamation-triangle"></i></div>
-                <h3 class="stat-number">{{ stats.total_warns }}</h3>
+                <h3 class="stat-number" data-countup>{{ stats.total_warns }}</h3>
                 <p class="stat-label">Предупреждений</p>
             </div>
         </div>
@@ -61,7 +61,7 @@
         <div class="card stat-card">
             <div class="card-body text-center">
                 <div class="stat-icon danger"><i class="fas fa-ban"></i></div>
-                <h3 class="stat-number">{{ stats.banned_count }}</h3>
+                <h3 class="stat-number" data-countup>{{ stats.banned_count }}</h3>
                 <p class="stat-label">Забанено</p>
             </div>
         </div>
@@ -76,12 +76,9 @@
                 <h5><i class="fas fa-server"></i> Информация о сервере</h5>
             </div>
             <div class="card-body" id="server-info">
-                <div class="text-center">
-                    <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">Загрузка...</span>
-                    </div>
-                    <p class="mt-2">Загрузка данных сервера...</p>
-                </div>
+                <div class="skeleton-row"><div class="skeleton skeleton-avatar"></div><div class="skeleton skeleton-line"></div><div class="skeleton skeleton-line skeleton-line-sm"></div></div>
+                <div class="skeleton-row"><div class="skeleton skeleton-avatar"></div><div class="skeleton skeleton-line"></div><div class="skeleton skeleton-line skeleton-line-sm"></div></div>
+                <div class="skeleton-row"><div class="skeleton skeleton-avatar"></div><div class="skeleton skeleton-line"></div><div class="skeleton skeleton-line skeleton-line-sm"></div></div>
             </div>
         </div>
     </div>
@@ -130,14 +127,37 @@
                 </button>
             </div>
             <div class="card-body" id="inactiveContainer">
-                <div class="text-center py-3">
-                    <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
-                </div>
+                <div class="skeleton-row"><div class="skeleton skeleton-avatar"></div><div class="skeleton skeleton-line"></div><div class="skeleton skeleton-line skeleton-line-sm"></div></div>
+                <div class="skeleton-row"><div class="skeleton skeleton-avatar"></div><div class="skeleton skeleton-line"></div><div class="skeleton skeleton-line skeleton-line-sm"></div></div>
             </div>
         </div>
     </div>
 </div>
 {% endif %}
+
+<!-- Графики (Chart.js уже подключён в base.html) -->
+<div class="row mb-4">
+    <div class="col-md-7">
+        <div class="card chart-card">
+            <div class="card-header">
+                <h5><i class="fas fa-chart-bar"></i> Топ-10 по уровню</h5>
+            </div>
+            <div class="card-body chart-canvas-wrap">
+                <canvas id="topMembersChart"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-5">
+        <div class="card chart-card">
+            <div class="card-header">
+                <h5><i class="fas fa-chart-pie"></i> Распределение по тирам</h5>
+            </div>
+            <div class="card-body chart-canvas-wrap">
+                <canvas id="tiersChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
 
 {% endblock %}
 
@@ -260,6 +280,7 @@ async function loadInactive() {
         container.innerHTML = html;
     } catch (e) {
         container.innerHTML = '<div class="text-center text-muted py-3">Не удалось загрузить данные</div>';
+        showToast('Не удалось загрузить неактивных участников', 'danger');
     }
 }
 
@@ -270,5 +291,97 @@ function escapeHtml(text) {
 }
 
 loadInactive();
+
+// ========== COUNT-UP АНИМАЦИЯ СТАТ-КАРТОЧЕК ==========
+function animateCount(el, duration = 1200) {
+    const target = parseInt((el.textContent || '').replace(/[^\d-]/g, ''), 10);
+    if (isNaN(target)) return;
+    const start = performance.now();
+    function frame(now) {
+        const t = Math.min(1, (now - start) / duration);
+        const eased = 1 - Math.pow(1 - t, 3); // ease-out cubic
+        el.textContent = Math.round(target * eased).toLocaleString('ru-RU');
+        if (t < 1) requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+}
+document.querySelectorAll('[data-countup]').forEach(animateCount);
+
+// ========== ГРАФИКИ (Chart.js) ==========
+const CHART_COLORS = {
+    cyan: '#00d4ff', violet: '#7c4dff', gold: '#f0b429',
+    rose: '#ff0044', green: '#00e676',
+    grid: 'rgba(255,255,255,0.06)',
+    text: 'rgba(238,242,248,0.7)',
+};
+if (document.body.getAttribute('data-bs-theme') === 'light') {
+    CHART_COLORS.grid = 'rgba(0,0,0,0.08)';
+    CHART_COLORS.text = 'rgba(10,10,20,0.6)';
+}
+
+async function loadCharts() {
+    const topCanvas = document.getElementById('topMembersChart');
+    const tiersCanvas = document.getElementById('tiersChart');
+    if (!topCanvas || !tiersCanvas) return;
+
+    try {
+        const resp = await fetch('/api/stats/charts');
+        const data = await resp.json();
+
+        // Бары: топ-10 участников по XP
+        const top = (data.members || []).slice(0, 10);
+        new Chart(topCanvas.getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: top.map(m => m.nickname.length > 12 ? m.nickname.slice(0, 12) + '…' : m.nickname),
+                datasets: [{
+                    data: top.map(m => m.xp),
+                    backgroundColor: 'rgba(0, 212, 255, 0.35)',
+                    borderColor: '#00d4ff',
+                    borderWidth: 1.5,
+                    borderRadius: 6,
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { grid: { color: CHART_COLORS.grid }, ticks: { color: CHART_COLORS.text } },
+                    y: { grid: { display: false }, ticks: { color: CHART_COLORS.text } },
+                }
+            }
+        });
+
+        // Донат: распределение по тирам
+        const tiers = data.tiers || {};
+        const palette = [CHART_COLORS.gold, CHART_COLORS.violet, CHART_COLORS.cyan,
+                         CHART_COLORS.rose, CHART_COLORS.green, 'rgba(150,150,160,0.55)'];
+        new Chart(tiersCanvas.getContext('2d'), {
+            type: 'doughnut',
+            data: {
+                labels: Object.keys(tiers),
+                datasets: [{
+                    data: Object.values(tiers),
+                    backgroundColor: palette,
+                    borderColor: 'rgba(0,0,0,0.25)',
+                    borderWidth: 2,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '62%',
+                plugins: { legend: { position: 'bottom', labels: { color: CHART_COLORS.text, boxWidth: 12 } } }
+            }
+        });
+    } catch (e) {
+        console.error('Не удалось загрузить графики:', e);
+        showToast('Не удалось загрузить графики', 'danger');
+    }
+}
+
+loadCharts();
 </script>
 {% endblock %}

@@ -4,6 +4,8 @@ from utils.database import Database
 import config
 import logging
 
+logger = logging.getLogger(__name__)
+
 
 class VoiceXP(commands.Cog):
     """Система начисления опыта за нахождение в голосовых каналах."""
@@ -49,9 +51,16 @@ class VoiceXP(commands.Cog):
                 if voice.self_deaf or voice.deaf:
                     continue
 
-                # Начисляем опыт
+                # Начисляем опыт (единый read-modify-write + голосовые достижения)
                 try:
-                    self.db.add_xp(member.id, config.XP_PER_VOICE)
+                    level_up, new_level, minutes = self.db.add_voice_xp(
+                        member.id, config.XP_PER_VOICE)
+                    if level_up:
+                        leveling = self.bot.get_cog("LevelingSystem")
+                        if leveling:
+                            await leveling.maybe_award_level(member.id, new_level)
+                        logger.info(f"[VoiceXP] {member} достиг уровня {new_level} "
+                                    f"({minutes} мин в голосе)")
                 except Exception as e:
                     logging.error(f"[VoiceXP] Ошибка начисления XP пользователю {member.id}: {e}")
 

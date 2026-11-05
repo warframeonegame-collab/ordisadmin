@@ -5,65 +5,62 @@ from datetime import datetime
 
 from utils.database import Database
 
+
 class PresenceCache(commands.Cog):
-    """Кэширует presence данные участников в PostgreSQL для отображения на сайте"""
+    """Кэширует presence данные участников в PostgreSQL для отображения на сайте.
+
+    Оптимизация памяти:
+    - Локального зеркала кэша в памяти больше НЕТ — сайт читает кэш напрямую
+      из PostgreSQL, а дублирование только тратило RAM.
+    - Запись в БД происходит только при реальном изменении статуса/ролей/ника
+      (presence-события приходят постоянно, а не только при смене статуса).
+    - Синхронизация при старте выполняется ОДНИМ пакетным запросом вместо
+      INSERT на каждого участника.
+    """
 
     def __init__(self, bot):
         self.bot = bot
         self.db = Database()
-        # Локальное зеркало таблицы presence_cache для быстрого чтения
-        # {user_id: {'status': str, 'last_seen': str, 'roles': [str], 'nickname': str}}
-        self.presence_cache = {}
-        self._load_cache()
 
-    def _load_cache(self):
-        """Загружает кэш из PostgreSQL."""
-        try:
-            self.presence_cache = self.db.get_presence_cache()
-        except Exception as e:
-            logging.warning(f"[PresenceCache] Ошибка загрузки кэша: {e}")
-            self.presence_cache = {}
-
-    def _save_entry(self, user_id, entry):
-        """Сохраняет запись участника в PostgreSQL и локальное зеркало."""
-        user_id = str(user_id)
-        self.presence_cache[user_id] = entry
+    def _save_member(self, member):
+        """Сохраняет запись участника в PostgreSQL."""
         try:
             self.db.upsert_presence(
-                user_id,
-                entry.get('status', 'offline'),
-                entry.get('last_seen'),
-                entry.get('roles', []),
-                entry.get('nickname'),
+                member.id,
+                str(member.status),
+                datetime.utcnow().isoformat(),
+                [str(r.id) for r in member.roles],
+                member.display_name,
             )
         except Exception as e:
             logging.warning(f"[PresenceCache] Ошибка сохранения кэша: {e}")
 
     @commands.Cog.listener()
     async def on_presence_update(self, before, after):
-        """Обновляет кэш при изменении presence"""
+        """Обновляет кэш только при изменении того, что фактически хранится в кэше."""
         if after.bot:
             return
 
-        self._save_entry(after.id, {
-            'status': str(after.status),  # online, idle, dnd, offline
-            'last_seen': datetime.utcnow().isoformat(),
-            'roles': [str(r.id) for r in after.roles],
-            'nickname': after.display_name,
-        })
+        # Дебаунс: наличие события ещё не значит, что изменился статус/роли/ник
+        # (например, смена активности или вида на Twitch не влияет на кэш)
+        if (before.status == after.status
+                and [r.id for r in before.roles] == [r.id for r in after.roles]
+                and before.display_name == after.display_name):
+            return
+
+        self._save_member(after)
 
     @commands.Cog.listener()
     async def on_member_update(self, before, after):
-        """Обновляет кэш при изменении ролей"""
+        """Обновляет кэш при изменении ролей или ника."""
         if after.bot:
             return
 
-        user_id = str(after.id)
-        if user_id in self.presence_cache:
-            entry = dict(self.presence_cache[user_id])
-            entry['roles'] = [str(r.id) for r in after.roles]
-            entry['nickname'] = after.display_name
-            self._save_entry(user_id, entry)
+        if ([r.id for r in before.roles] == [r.id for r in after.roles]
+                and before.display_name == after.display_name):
+            return
+
+        self._save_member(after)
 
     @commands.Cog.listener()
     async def on_member_join(self, member):
@@ -71,60 +68,37 @@ class PresenceCache(commands.Cog):
         if member.bot:
             return
 
-        self._save_entry(member.id, {
-            'status': str(member.status),
-            'last_seen': datetime.utcnow().isoformat(),
-            'roles': [str(r.id) for r in member.roles],
-            'nickname': member.display_name,
-        })
+        self._save_member(member)
 
     @commands.Cog.listener()
     async def on_member_remove(self, member):
         """Удаляет участника из кэша при выходе"""
-        user_id = str(member.id)
-        if user_id in self.presence_cache:
-            del self.presence_cache[user_id]
-            try:
-                self.db.delete_presence(user_id)
-            except Exception as e:
-                logging.warning(f"[PresenceCache] Ошибка удаления записи: {e}")
+        try:
+            self.db.delete_presence(member.id)
+        except Exception as e:
+            logging.warning(f"[PresenceCache] Ошибка удаления записи: {e}")
 
     @commands.Cog.listener()
     async def on_ready(self):
-        """При запуске заполняем кэш текущими данными"""
-        for guild in self.bot.guilds:
-            for member in guild.members:
-                if member.bot:
-                    continue
-                self._save_entry(member.id, {
-                    'status': str(member.status),
-                    'last_seen': datetime.utcnow().isoformat(),
-                    'roles': [str(r.id) for r in member.roles],
-                    'nickname': member.display_name,
-                })
-        logging.info(f"[PresenceCache] Кэш заполнен: {len(self.presence_cache)} участников")
+        """При запуске синхронизируем кэш всех участников ОДНИМ пакетным запросом."""
+        try:
+            rows = []
+            for guild in self.bot.guilds:
+                for member in guild.members:
+                    if member.bot:
+                        continue
+                    rows.append((
+                        member.id,
+                        str(member.status),
+                        datetime.utcnow().isoformat(),
+                        [str(r.id) for r in member.roles],
+                        member.display_name,
+                    ))
+            self.db.upsert_presence_many(rows)
+            logging.info(f"[PresenceCache] Кэш синхронизирован: {len(rows)} участников (одним пакетом)")
+        except Exception as e:
+            logging.warning(f"[PresenceCache] Ошибка синхронизации кэша: {e}")
 
-    def get_online_members(self):
-        """Возвращает список онлайн участников"""
-        online = []
-        for user_id, data in self.presence_cache.items():
-            if data.get('status') in ('online', 'idle', 'dnd'):
-                online.append(user_id)
-        return online
-
-    def get_senior_online(self, senior_role_ids):
-        """Возвращает список онлайн старшего состава по ID ролей"""
-        senior_online = []
-        for user_id, data in self.presence_cache.items():
-            if data.get('status') in ('online', 'idle', 'dnd'):
-                roles = data.get('roles', [])
-                if any(rid in senior_role_ids for rid in roles):
-                    senior_online.append(user_id)
-        return senior_online
-
-    def get_total_online(self):
-        """Возвращает количество онлайн участников"""
-        return len(self.get_online_members())
 
 async def setup(bot):
     await bot.add_cog(PresenceCache(bot))

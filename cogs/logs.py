@@ -1,18 +1,16 @@
 import discord
 from discord.ext import commands
-from datetime import datetime, timedelta
-from collections import defaultdict
+from datetime import datetime
 import asyncio
 
 class Logs(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.LOG_CHANNEL_ID = 1255221212519596184  # ID канала логов
-        self.admin_actions = defaultdict(list)  # Хранилище действий администраторов
-        self.action_timeout = timedelta(seconds=10)  # Временной интервал для отслеживания
         self.move_requests = {}  # Отслеживание запросов на перемещение
         self._processed_events = {}  # Кэш для предотвращения дублирования событий
         self._cache_ttl = 2.0  # Время жизни кэша (сек)
+        self._log_channel = None  # Кэш канала логов (fetch делаем только один раз)
         from utils.logs_manager import LogsManager
         self.local_logs = LogsManager()
 
@@ -30,16 +28,22 @@ class Logs(commands.Cog):
         return False
 
     # Вспомогательная функция для отправки лога с указанием исполнителя
-    async def send_log(self, title, description, executor=None, color=discord.Color.gold()):
+    async def _get_log_channel(self):
+        """Возвращает канал логов (кэшируется, fetch делаем только один раз)."""
+        if self._log_channel is not None:
+            return self._log_channel
         try:
-            channel = await self.bot.fetch_channel(self.LOG_CHANNEL_ID)
+            self._log_channel = await self.bot.fetch_channel(self.LOG_CHANNEL_ID)
         except discord.NotFound:
             print(f"[ОШИБКА] Канал с ID {self.LOG_CHANNEL_ID} не найден на сервере.")
-            return
         except discord.Forbidden:
             print(f"[ОШИБКА] У бота нет прав доступа к каналу с ID {self.LOG_CHANNEL_ID}.")
-            return
+        return self._log_channel
 
+    async def send_log(self, title, description, executor=None, color=discord.Color.gold()):
+        channel = await self._get_log_channel()
+        if channel is None:
+            return
 
         embed = discord.Embed(
             title=title,
@@ -149,11 +153,12 @@ class Logs(commands.Cog):
         )
         if attachments:
             embed.set_image(url=attachments[0])
-        try:
-            channel = await self.bot.fetch_channel(self.LOG_CHANNEL_ID)
-            await channel.send(embed=embed)
-        except Exception as e:
-            print(f"[ОШИБКА ЛОГОВ] {e}")
+        channel = await self._get_log_channel()
+        if channel is not None:
+            try:
+                await channel.send(embed=embed)
+            except Exception as e:
+                print(f"[ОШИБКА ЛОГОВ] {e}")
         
         # Дублируем в локальный лог (с изображениями)
         await self.send_log_local(

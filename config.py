@@ -57,14 +57,51 @@ EMOJIS = {
     "INFO": "🔍"
 }
 
-# 🛡️ Антилив — пороги срабатывания
-ANTILEAK_WINDOW = 60                    # Окно времени в секундах
-ANTILEAK_BAN_THRESHOLD = 3              # Банов за окно → триггер
-ANTILEAK_KICK_THRESHOLD = 3             # Киков за окно → триггер
-ANTILEAK_CHANNEL_DELETE_THRESHOLD = 2   # Удалений каналов за окно → триггер
-ANTILEAK_CHANNEL_CREATE_THRESHOLD = 5   # Созданий каналов за окно → триггер
-ANTILEAK_PERMISSION_THRESHOLD = 5       # Изменений прав каналов за окно → триггер
-ANTILEAK_ROLE_THRESHOLD = 5             # Изменений ролей за окно → триггер
-ANTILEAK_GUILD_CHANGE_THRESHOLD = 1     # Изменений сервера (название/иконка) → триггер
-ANTILEAK_OWNER_TRANSFER = 1             # Передача владельца → триггер
-ANTILEAK_BOT_ADD = 1                    # Подключение бота → триггер
+# 🛡️ Антилив v3 — risk-score engine (event-driven)
+ANTILEAK_ENABLED = True
+ANTILEAK_WINDOW_SHORT = 180        # Окно «всплеска» ( сек) — для мгновенных рейдов
+ANTILEAK_WINDOW_LONG = 3600        # Почасовое окно — ловит «плавные» атаки (N действ/час)
+ANTILEAK_GRACE_SECONDS = 30        # После старта бота — только лог, без реакций (антиспам при рестартах)
+ANTILEAK_ALERT_COOLDOWN = 300      # Не создавать новый алерт на того же пользователя чаще, чем раз в N сек
+ANTILEAK_ESCALATION_BYPASS = True  # Более высокий уровень эскалации обходит кулдаун алерта
+ANTILEAK_TRUSTED_IDS = []          # Доп. доверенные ID (founder/cofounder берутся из site_roles автоматически)
+
+# Вес действий (risk-score)
+ANTILEAK_WEIGHTS = {
+    'member_ban_add':          40,
+    'member_kick':             35,
+    'channel_delete':          30,
+    'guild_role_delete':       25,
+    'guild_update':            25,
+    'message_bulk_delete':     20,
+    'webhook_delete':          15,
+    'channel_overwrite_update': 10,
+    'member_role_update':      12,
+    'channel_create':          5,
+    'bot_add':                 50,
+    'owner_transfer':          100,
+}
+# Критические действия: одно событие сразу = максимальная эскалация
+ANTILEAK_CRITICAL_SINGLE = ('owner_transfer', 'bot_add')
+
+# Уровни эскалации: (порог score, окно короткое ИЛИ длинное)
+#   warn    — алерт + ЛС, роли не трогаем
+#   strip   — снятие опасных ролей (manage-права, tier-роли)
+#   lockdown — снятие ВСЕХ ролей + блокировка каналов (send_messages=False) + slowmode
+ANTILEAK_LEVELS = [
+    ('warn',     35),
+    ('strip',    70),
+    ('lockdown', 100),
+]
+
+# 🎨 UX-улучшения (v2)
+GUILD_ID = 1255216389296492564   # Сервер для мгновенной синхронизации slash-команд
+XP_COOLDOWN_SECONDS = 30         # Кулдаун XP за сообщения (анти-спам прокачки)
+LEVEL_ROLE_REWARDS = {           # Роли-награды за уровень (создаются автоматически при выдаче)
+    5: "Уровень 5+",
+    10: "Уровень 10+",
+    15: "Уровень 15+",
+    20: "Уровень 20+",
+}
+LEADERBOARD_CARD_PATH = os.path.join(DATA_DIR, 'leaderboard_card.png')  # PNG-карточка топ-10
+PROFILE_CARD_PATH = os.path.join(DATA_DIR, 'profile_card.png')          # PNG-карточка профиля

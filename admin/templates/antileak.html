@@ -86,16 +86,34 @@ let allAlerts = [];
 let currentFilter = 'all';
 
 const ACTION_LABELS = {
-    'member_ban_add': '🚫 Массовый бан',
-    'member_kick': '👢 Массовый кик',
+    'member_ban_add': '🚫 Бан участника',
+    'member_kick': '👢 Кик участника',
     'channel_delete': '🗑️ Удаление каналов',
     'channel_create': '📝 Создание каналов',
     'channel_overwrite_update': '🔓 Изменение прав каналов',
-    'member_role_update': '👥 Изменение ролей',
+    'member_role_update': '👥 Изменение ролей участника',
+    'guild_role_delete': '❌ Удаление роли',
     'guild_update': '⚙️ Изменение сервера',
     'owner_transfer': '👑 Передача владельца',
     'bot_add': '🤖 Подключение бота',
+    'message_bulk_delete': '🧹 Массовое удаление сообщений',
+    'webhook_delete': '🪝 Удаление вебхуков',
+    'manual_lockdown': '🚨 Ручной LOCKDOWN',
 };
+
+// Уровни эскалации v3
+const LEVEL_LABELS = {
+    'warn': '<span class="badge bg-warning text-dark">🟡 Тревога</span>',
+    'strip': '<span class="badge" style="background-color:#fd7e14">🟠 Снятие опасных ролей</span>',
+    'lockdown': '<span class="badge bg-danger">🔴 LOCKDOWN</span>',
+};
+
+function scoreBadge(score) {
+    const s = parseInt(score) || 0;
+    const cls = s >= 100 ? 'bg-danger' : (s >= 70 ? '' : (s >= 35 ? 'bg-warning text-dark' : 'bg-secondary'));
+    const style = (s >= 70 && s < 100) ? 'style="background-color:#fd7e14"' : '';
+    return `<span class="badge ${cls}" ${style}>Score ${s}</span>`;
+}
 
 const STATUS_LABELS = {
     'pending': '<span class="badge bg-warning text-dark">⏳ Ожидает</span>',
@@ -157,6 +175,8 @@ function renderAlerts() {
     for (const alert of filtered) {
         const actionLabel = ACTION_LABELS[alert.action_type] || alert.action_type;
         const statusHtml = STATUS_LABELS[alert.status] || alert.status;
+        const levelHtml = alert.response_level ? (LEVEL_LABELS[alert.response_level] || '') : '';
+        const scoreHtml = scoreBadge(alert.score);
         const date = alert.timestamp ? new Date(alert.timestamp).toLocaleString('ru-RU') : 'Н/Д';
         const avatarUrl = alert.user_avatar || `https://cdn.discordapp.com/embed/avatars/0.png`;
         
@@ -177,6 +197,8 @@ function renderAlerts() {
                             </div>
                             <div class="text-end">
                                 ${statusHtml}
+                                <span class="ms-1">${levelHtml}</span>
+                                <span class="ms-1">${scoreHtml}</span>
                                 <br><small class="text-muted">${date}</small>
                             </div>
                         </div>
@@ -189,7 +211,7 @@ function renderAlerts() {
                                 <i class="fas fa-check me-1"></i>Подтвердить
                             </button>
                             <button class="btn btn-sm btn-outline-warning ms-1" onclick="resolveAlert('${alert.id}', 'reject')">
-                                <i class="fas fa-undo me-1"></i>Отклонить (восстановить роли)
+                                <i class="fas fa-undo me-1"></i>Отклонить (бот вернёт роли)
                             </button>
                             ` : ''}
                             ${alert.resolved_by ? `<br><small class="text-muted">Решил: ${escapeHtml(alert.resolved_by)}</small>` : ''}
@@ -210,7 +232,7 @@ function showDetails(alertId) {
     const actionLabel = ACTION_LABELS[alert.action_type] || alert.action_type;
     const date = alert.timestamp ? new Date(alert.timestamp).toLocaleString('ru-RU') : 'Н/Д';
     const details = alert.details || {};
-    
+
     let detailsHtml = `
         <div class="row">
             <div class="col-md-6">
@@ -221,6 +243,9 @@ function showDetails(alertId) {
             </div>
             <div class="col-md-6">
                 <p><strong>Статус:</strong> ${STATUS_LABELS[alert.status] || alert.status}</p>
+                <p><strong>Уровень эскалации:</strong> ${alert.response_level ? (LEVEL_LABELS[alert.response_level] || alert.response_level) : '—'}</p>
+                <p><strong>Score:</strong> ${scoreBadge(alert.score)}
+                    ${details.short_window != null ? `<br><small class="text-muted">окно 3 мин: ${details.short_window} • окно 1 ч: ${details.long_window}</small>` : ''}</p>
                 ${alert.resolved_by ? `<p><strong>Решил:</strong> ${escapeHtml(alert.resolved_by)}</p>` : ''}
                 ${alert.resolved_at ? `<p><strong>Время решения:</strong> ${new Date(alert.resolved_at).toLocaleString('ru-RU')}</p>` : ''}
             </div>
@@ -234,17 +259,31 @@ function showDetails(alertId) {
         if (victimIds.length > 0) {
             detailsHtml += `<div class="bg-black p-2 rounded"><code>${victimIds.join('\n')}</code></div>`;
         }
-    } else if (alert.action_type === 'channel_delete') {
-        detailsHtml += `<p><strong>Удалённый канал:</strong> ${escapeHtml(details.channel_name || 'Н/Д')} (${details.channel_id || ''})</p>`;
-    } else if (alert.action_type === 'channel_create') {
-        detailsHtml += `<p><strong>Созданный канал:</strong> ${escapeHtml(details.channel_name || 'Н/Д')} (${details.channel_id || ''})</p>`;
-    } else if (alert.action_type === 'guild_update' || alert.action_type === 'owner_transfer') {
+        if (details.target) {
+            detailsHtml += `<p class="mt-1"><strong>Цель события:</strong> ${escapeHtml(details.target)}</p>`;
+        }
+    } else if (alert.action_type === 'channel_delete' || alert.action_type === 'channel_create' || alert.action_type === 'webhook_delete') {
+        detailsHtml += `<p><strong>${alert.action_type === 'channel_create' ? 'Создан' : 'Затронут'} канал:</strong> ${escapeHtml(details.target || 'Н/Д')} (${details.target_id || ''})</p>`;
+    } else if (alert.action_type === 'guild_role_delete') {
+        detailsHtml += `<p><strong>Удалённая роль:</strong> ${escapeHtml(details.target || 'Н/Д')} (${details.target_id || ''})</p>`;
+    } else if (alert.action_type === 'member_role_update') {
+        let rolesHtml = '';
+        if ((details.roles_added || []).length > 0) rolesHtml += `<div class="bg-black p-2 rounded"><span class="text-success">+ ${escapeHtml(details.roles_added.join(', '))}</span></div>`;
+        if ((details.roles_removed || []).length > 0) rolesHtml += `<div class="bg-black p-2 mt-1 rounded"><span class="text-danger">− ${escapeHtml(details.roles_removed.join(', '))}</span></div>`;
+        if (rolesHtml) detailsHtml += `<p class="mt-2"><strong>Роли у ${escapeHtml(details.target || 'участника')}:</strong></p>${rolesHtml}`;
+    } else if (alert.action_type === 'message_bulk_delete') {
+        detailsHtml += `<p><strong>Удалено сообщений:</strong> ${details.message_count || '?'}</p>`;
+    } else if (alert.action_type === 'owner_transfer') {
+        if (details.old_owner_id) {
+            detailsHtml += `<p><strong>Владелец:</strong> <code>${escapeHtml(details.old_owner_id)}</code> → <code>${escapeHtml(details.new_owner_id || '')}</code></p>`;
+        }
+    } else if (alert.action_type === 'guild_update') {
         const changes = details.guild_changes || {};
         if (Object.keys(changes).length > 0) {
             detailsHtml += `<p><strong>Изменения сервера:</strong></p><div class="bg-black p-2 rounded"><pre class="mb-0">${JSON.stringify(changes, null, 2)}</pre></div>`;
         }
-    } else if (alert.action_type === 'bot_add') {
-        detailsHtml += `<p><strong>Добавлен бот:</strong> ${escapeHtml(details.bot_name || 'Н/Д')} (${details.bot_id || ''})</p>`;
+    } else if (alert.action_type === 'manual_lockdown') {
+        detailsHtml += `<p><strong>Причина ручного LOCKDOWN:</strong> ${escapeHtml(details.reason || '—')}</p>`;
     }
     
     // Сохранённые роли
@@ -252,7 +291,7 @@ function showDetails(alertId) {
     if (savedRoles.length > 0) {
         detailsHtml += `<p class="mt-3"><strong>Сохранённые роли (${savedRoles.length}):</strong></p>`;
         detailsHtml += `<div class="bg-black p-2 rounded"><code>${savedRoles.join(', ')}</code></div>`;
-        detailsHtml += `<small class="text-muted">Эти роли будут восстановлены при отклонении алерта</small>`;
+        detailsHtml += `<small class="text-muted">Эти роли восстановит бот при отклонении алерта</small>`;
     }
     
     document.getElementById('alertModalBody').innerHTML = detailsHtml;
@@ -277,7 +316,7 @@ function showDetails(alertId) {
 }
 
 function resolveAlert(alertId, action) {
-    const actionText = action === 'confirm' ? 'подтвердить' : 'отклонить (роли будут восстановлены)';
+    const actionText = action === 'confirm' ? 'подтвердить (бот забанит нарушителя и откатит жертв)' : 'отклонить (бот вернёт снятые роли)';
     if (!confirm(`Вы уверены, что хотите ${actionText} этот алерт?`)) return;
     
     fetch('/api/antileak/resolve', {

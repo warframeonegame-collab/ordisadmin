@@ -1,4 +1,5 @@
 import discord
+import discord.app_commands as app_commands
 from discord.ext import commands
 from utils.database import Database
 from datetime import datetime, timedelta
@@ -168,17 +169,19 @@ class Moderation(commands.Cog):
         self.db.update_user(member.id, **update_data)
         return penalty_role
 
-    @commands.command(name="warn")
+    @commands.hybrid_command(name="warn", description="Выдать предупреждение (3/3 → штрафная роль)")
+    @app_commands.describe(member="Участник", reason="Причина предупреждения")
     async def warn(self, ctx, member: discord.Member, *, reason: str):
         """Выдаёт предупреждение пользователю. При 3 варнах — штрафная роль."""
         if not self._check_permission(ctx.author):
             await ctx.send("❌ У вас нет прав для этой команды.", delete_after=10)
             return
 
-        try:
-            await ctx.message.delete()
-        except Exception:
-            pass
+        if not isinstance(ctx.interaction, discord.Interaction):
+            try:
+                await ctx.message.delete()
+            except Exception:
+                pass
 
         if not reason.strip():
             await ctx.send("❌ Укажите причину.", delete_after=5)
@@ -199,17 +202,19 @@ class Moderation(commands.Cog):
         else:
             await ctx.send(f"✅ {member.mention} получил варн ({len(warns)}/3). Причина: {reason}", delete_after=10)
 
-    @commands.command(name="unwarn")
+    @commands.hybrid_command(name="unwarn", description="Снять последнее предупреждение с участника")
+    @app_commands.describe(member="Участник", reason="Причина снятия варна")
     async def unwarn(self, ctx, member: discord.Member, *, reason: str = ""):
         """Снимает одно предупреждение с пользователя (последнее)."""
         if not self._check_permission(ctx.author):
             await ctx.send("❌ У вас нет прав для этой команды.", delete_after=10)
             return
 
-        try:
-            await ctx.message.delete()
-        except Exception:
-            pass
+        if not isinstance(ctx.interaction, discord.Interaction):
+            try:
+                await ctx.message.delete()
+            except Exception:
+                pass
 
         if not reason.strip():
             await ctx.send("❌ Укажите причину снятия варна.", delete_after=5)
@@ -263,7 +268,12 @@ class Moderation(commands.Cog):
                 delete_after=10
             )
 
-    @commands.command(name="mute")
+    @commands.hybrid_command(name="mute", description="Заблокировать участника в чате или голосе")
+    @app_commands.describe(
+        member="Участник",
+        flag_or_time="Мут-тип (--chat/--voice) или длительность (30m, 2h, 1d)",
+        reason="Причина (можно указать здесь флаг --chat/--voice)",
+    )
     async def mute(self, ctx, member: discord.Member, flag_or_time: str = "--chat", *, reason: str = "Причина не указана"):
         """Мут пользователя. Флаги: --chat (чат), --voice (голос).
         Можно указать время: .mute @user 1h --chat спам
@@ -273,10 +283,11 @@ class Moderation(commands.Cog):
             await ctx.send("❌ У вас нет прав для этой команды.", delete_after=10)
             return
 
-        try:
-            await ctx.message.delete()
-        except Exception:
-            pass
+        if not isinstance(ctx.interaction, discord.Interaction):
+            try:
+                await ctx.message.delete()
+            except Exception:
+                pass
 
         # Парсим флаг и время
         flag = flag_or_time
@@ -364,17 +375,19 @@ class Moderation(commands.Cog):
         self.db.update_user(str(user_id), scheduled_unmutes=scheduled)
         logging.info(f"[Moderation] Запланирован размут ({mute_type}) для {user_id} в {unmute_at.isoformat()}")
 
-    @commands.command(name="unmute")
+    @commands.hybrid_command(name="unmute", description="Снять все муты с участника")
+    @app_commands.describe(member="Участник")
     async def unmute(self, ctx, member: discord.Member):
         """Снимает все mute-роли с пользователя."""
         if not self._check_permission(ctx.author):
             await ctx.send("❌ У вас нет прав для этой команды.", delete_after=10)
             return
 
-        try:
-            await ctx.message.delete()
-        except Exception:
-            pass
+        if not isinstance(ctx.interaction, discord.Interaction):
+            try:
+                await ctx.message.delete()
+            except Exception:
+                pass
 
         muted_role = discord.utils.get(ctx.guild.roles, name=MUTED_ROLE_NAME)
         voice_muted_role = discord.utils.get(ctx.guild.roles, name=VOICE_MUTED_ROLE_NAME)
@@ -399,17 +412,19 @@ class Moderation(commands.Cog):
         else:
             await ctx.send(f"❌ У {member.mention} нет активных мутов.", delete_after=10)
 
-    @commands.command(name="ban")
+    @commands.hybrid_command(name="ban", description="Выдать штрафную роль (4 Tier) участнику")
+    @app_commands.describe(member="Участник", reason="Причина штрафа")
     async def ban_user(self, ctx, member: discord.Member, *, reason: str = "Нарушение правил"):
         """Выдаёт штрафную роль (4 Tier) и снимает все остальные роли (без warn'ов)."""
         if not self._check_permission(ctx.author):
             await ctx.send("❌ У вас нет прав для этой команды.", delete_after=10)
             return
 
-        try:
-            await ctx.message.delete()
-        except Exception:
-            pass
+        if not isinstance(ctx.interaction, discord.Interaction):
+            try:
+                await ctx.message.delete()
+            except Exception:
+                pass
 
         if not reason.strip():
             reason = "Нарушение правил"
@@ -420,17 +435,19 @@ class Moderation(commands.Cog):
         else:
             await ctx.send("❌ Не удалось выдать штрафную роль.", delete_after=10)
 
-    @commands.command(name="unban")
+    @commands.hybrid_command(name="unban", description="Снять штрафную роль и вернуть сохранённые роли")
+    @app_commands.describe(member="Участник")
     async def unban_user(self, ctx, member: discord.Member):
         """Снимает штрафную роль (4 Tier) и возвращает сохранённые роли."""
         if not self._check_permission(ctx.author):
             await ctx.send("❌ У вас нет прав для этой команды.", delete_after=10)
             return
 
-        try:
-            await ctx.message.delete()
-        except Exception:
-            pass
+        if not isinstance(ctx.interaction, discord.Interaction):
+            try:
+                await ctx.message.delete()
+            except Exception:
+                pass
 
         penalty_role = ctx.guild.get_role(PENALTY_ROLE_ID)
         if not penalty_role or penalty_role not in member.roles:
@@ -504,9 +521,13 @@ class Moderation(commands.Cog):
             return timedelta(days=num)
         return None
 
-    @commands.command(name="clear")
+    @commands.hybrid_command(name="clear", description="Очистить сообщения в чате")
+    @app_commands.describe(
+        target="Участник (@упоминание или ID) — необязательно",
+        period="Период: Xm мин. / Xh час. / Xd дн. (например 5m, 2h, 1d)",
+    )
     @commands.has_permissions(administrator=True)
-    async def clear(self, ctx, *args):
+    async def clear(self, ctx, target: str = None, period: str = None):
         """
         Очищает сообщения в чате.
         Использование:
@@ -515,56 +536,56 @@ class Moderation(commands.Cog):
           .clear @user <период>     — удалить сообщения пользователя за период
         Периоды: Xm (минуты), Xh (часы), Xd (дни)
         """
-        try:
-            await ctx.message.delete()
-        except Exception:
-            pass
+        if not isinstance(ctx.interaction, discord.Interaction):
+            try:
+                await ctx.message.delete()
+            except Exception:
+                pass
 
+        # Разбираем target: упоминание <@id>/<@!id> или чистый ID
         target_user = None
-        period_str = None
-
-        for arg in args:
-            # Проверяем, является ли аргумент упоминанием пользователя
-            if ctx.message.mentions:
-                # arg может быть строкой вида '<@123456789>' или '<@!123456789>'
-                for member in ctx.message.mentions:
-                    if str(member.id) in arg:
-                        target_user = member
-                        break
-            elif arg.startswith('<@') and arg.endswith('>'):
-                # Попытка найти пользователя по ID из упоминания
-                user_id = arg.strip('<@!>')
-                try:
-                    target_user = await ctx.guild.fetch_member(int(user_id))
-                except (ValueError, discord.NotFound):
-                    pass
-            elif self._parse_period(arg) is not None:
-                period_str = arg
+        if target:
+            target = target.strip()
+            if target.startswith('<@') and target.endswith('>'):
+                user_id = target.strip('<@!>')
+            elif target.isdigit():
+                user_id = target
             else:
-                # Попробуем распознать как период без суффикса (на случай опечатки)
-                if self._parse_period(arg) is not None:
-                    period_str = arg
+                user_id = None
+            if user_id:
+                target_user = ctx.guild.get_member(int(user_id))
+                if target_user is None:
+                    try:
+                        target_user = await ctx.guild.fetch_member(int(user_id))
+                    except (ValueError, discord.NotFound):
+                        target_user = None
 
-        # Если ничего не указано
-        if not target_user and not period_str:
+        delta = None
+        if period:
+            delta = self._parse_period(period)
+            if delta is None:
+                await ctx.send("❌ Неверный период. Форматы: `Xm` (минуты), `Xh` (часы), `Xd` (дни).", delete_after=10)
+                return
+
+        if not target_user and delta is None:
             await ctx.send(
                 "❌ Укажите @user или период для использования команды",
                 delete_after=10
             )
             return
 
-        # Вычисляем время отсечки
-        if period_str:
-            delta = self._parse_period(period_str)
-            cutoff = ctx.message.created_at - delta
+        # Вычисляем время отсечки (в slash-режиме ctx.message нет — берём текущее время)
+        now = discord.utils.utcnow()
+        if delta is not None:
+            cutoff = now - delta
         else:
-            # Пользователь указан без периода — удаляем ВСЕ его сообщения (до 14-дневного лимита Discord)
-            # Discord API: bulk delete доступен только для сообщений < 14 дней
-            cutoff = ctx.message.created_at - timedelta(days=14)
+            # Пользователь указан без периода — удаляем ВСЕ его сообщения
+            # (лимит Discord: bulk delete доступен только для сообщений < 14 дней)
+            cutoff = now - timedelta(days=14)
 
         # Проверка на 14-дневный лимит Discord
-        if (ctx.message.created_at - cutoff).days > 14:
-            cutoff = ctx.message.created_at - timedelta(days=14)
+        if (now - cutoff).days > 14:
+            cutoff = now - timedelta(days=14)
 
         # Функция фильтрации по автору
         def check_author(message):
@@ -576,7 +597,7 @@ class Moderation(commands.Cog):
         try:
             deleted = await ctx.channel.purge(
                 limit=2000,
-                before=ctx.message.created_at,
+                before=now,
                 after=cutoff,
                 check=check_author
             )
@@ -594,10 +615,10 @@ class Moderation(commands.Cog):
         else:
             msg = f"✅ Удалено **{count}** сообщений"
 
-        if period_str:
-            msg += f" за период {period_str}"
+        if period:
+            msg += f" за период {period}"
 
-        sent = await ctx.send(msg, delete_after=5)
+        await ctx.send(msg, delete_after=5)
 
 
 async def setup(bot):

@@ -19,8 +19,10 @@ echo "[2/2] Запуск админ-панели..."
 cd /app/admin
 exec gunicorn app:app \
     --bind 0.0.0.0:3000 \
-    --workers 2 \
+    --workers 1 \
     --timeout 120 \
+    --max-requests 1000 \
+    --max-requests-jitter 100 \
     --access-logfile - \
     --error-logfile - \
     --capture-output
