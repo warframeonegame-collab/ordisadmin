@@ -87,7 +87,8 @@ class Verification(commands.Cog):
         # Пользователи, которые ждут запроса ника в ЛС
         self._nick_state = set()
         # Регистрируем постоянную панель (кнопки работают после рестартов)
-        bot.add_view(VerificationPanelView(self))
+        self._panel_view = VerificationPanelView(self)
+        bot.add_view(self._panel_view)
 
     # ==================== ПАНЕЛЬ ВЕРИФИКАЦИИ ====================
 
@@ -117,7 +118,10 @@ class Verification(commands.Cog):
             if target:
                 if not (target.embeds and target.embeds[0].description == embed.description
                         and target.embeds[0].title == embed.title):
-                    await target.edit(embed=embed)
+                    await target.edit(embed=embed, view=self._panel_view)
+                elif not target.components:
+                    # Embed актуален, но кнопки потеряны (отправлены без view) — дотачиваем
+                    await target.edit(view=self._panel_view)
                 logger.debug("[Verification] Панель верификации на месте")
             else:
                 # Панели нет — чистим чат (кроме сообщений бота) и создаём новую
@@ -125,7 +129,7 @@ class Verification(commands.Cog):
                     await channel.purge(limit=100, check=lambda m: m.author != self.bot.user)
                 except discord.HTTPException:
                     pass
-                new_msg = await channel.send(embed=embed)
+                new_msg = await channel.send(embed=embed, view=self._panel_view)
                 try:
                     await new_msg.pin()
                 except discord.HTTPException:
