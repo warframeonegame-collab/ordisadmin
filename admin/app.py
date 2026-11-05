@@ -16,7 +16,7 @@ import importlib.util as _importlib_util
 cfg_spec = _importlib_util.spec_from_file_location("admin_config", os.path.join(admin_dir, 'config.py'))
 admin_config = _importlib_util.module_from_spec(cfg_spec)
 cfg_spec.loader.exec_module(admin_config)
-# config = admin_config
+config = admin_config
 
 # Корневой config.py бота (тиры, GUILD_ID и пр.) — под отдельным именем,
 # чтобы не пересекаться с admin_config
