@@ -16,7 +16,11 @@ import importlib.util as _importlib_util
 cfg_spec = _importlib_util.spec_from_file_location("admin_config", os.path.join(admin_dir, 'config.py'))
 admin_config = _importlib_util.module_from_spec(cfg_spec)
 cfg_spec.loader.exec_module(admin_config)
-config = admin_config
+# config = admin_config
+
+# Корневой config.py бота (тиры, GUILD_ID и пр.) — под отдельным именем,
+# чтобы не пересекаться с admin_config
+import config as bot_config  # корень проекта уже в sys.path
 
 # Импортируем наш менеджер логов
 from utils.logs_manager import LogsManager
@@ -1211,7 +1215,9 @@ def api_stats_charts():
     }
     # Также строим обратный маппинг из значений TIER_ROLES (с эмодзи)
     tier_value_to_name = {}
-    for role_id, role_value in config.TIER_ROLES.items():
+    # TIER_ROLES живёт в корневом config.py бота (admin/config использует getattr-фоллбэк)
+    tier_roles = getattr(bot_config, 'TIER_ROLES', {}) or {}
+    for role_id, role_value in tier_roles.items():
         # role_value выглядит как "🚫 Outside Tier", "🏅 1 Tier" и т.д.
         lower_val = role_value.lower().strip()
         for kw, name in tier_keywords.items():
