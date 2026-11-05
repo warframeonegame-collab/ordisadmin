@@ -338,7 +338,7 @@ class ProfileSystem(commands.Cog):
         file = None
         try:
             avatar_entries = [{'user_id': str(member.id),
-                               'avatar_url': member.display_avatar.with_size(96).url}]
+                               'avatar_url': member.display_avatar.with_size(128).url}]
             avatars = await cards.fetch_avatars(avatar_entries)
             card_path = cards.build_profile_card(
                 member.display_name, user['level'],

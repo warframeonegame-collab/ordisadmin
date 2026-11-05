@@ -24,7 +24,7 @@ class LeaderboardSystem(commands.Cog):
             member = guild.get_member(user_id)
             if member:
                 name = member.display_name
-                avatar_url = member.display_avatar.with_size(96).url
+                avatar_url = member.display_avatar.with_size(128).url
             elif row['nickname']:
                 name = row['nickname']
                 avatar_url = None
