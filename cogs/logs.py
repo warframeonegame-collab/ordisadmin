@@ -257,7 +257,7 @@ class Logs(commands.Cog):
         await self.send_log(
             title="ПОЛЬЗОВАТЕЛЬ ПОКИНУЛ СЕРВЕР",
             description=desc,
-            color=discord.Color.light_orange()
+            color=discord.Color.gold()
         )
 
     # Логирование изменения ника, дискриминатора и ролей пользователя

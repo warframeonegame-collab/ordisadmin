@@ -2,9 +2,11 @@ import discord
 import discord.app_commands as app_commands
 from discord.ext import commands
 import logging
+import traceback
 import config
 from utils.database import Database
 from utils import cards
+from utils.bot_errors import BotErrorsManager
 from datetime import datetime
 import random
 import time
@@ -146,6 +148,7 @@ class HelpView(discord.ui.View):
     def __init__(self, author, available_keys):
         super().__init__(timeout=120)
         self.author = author
+        self._bot_errors = BotErrorsManager()
         self.categories = {HELP_CATEGORIES[k]['name']: HELP_CATEGORIES[k] for k in available_keys}
         select = discord.ui.Select(
             placeholder="📂 Выберите раздел команд...",
@@ -165,20 +168,52 @@ class HelpView(discord.ui.View):
         self._category_embeds[name] = embed
 
     async def _on_select(self, interaction: discord.Interaction):
-        if interaction.user.id != self.author.id:
-            await interaction.response.send_message("❌ Меню доступно только открывшему его.", ephemeral=True)
-            return
-        name = interaction.data['values'][0]
-        embed = self._category_embeds.get(name)
-        if embed is None:
-            cat = self.categories[name]
-            embed = discord.Embed(
-                title=f"{cat['emoji']} {name}",
-                description=cat['commands'],
-                color=discord.Color.blue()
+        try:
+            if interaction.user.id != self.author.id:
+                await interaction.response.send_message("❌ Меню доступно только открывшему его.", ephemeral=True)
+                return
+            name = interaction.data['values'][0]
+            embed = self._category_embeds.get(name)
+            if embed is None:
+                cat = self.categories[name]
+                embed = discord.Embed(
+                    title=f"{cat['emoji']} {name}",
+                    description=cat['commands'],
+                    color=discord.Color.blue()
+                )
+                self._category_embeds[name] = embed
+            await interaction.response.edit_message(embed=embed, view=self)
+        except Exception as e:
+            logger.error(f"[HelpView] Ошибка выбора раздела: {e}\n{traceback.format_exc()}")
+            self._bot_errors.add_error(
+                error_type=type(e).__name__,
+                error_message=str(e),
+                source="компонент: HelpView select",
+                user_id=str(interaction.user.id),
+                user_name=getattr(interaction.user, 'display_name', ''),
+                details={'traceback': traceback.format_exc()[:2000]},
             )
-            self._category_embeds[name] = embed
-        await interaction.response.edit_message(embed=embed, view=self)
+            if not interaction.response.is_done():
+                await interaction.response.send_message(
+                    "❌ Не удалось переключить раздел, ошибка записана в логи.", ephemeral=True)
+
+    async def on_error(self, interaction: discord.Interaction, error: Exception, item):
+        """Ловим ЛЮБЫЕ ошибки вьюхи (в т.ч. до вызова колбэка) с полным трейсбеком."""
+        logger.error(f"[HelpView] on_error: {error}\n{traceback.format_exc()}")
+        self._bot_errors.add_error(
+            error_type=type(error).__name__,
+            error_message=str(error),
+            source="компонент: HelpView on_error",
+            user_id=str(interaction.user.id) if interaction else '',
+            user_name=getattr(interaction.user, 'display_name', '') if interaction else '',
+            details={'traceback': traceback.format_exc()[:2000]},
+        )
+        try:
+            if interaction and not interaction.response.is_done():
+                await interaction.response.send_message(
+                    "❌ Ошибка меню, подробности в логах.", ephemeral=True)
+        except Exception:
+            pass
 
     async def on_timeout(self):
         self.stop()
